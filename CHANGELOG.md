@@ -1,5 +1,10 @@
 # 📓 Changelog
 
+## Unreleased
+
+### Fixed
+- **Flow Field GC hitches (#11)** — the hot loop built a fresh `hsl(…)` string per particle per frame (~240k/sec at high particle counts), churning the garbage collector into periodic micro-stutters. Stroke styles are now memoized by integer hue (`makeHueStyleCache`), so a populated field allocates at most 360 strings total. Visual output is unchanged.
+
 ## v0.1.0 — 2026-06-26 — Framework + Flow Field
 
 First cut. The framework spine and one reference diversion, proven end-to-end in Chrome.
