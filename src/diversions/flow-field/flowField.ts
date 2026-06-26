@@ -8,10 +8,15 @@ interface Particle {
   life: number
 }
 
+// Stroke saturation/lightness are fixed for now (richer color is #23).
+const STROKE_SAT = 90
+const STROKE_LIGHT = 65
+
 export interface FlowState {
   particles: Particle[]
   noise: (x: number, y: number) => number
   rng: () => number // seeded — keeps respawns deterministic per seed
+  style: (hue: number) => string // memoized hsl() lookup — see makeHueStyleCache
   cfg: FlowFieldConfig
   w: number
   h: number
@@ -29,6 +34,20 @@ function randomLife(rng: () => number): number {
   return MIN_LIFE + rng() * (MAX_LIFE - MIN_LIFE)
 }
 
+// Memoize `hsl(h, s%, l%)` strings by integer hue. The hot loop colors every
+// particle every frame; building the template string per particle churned
+// ~240k short-lived strings/sec → steady GC hitches over a long session (#11).
+// Hue is bucketed to whole degrees (imperceptible) and reused, so a populated
+// field allocates at most 360 strings total instead of one per particle-frame.
+export function makeHueStyleCache(sat: number, light: number): (hue: number) => string {
+  const cache: string[] = new Array(360)
+  return (hue: number): string => {
+    // CSS hue is mod-360, so 560° === 200°: normalize before indexing.
+    const h = ((Math.round(hue) % 360) + 360) % 360
+    return (cache[h] ??= `hsl(${h}, ${sat}%, ${light}%)`)
+  }
+}
+
 export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): FlowState {
   const noise = makeNoise2D(cfg.seed)
   // Separate seeded stream for particles (derived so it doesn't mirror the noise
@@ -40,11 +59,12 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
     age: rng() * MAX_LIFE, // stagger initial ages so respawns don't pulse
     life: randomLife(rng),
   }))
-  return { particles, noise, rng, cfg, w, h }
+  const style = makeHueStyleCache(STROKE_SAT, STROKE_LIGHT)
+  return { particles, noise, rng, style, cfg, w, h }
 }
 
 export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: number) {
-  const { particles, noise, rng, cfg, w, h } = state
+  const { particles, noise, rng, style, cfg, w, h } = state
   // fade the canvas for trails (or hard-clear)
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = cfg.fadeTrails ? `${cfg.palette.background}22` : cfg.palette.background
@@ -70,7 +90,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
     const nx = p.x + Math.cos(angle) * speed * 16
     const ny = p.y + Math.sin(angle) * speed * 16
     const hue = cfg.palette.hueStart + (p.x / w) * cfg.palette.hueRange
-    ctx.strokeStyle = `hsl(${hue}, 90%, 65%)`
+    ctx.strokeStyle = style(hue)
     ctx.beginPath()
     ctx.moveTo(p.x, p.y)
     ctx.lineTo(nx, ny)
