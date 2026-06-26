@@ -6,8 +6,8 @@ export const flowFieldSchema = z.object({
   noiseScale: z.number().min(0.0005).max(0.02).default(0.004)
     .meta({ ui: 'slider', min: 0.0005, max: 0.02, step: 0.0005, label: 'Noise scale',
             help: 'Lower = broad, sweeping currents. Higher = tight, turbulent detail.' }),
-  speed: z.number().min(0).max(5).default(1.2)
-    .meta({ ui: 'slider', min: 0, max: 5, step: 0.1, label: 'Speed' }),
+  speed: z.number().min(0).max(1).default(0.5)
+    .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
   seed: z.number().int().default(10847)
     .meta({ ui: 'number', step: 1, label: 'Seed',
             help: 'Any integer. The same seed always regenerates the same pattern.' }),

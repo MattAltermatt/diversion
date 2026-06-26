@@ -269,7 +269,7 @@ input[type='range']::-moz-range-thumb {
 
 /* toggle */
 .toggle-row {
-  flex-direction: row;
+  display: flex;
   justify-content: space-between;
   align-items: center;
 }
@@ -399,4 +399,18 @@ input[type='color'] {
   border: 1px solid #2a3a40;
   border-radius: 6px;
   padding: 6px 10px;
+}
+
+/* auto-hide chrome on idle (screensaver feel) */
+.play-screen .anim-bar,
+.play-screen .play-back {
+  transition: opacity 0.4s ease;
+}
+.play-screen.idle .anim-bar,
+.play-screen.idle .play-back {
+  opacity: 0;
+  pointer-events: none;
+}
+.play-screen.idle {
+  cursor: none;
 }

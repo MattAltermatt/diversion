@@ -1,5 +1,6 @@
 // Small deterministic value-noise with bilinear interpolation. Good enough for a flow field.
-function mulberry32(seed: number) {
+/** Seeded PRNG → () => float in [0, 1). Deterministic for a given seed. */
+export function mulberry32(seed: number) {
   let a = seed >>> 0
   return () => {
     a |= 0; a = (a + 0x6D2B79F5) | 0

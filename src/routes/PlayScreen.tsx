@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
@@ -17,10 +17,29 @@ export function PlayScreen() {
     [diversion],
   )
 
+  // Auto-hide the chrome (back link + bar) after a few idle seconds — screensaver feel.
+  const [idle, setIdle] = useState(false)
+  useEffect(() => {
+    let timer = 0
+    const wake = () => {
+      setIdle(false)
+      clearTimeout(timer)
+      timer = window.setTimeout(() => setIdle(true), 2500)
+    }
+    window.addEventListener('mousemove', wake)
+    window.addEventListener('keydown', wake)
+    wake() // arm the timer on mount
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('mousemove', wake)
+      window.removeEventListener('keydown', wake)
+    }
+  }, [])
+
   if (!diversion || !config) return <div className="empty">Unknown diversion.</div>
 
   return (
-    <div className="play-screen">
+    <div className={`play-screen ${idle ? 'idle' : ''}`}>
       <Link to={`/d/${diversion.id}`} className="play-back">
         ← config
       </Link>

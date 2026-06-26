@@ -1,4 +1,4 @@
-import { makeNoise2D } from './noise'
+import { makeNoise2D, mulberry32 } from './noise'
 import type { FlowFieldConfig } from './schema'
 
 interface Particle {
@@ -11,6 +11,7 @@ interface Particle {
 export interface FlowState {
   particles: Particle[]
   noise: (x: number, y: number) => number
+  rng: () => number // seeded — keeps respawns deterministic per seed
   cfg: FlowFieldConfig
   w: number
   h: number
@@ -19,27 +20,30 @@ export interface FlowState {
 // Particle recycling lifespans, in frames. Without respawning, every particle
 // drifts onto the field's dominant attractor and the rest of the field empties
 // out — so particles get a finite, staggered life and respawn at a fresh
-// random position. These are mechanism constants, not visual balance knobs.
+// position. These are mechanism constants, not visual balance knobs.
 const MIN_LIFE = 80
 const MAX_LIFE = 240
 
-function randomLife(): number {
-  return MIN_LIFE + Math.random() * (MAX_LIFE - MIN_LIFE)
+function randomLife(rng: () => number): number {
+  return MIN_LIFE + rng() * (MAX_LIFE - MIN_LIFE)
 }
 
 export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): FlowState {
   const noise = makeNoise2D(cfg.seed)
+  // Separate seeded stream for particles (derived so it doesn't mirror the noise
+  // grid's stream). Same seed → same particle layout AND respawns, every run.
+  const rng = mulberry32((cfg.seed ^ 0x9e3779b9) >>> 0)
   const particles: Particle[] = Array.from({ length: cfg.particles }, () => ({
-    x: Math.random() * w,
-    y: Math.random() * h,
-    age: Math.random() * MAX_LIFE, // stagger initial ages so respawns don't pulse
-    life: randomLife(),
+    x: rng() * w,
+    y: rng() * h,
+    age: rng() * MAX_LIFE, // stagger initial ages so respawns don't pulse
+    life: randomLife(rng),
   }))
-  return { particles, noise, cfg, w, h }
+  return { particles, noise, rng, cfg, w, h }
 }
 
 export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: number) {
-  const { particles, noise, cfg, w, h } = state
+  const { particles, noise, rng, cfg, w, h } = state
   // fade the canvas for trails (or hard-clear)
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = cfg.fadeTrails ? `${cfg.palette.background}22` : cfg.palette.background
@@ -54,10 +58,10 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
     // recycle: respawn at a fresh position so the field stays populated
     p.age++
     if (p.age >= p.life) {
-      p.x = Math.random() * w
-      p.y = Math.random() * h
+      p.x = rng() * w
+      p.y = rng() * h
       p.age = 0
-      p.life = randomLife()
+      p.life = randomLife(rng)
       continue // skip drawing this frame to avoid a streak from old→new position
     }
 
