@@ -34,6 +34,13 @@ export function AnimationHost({
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       canvas.width = Math.max(1, Math.floor(r.width * dpr))
       canvas.height = Math.max(1, Math.floor(r.height * dpr))
+      // 2D: scale the backing store so the sim draws in CSS pixels at crisp HiDPI.
+      // (Resizing the canvas resets the transform, so reapply on every sizeOf.)
+      if (diversion.kind === '2d') {
+        ;(ctx as CanvasRenderingContext2D).setTransform(dpr, 0, 0, dpr, 0, 0)
+        return { width: Math.max(1, Math.floor(r.width)), height: Math.max(1, Math.floor(r.height)) }
+      }
+      // WebGL: work in device pixels (gl.viewport expects them).
       return { width: canvas.width, height: canvas.height }
     }
 
