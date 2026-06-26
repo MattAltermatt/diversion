@@ -1,35 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { createFlowState, makeHueStyleCache } from './flowField'
+import { createFlowState, hexToRgba } from './flowField'
 import { flowFieldSchema } from './schema'
 
 const base = flowFieldSchema.parse({})
 
-describe('makeHueStyleCache', () => {
-  it('builds an hsl() string at the given saturation and lightness', () => {
-    const style = makeHueStyleCache(90, 65)
-    expect(style(200)).toBe('hsl(200, 90%, 65%)')
+describe('hexToRgba', () => {
+  it('converts #rrggbbaa to an rgba() string (alpha rounded to 3 dp)', () => {
+    expect(hexToRgba('#1e63ff1f')).toBe('rgba(30, 99, 255, 0.122)')
+    expect(hexToRgba('#102030ff')).toBe('rgba(16, 32, 48, 1)')
+    expect(hexToRgba('#00000000')).toBe('rgba(0, 0, 0, 0)')
+  })
+})
+
+describe('createFlowState palette', () => {
+  it('precomputes one rgba style per palette color', () => {
+    const s = createFlowState({ ...base, particles: 20 }, 800, 600)
+    expect(s.styles).toHaveLength(base.palette.colors.length)
+    expect(s.styles[0]).toBe(hexToRgba(base.palette.colors[0]))
   })
 
-  it('returns the same cached string instance for a repeated hue (no per-frame allocation)', () => {
-    const style = makeHueStyleCache(90, 65)
-    expect(style(200)).toBe(style(200)) // value equality
-    // reference equality is the real point: the hot loop must reuse, not re-allocate
-    const cache = makeHueStyleCache(90, 65)
-    const first = cache(200)
-    const second = cache(200)
-    expect(Object.is(first, second)).toBe(true)
-  })
-
-  it('rounds a fractional hue to the nearest integer bucket', () => {
-    const style = makeHueStyleCache(90, 65)
-    expect(style(200.4)).toBe('hsl(200, 90%, 65%)')
-    expect(Object.is(style(200.4), style(200))).toBe(true)
-  })
-
-  it('normalizes hue >= 360 to its mod-360 equivalent (same color, cache hit)', () => {
-    const style = makeHueStyleCache(90, 65)
-    expect(style(560)).toBe('hsl(200, 90%, 65%)') // 560 mod 360 = 200
-    expect(Object.is(style(560), style(200))).toBe(true)
+  it('assigns every particle a color index within the palette range', () => {
+    const n = base.palette.colors.length
+    const s = createFlowState({ ...base, particles: 200 }, 800, 600)
+    for (const p of s.particles) {
+      expect(p.ci).toBeGreaterThanOrEqual(0)
+      expect(p.ci).toBeLessThan(n)
+      expect(Number.isInteger(p.ci)).toBe(true)
+    }
   })
 })
 

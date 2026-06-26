@@ -105,3 +105,25 @@ describe('non-numeric arrays, vectors, and strings (#3)', () => {
     expect(sp.get('label')).toBe('ember')
   })
 })
+
+describe('urlCodec — palette colors (8-digit hex array)', () => {
+  const schema = z.object({
+    palette: z.object({
+      colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
+        .default(['#1e63ff1f', '#16d6ff1a']),
+    }).default({ colors: ['#1e63ff1f', '#16d6ff1a'] }),
+  })
+
+  it('round-trips a custom color set unchanged', () => {
+    const cfg = schema.parse({ palette: { colors: ['#ff000080', '#00ff00ff', '#0000ff10'] } })
+    const decoded = decodeConfig(schema, encodeConfig(schema, cfg))
+    expect(decoded.palette.colors).toEqual(['#ff000080', '#00ff00ff', '#0000ff10'])
+  })
+
+  it('falls back to defaults when an element is malformed (safeParse, never throws)', () => {
+    const params = new URLSearchParams()
+    params.set('palette.colors', 'not-a-hex,#00ff00ff')
+    const decoded = decodeConfig(schema, params)
+    expect(decoded.palette.colors).toEqual(['#1e63ff1f', '#16d6ff1a']) // back to defaults
+  })
+})

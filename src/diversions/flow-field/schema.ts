@@ -19,11 +19,13 @@ export const flowFieldSchema = z.object({
   palette: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a12')
       .meta({ ui: 'color', label: 'Background' }),
-    hueStart: z.number().min(0).max(360).default(200)
-      .meta({ ui: 'slider', min: 0, max: 360, step: 1, label: 'Hue start' }),
-    hueRange: z.number().min(0).max(360).default(80)
-      .meta({ ui: 'slider', min: 0, max: 360, step: 1, label: 'Hue range' }),
-  }).default({ background: '#0a0a12', hueStart: 200, hueRange: 80 })
+    colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
+      .default(['#1e63ff1f', '#16d6ff1a', '#ff3ea51a', '#ffffff14'])
+      .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
+              help: 'Each particle picks one color at random when it spawns and keeps it for '
+                  + 'life. Low alpha lets overlapping ribbons build up into richer color '
+                  + 'instead of clipping to white.' }),
+  }).default({ background: '#0a0a12', colors: ['#1e63ff1f', '#16d6ff1a', '#ff3ea51a', '#ffffff14'] })
     .meta({ ui: 'group', label: 'Palette' }),
 })
 

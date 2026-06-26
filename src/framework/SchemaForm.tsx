@@ -6,6 +6,7 @@ import { NumberInput } from './controls/NumberInput'
 import { Segmented } from './controls/Segmented'
 import { Toggle } from './controls/Toggle'
 import { Swatch } from './controls/Swatch'
+import { ColorList } from './controls/ColorList'
 import { Group } from './controls/Group'
 
 type AnyObj = Record<string, any>
@@ -37,6 +38,8 @@ function controlFor(ui: FieldMeta['ui']): ControlComponent | null {
       return Toggle as ControlComponent
     case 'color':
       return Swatch as ControlComponent
+    case 'colorList':
+      return ColorList as ControlComponent
     default:
       return null
   }

@@ -6,17 +6,23 @@ interface Particle {
   y: number
   age: number
   life: number
+  ci: number // index into the palette; chosen at spawn, kept for life
 }
 
-// Stroke saturation/lightness are fixed for now (richer color is #23).
-const STROKE_SAT = 90
-const STROKE_LIGHT = 65
+/** "#rrggbbaa" -> "rgba(r, g, b, a)" (alpha rounded to 3 dp). */
+export function hexToRgba(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const a = Math.round((parseInt(hex.slice(7, 9), 16) / 255) * 1000) / 1000
+  return `rgba(${r}, ${g}, ${b}, ${a})`
+}
 
 export interface FlowState {
   particles: Particle[]
   noise: (x: number, y: number) => number
   rng: () => number // seeded — keeps respawns deterministic per seed
-  style: (hue: number) => string // memoized hsl() lookup — see makeHueStyleCache
+  styles: string[] // one precomputed rgba() per palette color — see hexToRgba
   cfg: FlowFieldConfig
   w: number
   h: number
@@ -34,37 +40,25 @@ function randomLife(rng: () => number): number {
   return MIN_LIFE + rng() * (MAX_LIFE - MIN_LIFE)
 }
 
-// Memoize `hsl(h, s%, l%)` strings by integer hue. The hot loop colors every
-// particle every frame; building the template string per particle churned
-// ~240k short-lived strings/sec → steady GC hitches over a long session (#11).
-// Hue is bucketed to whole degrees (imperceptible) and reused, so a populated
-// field allocates at most 360 strings total instead of one per particle-frame.
-export function makeHueStyleCache(sat: number, light: number): (hue: number) => string {
-  const cache: string[] = new Array(360)
-  return (hue: number): string => {
-    // CSS hue is mod-360, so 560° === 200°: normalize before indexing.
-    const h = ((Math.round(hue) % 360) + 360) % 360
-    return (cache[h] ??= `hsl(${h}, ${sat}%, ${light}%)`)
-  }
-}
-
 export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): FlowState {
   const noise = makeNoise2D(cfg.seed)
   // Separate seeded stream for particles (derived so it doesn't mirror the noise
   // grid's stream). Same seed → same particle layout AND respawns, every run.
   const rng = mulberry32((cfg.seed ^ 0x9e3779b9) >>> 0)
+  const styles = cfg.palette.colors.map(hexToRgba)
+  const n = cfg.palette.colors.length
   const particles: Particle[] = Array.from({ length: cfg.particles }, () => ({
     x: rng() * w,
     y: rng() * h,
     age: rng() * MAX_LIFE, // stagger initial ages so respawns don't pulse
     life: randomLife(rng),
+    ci: Math.floor(rng() * n), // pick a palette color for this particle's life
   }))
-  const style = makeHueStyleCache(STROKE_SAT, STROKE_LIGHT)
-  return { particles, noise, rng, style, cfg, w, h }
+  return { particles, noise, rng, styles, cfg, w, h }
 }
 
 export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: number) {
-  const { particles, noise, rng, style, cfg, w, h } = state
+  const { particles, noise, rng, styles, cfg, w, h } = state
   // fade the canvas for trails (or hard-clear)
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = cfg.fadeTrails ? `${cfg.palette.background}22` : cfg.palette.background
@@ -83,14 +77,15 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
       p.y = rng() * h
       p.age = 0
       p.life = randomLife(rng)
+      p.ci = Math.floor(rng() * styles.length)
       continue // skip drawing this frame to avoid a streak from old→new position
     }
 
     const angle = noise(p.x * cfg.noiseScale, p.y * cfg.noiseScale) * Math.PI * 2
     const nx = p.x + Math.cos(angle) * speed * 16
     const ny = p.y + Math.sin(angle) * speed * 16
-    const hue = cfg.palette.hueStart + (p.x / w) * cfg.palette.hueRange
-    ctx.strokeStyle = style(hue)
+    // styles.length is >=1 (schema min); modulo keeps a stale index valid if the set shrank
+    ctx.strokeStyle = styles[p.ci % styles.length]
     ctx.beginPath()
     ctx.moveTo(p.x, p.y)
     ctx.lineTo(nx, ny)

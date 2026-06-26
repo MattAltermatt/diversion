@@ -1,6 +1,6 @@
 import type { ZodTypeAny, ZodObject } from 'zod'
 
-export type FieldUi = 'slider' | 'number' | 'segmented' | 'toggle' | 'color' | 'group'
+export type FieldUi = 'slider' | 'number' | 'segmented' | 'toggle' | 'color' | 'colorList' | 'group'
 
 export interface FieldMeta {
   ui: FieldUi
