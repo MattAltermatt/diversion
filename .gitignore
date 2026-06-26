@@ -12,6 +12,9 @@ dist-ssr/
 # remember plugin state
 .remember/
 
+# local Claude Code settings (personal perms); skills under .claude/skills/ ARE tracked
+.claude/settings.local.json
+
 # editor / OS
 .DS_Store
 .vscode/*
