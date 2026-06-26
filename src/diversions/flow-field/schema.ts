@@ -14,7 +14,8 @@ export const flowFieldSchema = z.object({
   blend: z.enum(['lighter', 'screen', 'normal']).default('lighter')
     .meta({ ui: 'segmented', options: ['lighter', 'screen', 'normal'], label: 'Blend' }),
   fadeTrails: z.boolean().default(true)
-    .meta({ ui: 'toggle', label: 'Fade trails' }),
+    .meta({ ui: 'toggle', label: 'Motion trails',
+            help: 'On: particles leave trails that fade out. Off: each frame is wiped clean.' }),
   palette: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a12')
       .meta({ ui: 'color', label: 'Background' }),
