@@ -67,7 +67,7 @@ export default myDiversion
 
 ## Control vocabulary
 
-`slider` · `number` · `segmented` (enum) · `toggle` (bool) · `color` (swatch) · `group` (nested, expanded). More get added when a diversion needs them.
+`slider` · `number` · `segmented` (enum) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested, expanded). More get added when a diversion needs them.
 
 ## Stack
 
