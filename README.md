@@ -73,4 +73,4 @@ export default myDiversion
 
 Vite · React 19 · TypeScript · Zod 4 (one schema → form + URL + types) · React Router · Vitest. The config⇆URL codec and the schema-driven form are custom and live in `src/framework/`.
 
-See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the design spec and [`ROADMAP.md`](ROADMAP.md) for where this is headed.
+See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the design spec. Planned work, bugs, and shipped history all live in **[GitHub Issues](https://github.com/MattAltermatt/diversion/issues)** and **[Releases](https://github.com/MattAltermatt/diversion/releases)** — the single source of truth.
