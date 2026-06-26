@@ -14,10 +14,16 @@ First cut. The framework spine and one reference diversion, proven end-to-end in
 - **Flow Field diversion** — seeded value-noise, particle advection with trail fade, a respawn lifecycle, mixed-type config (sliders, an open-ended seed number, segmented blend, toggle, color, nested palette group).
 - **"Instrument" theme** — high-contrast dark studio honoring the five UX invariants.
 
-### Fixed (during verify)
+### Fixed (during verify + code review)
 - Flow field collapsed all particles onto a single streamline — added a **particle respawn lifecycle** so the field stays populated.
 - **HiDPI**: the 2D context now scales by DPR so the sim draws in CSS pixels (correct density + crisp lines) instead of device pixels.
 - `blend: 'normal'` mapped to the valid `source-over` composite op.
+- **Seed determinism**: particle init + respawn now use a seeded RNG (was global `Math.random()`), so the same seed truly regenerates the same pattern as promised.
+- **Toggle** control now renders inline `help` like every other control (invariant #3).
+- **Play-screen chrome auto-hides** after ~2.5s idle and wakes on mouse-move (screensaver feel), per spec.
+
+### Tuned
+- Flow Field **Speed** range narrowed to 0–1 with fine 0.01 steps (default 0.5).
 
 ### Notes
 - nuqs is installed but not yet wired — the codec + React Router `navigate()` handle v1 URL sync. Available for future per-param needs.
