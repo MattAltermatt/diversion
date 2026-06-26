@@ -68,3 +68,40 @@ describe('decodeConfig', () => {
     )
   })
 })
+
+describe('non-numeric arrays, vectors, and strings (#3)', () => {
+  const arrSchema = z.object({
+    ramp: z.array(z.string()).default(['#0a0a12', '#ffffff']), // color ramp (strings)
+    weights: z.array(z.number()).default([1, 2, 3]), // numeric vector
+    label: z.string().default('aurora'),
+  })
+  const arrDefaults = arrSchema.parse({})
+
+  it('round-trips an array of strings (color ramp)', () => {
+    const cfg = { ...arrDefaults, ramp: ['#ff0000', '#00ff00', '#0000ff'] }
+    expect(decodeConfig(arrSchema, encodeConfig(arrSchema, cfg))).toEqual(cfg)
+  })
+
+  it('keeps string-array elements as strings (not coerced to NaN)', () => {
+    const cfg = { ...arrDefaults, ramp: ['#abcdef', '#123456'] }
+    const out = decodeConfig(arrSchema, encodeConfig(arrSchema, cfg))
+    expect(out.ramp).toEqual(['#abcdef', '#123456'])
+  })
+
+  it('round-trips a numeric vector', () => {
+    const cfg = { ...arrDefaults, weights: [0.25, -3, 42] }
+    expect(decodeConfig(arrSchema, encodeConfig(arrSchema, cfg))).toEqual(cfg)
+  })
+
+  it('is collision-safe for elements containing separators (_ , %)', () => {
+    const cfg = { ...arrDefaults, ramp: ['a_b', 'c,d', 'e%f'] }
+    expect(decodeConfig(arrSchema, encodeConfig(arrSchema, cfg))).toEqual(cfg)
+  })
+
+  it('omits arrays still at their default', () => {
+    const sp = encodeConfig(arrSchema, { ...arrDefaults, label: 'ember' })
+    expect(sp.has('ramp')).toBe(false)
+    expect(sp.has('weights')).toBe(false)
+    expect(sp.get('label')).toBe('ember')
+  })
+})
