@@ -20,7 +20,11 @@ export function createLoop(onFrame: (t: number, dt: number) => void): Loop {
         last = now
       }
       const t = now - startTime
-      const dt = now - last
+      // Clamp dt: a hidden tab suspends rAF, so the first frame back would
+      // otherwise carry the entire away-duration and teleport time-driven
+      // diversions. 50ms ≈ 3 frames — enough to stay smooth, small enough to
+      // avoid a visible jump.
+      const dt = Math.min(now - last, 50)
       last = now
       onFrame(t, dt)
     } else {

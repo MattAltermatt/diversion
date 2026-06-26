@@ -65,7 +65,8 @@ export function SchemaForm({
             </Group>
           )
         }
-        const Control = controlFor(meta.ui)!
+        const Control = controlFor(meta.ui)
+        if (!Control) throw new Error(`SchemaForm: unknown control ui "${meta.ui}" for field "${key}"`)
         return (
           <Control
             key={key}

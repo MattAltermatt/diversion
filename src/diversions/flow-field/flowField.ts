@@ -17,12 +17,13 @@ export interface FlowState {
   h: number
 }
 
-// Particle recycling lifespans, in frames. Without respawning, every particle
-// drifts onto the field's dominant attractor and the rest of the field empties
-// out — so particles get a finite, staggered life and respawn at a fresh
-// position. These are mechanism constants, not visual balance knobs.
-const MIN_LIFE = 80
-const MAX_LIFE = 240
+// Particle recycling lifespans, in MILLISECONDS (so behavior is identical at
+// 30/60/120fps). Without respawning, every particle drifts onto the field's
+// dominant attractor and the rest of the field empties out — so particles get
+// a finite, staggered life and respawn at a fresh position. Mechanism
+// constants, not visual balance knobs (~1.3–4s).
+const MIN_LIFE = 1333
+const MAX_LIFE = 4000
 
 function randomLife(rng: () => number): number {
   return MIN_LIFE + rng() * (MAX_LIFE - MIN_LIFE)
@@ -56,7 +57,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
   const speed = cfg.speed * dt * 0.06
   for (const p of particles) {
     // recycle: respawn at a fresh position so the field stays populated
-    p.age++
+    p.age += dt
     if (p.age >= p.life) {
       p.x = rng() * w
       p.y = rng() * h

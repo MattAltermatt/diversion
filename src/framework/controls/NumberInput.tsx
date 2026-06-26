@@ -13,7 +13,6 @@ export function NumberInput({
     <div className="ctl">
       <div className="ctl-top">
         <span className="ctl-name">{meta.label}</span>
-        <span className="ctl-tag">no bounds → number</span>
       </div>
       <div className="num">
         <button onClick={() => onChange(value - (meta.step ?? 1))}>–</button>

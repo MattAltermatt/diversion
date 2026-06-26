@@ -51,12 +51,16 @@ export function AnimationHost({
     let frames = 0
     const loop = createLoop((t, dt) => {
       diversion.frame(state, ctx, t, dt)
-      acc += dt
-      frames++
-      if (acc >= 500) {
-        setFps(Math.round((frames * 1000) / acc))
-        acc = 0
-        frames = 0
+      // Only sample fps when the readout is actually shown — gallery tiles
+      // (showChrome=false) shouldn't re-render twice a second for an unseen number.
+      if (showChrome) {
+        acc += dt
+        frames++
+        if (acc >= 500) {
+          setFps(Math.round((frames * 1000) / acc))
+          acc = 0
+          frames = 0
+        }
       }
     })
     loopRef.current = loop
