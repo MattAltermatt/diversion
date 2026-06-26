@@ -25,6 +25,17 @@ First cut. The framework spine and one reference diversion, proven end-to-end in
 ### Tuned
 - Flow Field **Speed** range narrowed to 0–1 with fine 0.01 steps (default 0.5).
 
+### Hardened (full code-review pass)
+- **dt-clamp** (≤50ms) in the loop so a tab-return after the rAF suspension doesn't teleport time-driven diversions.
+- Flow Field particle **lifespan now in milliseconds** (was frames) → identical behavior at 30/60/120fps.
+- **FPS sampling skipped** when the readout is hidden (gallery tiles no longer re-render twice/sec for nothing).
+- **Slider/number readouts** formatted to the step's precision; removed a `no bounds → number` dev tag that leaked into the UI.
+- `SchemaForm` **throws a clear error** on an unknown control type instead of rendering `null`.
+- Larger findings (codec generalization for non-numeric arrays, share-link default-coupling, gallery offscreen-pause, contract type/input seams, nuqs reconciliation) filed as GitHub Issues.
+
+### Deploy
+- GitHub Pages via Actions (Vite `base: /diversion/`, router `basename`, `404.html` SPA fallback).
+
 ### Notes
 - nuqs is installed but not yet wired — the codec + React Router `navigate()` handle v1 URL sync. Available for future per-param needs.
 - Dev server pinned to port **5180**.
