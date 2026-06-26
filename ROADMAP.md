@@ -1,21 +1,18 @@
 # 🗺️ Diversion Roadmap
 
+Strategic phases live here; tactical work lives in **[GitHub Issues](https://github.com/MattAltermatt/diversion/issues)** (the tracker) and **[Releases](https://github.com/MattAltermatt/diversion/releases)**.
+
 ## Phases
 
-### ✅ Phase 1 — Framework + Flow Field (v1) — *shipped 2026-06-26*
-The spine: a diversion contract, a config⇆URL codec, a schema-driven config form, an animation host that owns the rAF loop, three screens (gallery / config / play), and one polished reference diversion (Flow Field). Every seam of the contract is exercised end-to-end.
+### ✅ Phase 1 — Framework + Flow Field (v0.1.0) — *shipped 2026-06-26*
+The spine: diversion contract, config⇆URL codec, schema-driven form, an animation host that owns the rAF loop, three screens, and the Flow Field reference diversion. Deployed to GitHub Pages. (See the closed `infra` issues + the v0.1.0 release.)
 
 ### 🔮 Phase 2 — Grow the collection
-New diversions are pure content against the fixed contract. Candidates: cellular automata (Life / Lenia), boids, a raymarched WebGL shader (proves the `kind: 'webgl'` path), Lissajous / harmonograph, reaction–diffusion. Each gets its own `src/diversions/<slug>/` and accretes whenever inspiration strikes.
+New diversions as pure content against the fixed contract. Next up: a **WebGL raymarcher** (proves the `kind:'webgl'` path) — [#13](https://github.com/MattAltermatt/diversion/issues/13). Then cellular automata, boids, reaction–diffusion, harmonograph. Use the `new-diversion` skill.
 
-### 🔮 Phase 3 — Framework richness (as the collection demands it)
-Pull from the backlog when a concrete diversion needs it — e.g. a live-update hook so the config preview doesn't reset on every edit, captured static thumbnails for the gallery at scale, new control types (vector pads, gradient editors), or record-to-GIF / share-image export.
+### 🔮 Phase 3 — Framework richness (pulled forward as diversions demand)
+Codec generalization for non-numeric params ([#3](https://github.com/MattAltermatt/diversion/issues/3)), stable share links ([#4](https://github.com/MattAltermatt/diversion/issues/4)), live-update + history sync ([#5](https://github.com/MattAltermatt/diversion/issues/5)), offscreen-pause + thumbnails ([#6](https://github.com/MattAltermatt/diversion/issues/6)), contract type/input seams ([#9](https://github.com/MattAltermatt/diversion/issues/9), [#8](https://github.com/MattAltermatt/diversion/issues/8)). See the [`framework`](https://github.com/MattAltermatt/diversion/issues?q=is%3Aissue+is%3Aopen+label%3Aframework) label.
 
-## 🚧 Current todos
+## 🎯 Next
 
-_None — Phase 1 is complete and verified. Next session: pick a Phase 2 diversion (the WebGL raymarcher is the highest-value next piece because it proves the GPU path)._
-
-## 🗃️ See also
-
-- [`BACKLOG.md`](BACKLOG.md) — deferred ideas and known minor items.
-- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, when.
+The **WebGL raymarcher** ([#13](https://github.com/MattAltermatt/diversion/issues/13)) — but doing it well wants the codec + contract fixes ([#3](https://github.com/MattAltermatt/diversion/issues/3), [#9](https://github.com/MattAltermatt/diversion/issues/9), [#7](https://github.com/MattAltermatt/diversion/issues/7)) first. Or pick up **Flow Field custom coloring** ([#2](https://github.com/MattAltermatt/diversion/issues/2)).
