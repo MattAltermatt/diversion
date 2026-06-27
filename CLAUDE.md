@@ -4,7 +4,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ## Architecture (load-bearing)
 
-- **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React.
+- **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, update?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React.
 - **One Zod schema per diversion is the single source of truth** — it drives the config form, the URL codec, AND the `Config` type. Each field carries `.meta({ ui, label, help, min, max, step, options })`.
 - **`kind: '2d' | 'webgl'`** selects which context the host acquires. 2D contexts are DPR-scaled so sims draw in CSS pixels; WebGL gets device pixels.
 - **Registry auto-discovers** diversions via `import.meta.glob('../diversions/*/index.ts')` — a new folder is picked up with no registration.
