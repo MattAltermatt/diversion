@@ -1,4 +1,4 @@
-import type { ZodTypeAny, ZodObject } from 'zod'
+import type { ZodType, ZodObject } from 'zod'
 
 export type FieldUi = 'slider' | 'number' | 'segmented' | 'toggle' | 'color' | 'colorList' | 'group'
 
@@ -14,7 +14,7 @@ export interface FieldMeta {
 }
 
 /** Read a field's UI meta via Zod's public .meta(). Returns undefined if unset. */
-export function readMeta(field: ZodTypeAny): FieldMeta | undefined {
+export function readMeta(field: ZodType): FieldMeta | undefined {
   // Zod 4: .meta() (no args) returns the metadata registered via .meta({...}).
   // Verified against zod@4.4.3 — equivalent to z.globalRegistry.get(field).
   const m = (field as { meta?: () => unknown }).meta?.()
@@ -22,10 +22,10 @@ export function readMeta(field: ZodTypeAny): FieldMeta | undefined {
 }
 
 /** Ordered [key, fieldSchema, meta] for each property of an object schema. */
-export function fields(schema: ZodObject<any>): Array<[string, ZodTypeAny, FieldMeta]> {
+export function fields(schema: ZodObject<any>): Array<[string, ZodType, FieldMeta]> {
   return Object.entries(schema.shape).map(([key, field]) => {
-    const meta = readMeta(field as ZodTypeAny)
+    const meta = readMeta(field as ZodType)
     if (!meta) throw new Error(`Field "${key}" is missing .meta({ ui, label })`)
-    return [key, field as ZodTypeAny, meta]
+    return [key, field as ZodType, meta]
   })
 }

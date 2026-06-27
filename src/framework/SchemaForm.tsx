@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import type { ZodObject, ZodTypeAny } from 'zod'
+import type { ZodObject, ZodType } from 'zod'
 import { fields, type FieldMeta } from './fieldMeta'
 import { Slider } from './controls/Slider'
 import { NumberInput } from './controls/NumberInput'
@@ -12,8 +12,8 @@ import { Group } from './controls/Group'
 type AnyObj = Record<string, any>
 
 /** Drill through wrappers (.default()/.optional()/etc.) to the underlying ZodObject. */
-function asObject(field: ZodTypeAny): ZodObject<any> {
-  let cur = field as { shape?: unknown; unwrap?: () => ZodTypeAny }
+function asObject(field: ZodType): ZodObject<any> {
+  let cur = field as { shape?: unknown; unwrap?: () => ZodType }
   while (!cur.shape && typeof cur.unwrap === 'function') {
     cur = cur.unwrap() as typeof cur
   }
