@@ -7,7 +7,9 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **One reference diversion** — **Flow Field**, particles drifting through a noise-driven vector field.
+- **Two diversions:**
+  - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
+  - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
 
 ## Run it
 
