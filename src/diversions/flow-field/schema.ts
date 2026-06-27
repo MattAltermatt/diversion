@@ -2,40 +2,37 @@ import { z } from 'zod'
 
 export const flowFieldSchema = z.object({
   particles: z.number().int().min(100).max(20000).default(16200)
-    .meta({ ui: 'slider', min: 100, max: 20000, step: 100, label: 'Particles' }),
+    .meta({ section: 'Particles', ui: 'slider', min: 100, max: 20000, step: 100, label: 'Particles' }),
   particleSize: z.number().min(0.5).max(6).default(2.6)
-    .meta({ ui: 'slider', min: 0.5, max: 6, step: 0.1, label: 'Particle size',
+    .meta({ section: 'Particles', ui: 'slider', min: 0.5, max: 6, step: 0.1, label: 'Particle size',
             help: 'Thickness of each particle stroke, in pixels.' }),
   noiseScale: z.number().min(0.0005).max(0.02).default(0.0014)
-    .meta({ ui: 'slider', min: 0.0005, max: 0.02, step: 0.0005, label: 'Noise scale',
+    .meta({ section: 'The Flow', ui: 'slider', min: 0.0005, max: 0.02, step: 0.0005, label: 'Noise scale',
             help: 'Lower = broad, sweeping currents. Higher = tight, turbulent detail.' }),
   fieldDrift: z.number().min(0).max(1).default(0.71)
-    .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
+    .meta({ section: 'The Flow', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
             help: 'Slowly morphs the flow field over time. 0 = frozen.' }),
   speed: z.number().min(0).max(1).default(0.11)
-    .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
+    .meta({ section: 'The Flow', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
   lifespan: z.number().min(0.5).max(12).default(6.5)
-    .meta({ ui: 'slider', min: 0.5, max: 12, step: 0.1, label: 'Particle lifespan',
+    .meta({ section: 'The Flow', ui: 'slider', min: 0.5, max: 12, step: 0.1, label: 'Particle lifespan',
             help: 'Seconds a particle lives before respawning elsewhere. Shorter = busier, '
                 + 'fewer long streaks; longer = sparser, longer ribbons.' }),
-  seed: z.number().int().default(10847)
-    .meta({ ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed always regenerates the same pattern.' }),
+  fadeTrails: z.boolean().default(true)
+    .meta({ section: 'Trails', ui: 'toggle', label: 'Motion trails',
+            help: 'On: particles leave trails that fade out. Off: each frame is wiped clean.' }),
+  trailLength: z.number().min(0).max(100).default(72)
+    .meta({ section: 'Trails', ui: 'slider', min: 0, max: 100, step: 1, label: 'Trail length',
+            help: 'Length of the fading motion trails. 0 wipes each frame; higher leaves '
+                + 'longer, slower-fading ribbons. Only affects the look when Motion Trails is on.' }),
   blend: z.enum(['lighten', 'screen', 'normal']).default('normal')
-    .meta({ ui: 'segmented', options: ['lighten', 'screen', 'normal'], label: 'Blend',
+    .meta({ section: 'Trails', ui: 'segmented', options: ['lighten', 'screen', 'normal'], label: 'Blend',
             help: 'How overlapping ribbons combine:\n'
                 + '- normal (default): each particle’s true color\n'
                 + '- screen: glows and mixes; dense areas wash to white\n'
                 + '- lighten: colored glow that keeps its hue — no white-out' }),
-  fadeTrails: z.boolean().default(true)
-    .meta({ ui: 'toggle', label: 'Motion trails',
-            help: 'On: particles leave trails that fade out. Off: each frame is wiped clean.' }),
-  trailLength: z.number().min(0).max(100).default(72)
-    .meta({ ui: 'slider', min: 0, max: 100, step: 1, label: 'Trail length',
-            help: 'Length of the fading motion trails. 0 wipes each frame; higher leaves '
-                + 'longer, slower-fading ribbons. Only affects the look when Motion Trails is on.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050810')
-    .meta({ ui: 'color', label: 'Background' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Background' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
@@ -64,7 +61,10 @@ export const flowFieldSchema = z.object({
     colors: ['#2a5cf066', '#4d9bff66', '#ffc22e66', '#ffe08a66'],
     source: 'flow-angle',
     stops: ['#ff3b3b66', '#ffd23b66', '#3bff7a66', '#3bd2ff66', '#6a3bff66'],
-  }).meta({ ui: 'group', label: 'Color' }),
+  }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
+  seed: z.number().int().default(10847)
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
+            help: 'Any integer. The same seed always regenerates the same pattern.' }),
 })
 
 export type FlowFieldConfig = z.infer<typeof flowFieldSchema>
