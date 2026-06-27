@@ -3,7 +3,7 @@ import { mulberry32 } from '../flow-field/noise'
 import { gravityWellsSchema } from './schema'
 import {
   spawnWell, wellEnvelope, wellForce, maintainWells, accelAt,
-  createGravityState, respawnParticle, outOfBounds, colorT, fieldAt,
+  createGravityState, respawnParticle, outOfBounds, colorT, fieldAt, fieldStrength,
   BOUNDS_MARGIN, type Well, type Particle, type GravityState,
 } from './gravityWells'
 
@@ -118,8 +118,8 @@ describe('fieldAt (noise ⊕ gravity, 1st-order)', () => {
     expect(Math.abs(orbit.dy)).toBeGreaterThan(Math.abs(radial.dy))
   })
   it('reports higher bend strength nearer a well', () => {
-    // low influence keeps both samples below the 1.0 clamp so the gradient (which
-    // falls off with distance) is visible rather than saturated.
+    // strength falls off with distance; the tonemap (fieldStrength) keeps near vs
+    // far distinct at any influence — no clamp to dodge anymore (#46).
     const wells: Well[] = [{ x: 400, y: 300, force: 1, age: 5000, life: 10000 }]
     const near = fieldAt(stateWith({ gravityInfluence: 0.3 }, wells), 650, 300).strength
     const far = fieldAt(stateWith({ gravityInfluence: 0.3 }, wells), 50, 300).strength
@@ -161,6 +161,22 @@ describe('outOfBounds (padded box)', () => {
   it('a particle well outside the padded box IS recycled', () => {
     const far = 800 * (1 + BOUNDS_MARGIN) + 10
     expect(outOfBounds({ x: far, y: 300, age: 0, life: 1, ci: 0 }, 800, 600)).toBe(true)
+  })
+})
+
+describe('fieldStrength (tonemap, not hard clamp)', () => {
+  it('is 0 at no bend and stays within [0,1)', () => {
+    expect(fieldStrength(0)).toBe(0)
+    expect(fieldStrength(1000)).toBeLessThan(1)
+    expect(fieldStrength(1000)).toBeGreaterThan(0)
+  })
+  it('is strictly monotonic — never flat-saturates', () => {
+    // the bug was min(1,h): h>1 all mapped to exactly 1. A tonemap keeps every
+    // step distinct, so a strong field still spreads across the gradient.
+    expect(fieldStrength(2)).toBeGreaterThan(fieldStrength(1))
+    expect(fieldStrength(5)).toBeGreaterThan(fieldStrength(2))
+    expect(fieldStrength(20)).toBeGreaterThan(fieldStrength(5))
+    expect(fieldStrength(5)).toBeLessThan(1) // would be 1 (clamped) under the old map
   })
 })
 

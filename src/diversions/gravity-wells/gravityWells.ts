@@ -137,6 +137,21 @@ export function advanceFieldTime(t: number, dt: number, fieldDrift: number): num
   return t + fieldDrift * dt * 0.00012
 }
 
+// Knee for the strength tonemap below. The well bend `h = hypot(gx, gy)` runs
+// from ~0 in the open field to well over 1 near a well (the inverse-LINEAR reach
+// keeps it high across the whole canvas). A hard min(1,h) clamped almost
+// everything to the top of the gradient — one flat colour. h/(h+k) instead
+// spreads it smoothly across 0..1: cool open field, hot cores, a real gradient
+// in between. k≈3 puts a typical mid-field bend around the gradient's middle. (#46)
+export const FIELD_STRENGTH_K = 3
+
+// Map a raw bend magnitude to a 0..1 strength via a Reinhard-style tonemap, so
+// the `field` colour source never flat-saturates. Monotonic, fieldStrength(0)=0,
+// asymptotes to 1 but never reaches it.
+export function fieldStrength(h: number): number {
+  return h / (h + FIELD_STRENGTH_K)
+}
+
 export interface FieldSample { dx: number; dy: number; strength: number }
 
 // The flow direction at a point: the WELLS drive it (radial + swirl), with a
@@ -154,7 +169,7 @@ export function fieldAt(state: GravityState, px: number, py: number): FieldSampl
   const fx = gx + Math.cos(a) * FLOW_FLOOR
   const fy = gy + Math.sin(a) * FLOW_FLOOR
   const len = Math.hypot(fx, fy) || 1
-  return { dx: fx / len, dy: fy / len, strength: Math.min(1, Math.hypot(gx, gy)) }
+  return { dx: fx / len, dy: fy / len, strength: fieldStrength(Math.hypot(gx, gy)) }
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)

@@ -1,6 +1,7 @@
-import type { Diversion } from '../../framework/types'
+import type { Diversion, PresetGroup } from '../../framework/types'
 import { sampleGradient, trailFadeAlpha, toHex2 } from '../flow-field/flowField'
 import { gravityWellsSchema, type GravityWellsConfig } from './schema'
+import { motionPresets, colorPresets } from './presets'
 import {
   createGravityState, maintainWells, advanceFieldTime, fieldAt,
   respawnParticle, outOfBounds, colorT, wellEnvelope,
@@ -30,6 +31,20 @@ function assignColorIndices(state: GWState): void {
   const n = state.styles.length
   for (const p of state.particles) p.ci = Math.floor(state.rng() * n)
 }
+
+// Two independent preset axes. A Motion option patches the flow + well dynamics
+// + trails; a Color option patches background + blend + the whole color group.
+// Seed is excluded from both — the 🎲 dice stays independent of the chosen look.
+const presets: PresetGroup<GravityWellsConfig>[] = [
+  { label: 'Motion', options: motionPresets.map((p) => ({ name: p.name, patch: p.motion })) },
+  {
+    label: 'Color',
+    options: colorPresets.map((p) => ({
+      name: p.name,
+      patch: { background: p.background, blend: p.blend, color: p.color },
+    })),
+  },
+]
 
 const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
   id: 'gravity-wells',
@@ -124,6 +139,8 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
       ctx.fill()
     }
   },
+
+  presets,
 }
 
 export default gravityWells
