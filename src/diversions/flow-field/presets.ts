@@ -46,8 +46,8 @@ export const flowPresets: FlowPreset[] = [
   },
   {
     name: 'Slow Fuzz',
-    flow: { noiseScale: 0.0085, fieldDrift: 1.0, speed: 0.07, lifespan: 2.1,
-            trailLength: 69, particles: 17300, particleSize: 5.4, fadeTrails: true },
+    flow: { noiseScale: 0.0014, fieldDrift: 0.71, speed: 0.11, lifespan: 6.5,
+            trailLength: 72, particles: 16200, particleSize: 2.6, fadeTrails: true },
   },
 ]
 
@@ -75,7 +75,7 @@ function gradient(stops: string[]): FlowFieldConfig['color'] {
 export const colorPresets: ColorPreset[] = [
   { name: 'Nebula', background: '#05060f', blend: 'screen',
     color: palette(['#3a6dff66', '#18d2ff66', '#ff45a866', '#d6e6ff66']) },
-  { name: 'Mariners', background: '#050810', blend: 'screen',
+  { name: 'Mariners', background: '#050810', blend: 'normal',
     color: palette(['#2a5cf066', '#4d9bff66', '#ffc22e66', '#ffe08a66']) },
   // pyr3 — the fractal-flame renderer's own brand fire: its favicon "hot base"
   // amber→crimson gradient (#ffbe3e → #bf2408) + the #ff8c1a accent, on the
@@ -90,4 +90,8 @@ export const colorPresets: ColorPreset[] = [
     color: palette(['#e6ebf266', '#a8b3c466', '#5e6a7e66']) },
   { name: 'Spectrum', background: '#06060a', blend: 'screen',
     color: gradient(['#ff4d6a66', '#ffb24d66', '#7cff4d66', '#4dd6ff66', '#9a6bff66']) },
+  // Dusk — a second gradient preset (indigo → magenta → warm amber) to give the
+  // gradient mode variety beyond Spectrum's full rainbow. No pure white; 0x66 alpha.
+  { name: 'Dusk', background: '#06060f', blend: 'screen',
+    color: gradient(['#3b2d8f66', '#c43b9a66', '#ff8a3b66']) },
 ]
