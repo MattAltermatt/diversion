@@ -172,7 +172,10 @@ export function decodeConfig<T extends ZodObject<any>>(
     if (node && !node.safeParse(value).success) continue // bad field → keep its default
     setPath(out, path, value)
   }
-  // safeParse so a bad/hand-edited URL degrades to defaults instead of throwing.
+  // Per-field validation above is the primary degradation path (one bad field
+  // keeps its default, the rest survive). This whole-object safeParse is only a
+  // net for cross-field refinements (none today) and to type the result; it
+  // degrades to full defaults rather than throwing into the loop.
   const result = schema.safeParse(out)
   return (result.success ? result.data : defaults) as ReturnType<T['parse']>
 }
