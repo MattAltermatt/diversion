@@ -7,8 +7,9 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Three diversions:**
+- **Four diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
+  - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
   - **Metaballs** (`kind: 'webgl'`) — gooey lava-lamp blobs that rise, merge, and split; a CPU thermal-oscillator sim feeds a fragment-shader field sum.
 
