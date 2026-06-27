@@ -29,15 +29,16 @@ describe('SchemaForm', () => {
   it('renders a slider for bounded, a number input for open-ended, and an expanded group', () => {
     const value = schema.parse({})
     render(<SchemaForm schema={schema} value={value} onChange={() => {}} />)
-    // bounded → range input
-    expect(screen.getByDisplayValue('4000')).toHaveAttribute('type', 'range')
+    // bounded → range slider (both particles + nested hue start) plus editable readouts
+    expect(screen.getAllByRole('slider')).toHaveLength(2)
+    expect(screen.getByLabelText('Particles value')).toHaveValue(4000)
     // open-ended → number input
     expect(screen.getByDisplayValue('1')).toHaveAttribute('type', 'number')
     // toggle present as a switch
     expect(screen.getByRole('switch')).toBeInTheDocument()
-    // nested group rendered (expanded) with its label + child slider
+    // nested group rendered (expanded) with its label + child slider readout
     expect(screen.getByText('Palette')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('200')).toHaveAttribute('type', 'range')
+    expect(screen.getByLabelText('Hue start value')).toHaveValue(200)
   })
 
   it('honors showWhen: renders a field only when its sibling holds the named value', () => {
