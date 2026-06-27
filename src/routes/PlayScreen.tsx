@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { decodeConfig } from '../framework/urlCodec'
 
 export function PlayScreen() {
   const { slug } = useParams()
+  const { search } = useLocation()
   const diversion = getDiversion(slug!)
 
   // Parse config ONCE from the URL; frozen for the session.
@@ -40,7 +41,7 @@ export function PlayScreen() {
 
   return (
     <div className={`play-screen ${idle ? 'idle' : ''}`}>
-      <Link to={`/d/${diversion.id}`} className="play-back">
+      <Link to={{ pathname: `/d/${diversion.id}`, search }} className="play-back">
         ← config
       </Link>
       <AnimationHost diversion={diversion} config={config} fullscreenable />
