@@ -70,11 +70,11 @@ describe('decodeConfig', () => {
     expect(out.fadeTrails).toBe(false)
   })
 
-  it('falls back to full defaults on out-of-range values (never throws)', () => {
+  it('defaults an out-of-range field (rest already default → equals defaults)', () => {
     expect(decodeConfig(schema, new URLSearchParams('particles=999999'))).toEqual(defaults)
   })
 
-  it('falls back to full defaults on garbage', () => {
+  it('defaults garbage fields individually (rest already default → equals defaults)', () => {
     expect(decodeConfig(schema, new URLSearchParams('particles=abc&blend=purple'))).toEqual(
       defaults,
     )
@@ -137,5 +137,28 @@ describe('urlCodec — palette colors (8-digit hex array)', () => {
     params.set('palette.colors', 'not-a-hex,#00ff00ff')
     const decoded = decodeConfig(schema, params)
     expect(decoded.palette.colors).toEqual(['#1e63ff1f', '#16d6ff1a']) // back to defaults
+  })
+})
+
+describe('decodeConfig — per-field graceful degradation', () => {
+  it('keeps valid fields when another field is invalid', () => {
+    // particles is out of range (max 20000); speed is valid
+    const out = decodeConfig(schema, new URLSearchParams('speed=3.5&particles=999999'))
+    expect(out.speed).toBe(3.5) // valid field survives
+    expect(out.particles).toBe(defaults.particles) // bad field → its own default
+  })
+
+  it('defaults only the bad array field, keeping siblings', () => {
+    const pSchema = z.object({
+      label: z.string().default('x'),
+      palette: z
+        .object({
+          colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).default(['#11223344']),
+        })
+        .default({ colors: ['#11223344'] }),
+    })
+    const out = decodeConfig(pSchema, new URLSearchParams('label=ember&colors=bad,#00ff00ff'))
+    expect(out.label).toBe('ember') // good field kept
+    expect(out.palette.colors).toEqual(['#11223344']) // bad array → default
   })
 })

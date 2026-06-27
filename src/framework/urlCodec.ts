@@ -71,6 +71,18 @@ function buildUrlKeyMap(schema: any): { encode: Map<string, string>; decode: Map
   return { encode, decode }
 }
 
+/** Map each dotted leaf path to its unwrapped Zod node, for per-field validation. */
+function leafNodes(schema: any, prefix = '', out: Map<string, any> = new Map()): Map<string, any> {
+  const shape = schema.shape as Record<string, unknown>
+  for (const [key, field] of Object.entries(shape)) {
+    const path = prefix ? `${prefix}.${key}` : key
+    const inner = unwrap(field)
+    if (defType(inner) === 'object') leafNodes(inner, path, out)
+    else out.set(path, inner)
+  }
+  return out
+}
+
 /** Leaf names that occur more than once in the schema (would force a dotted
  *  fallback). Empty array = every leaf flattens cleanly. CI guard. */
 export function leafNameCollisions(schema: any): string[] {
@@ -149,12 +161,16 @@ export function decodeConfig<T extends ZodObject<any>>(
   const defaults = schema.parse({}) as Json
   const leaves = leafTypes(schema)
   const { decode: reverse } = buildUrlKeyMap(schema)
+  const nodes = leafNodes(schema)
   const out = structuredClone(defaults)
   for (const [rawKey, raw] of params) {
     const path = reverse.get(rawKey) ?? rawKey // flat → dotted; legacy dotted keys pass through
     const leaf = leaves.get(path)
     if (!leaf) continue // unknown / non-schema param → ignore
-    setPath(out, path, decodeLeaf(raw, leaf))
+    const value = decodeLeaf(raw, leaf)
+    const node = nodes.get(path)
+    if (node && !node.safeParse(value).success) continue // bad field → keep its default
+    setPath(out, path, value)
   }
   // safeParse so a bad/hand-edited URL degrades to defaults instead of throwing.
   const result = schema.safeParse(out)
