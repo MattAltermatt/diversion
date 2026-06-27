@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { z } from 'zod'
 import { SchemaForm } from './SchemaForm'
 
@@ -55,5 +55,32 @@ describe('SchemaForm', () => {
     rerender(<SchemaForm schema={swSchema} value={{ mode: 'b', onlyA: 5, onlyB: 9 }} onChange={() => {}} />)
     expect(screen.queryByText('Only A')).not.toBeInTheDocument()
     expect(screen.getByText('Only B')).toBeInTheDocument()
+  })
+
+  it('groups fields into collapsible subpanels by section', () => {
+    const secSchema = z.object({
+      a: z.number().default(1).meta({ ui: 'number', label: 'Field A', section: 'Alpha' }),
+      b: z.number().default(2).meta({ ui: 'number', label: 'Field B', section: 'Beta' }),
+    })
+    render(<SchemaForm schema={secSchema} value={secSchema.parse({})} onChange={() => {}} />)
+    // each section is a header button, expanded by default, with its control visible
+    const alpha = screen.getByRole('button', { name: /Alpha/ })
+    expect(alpha).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Field A')).toBeInTheDocument()
+    expect(screen.getByText('Field B')).toBeInTheDocument()
+    // collapsing Alpha hides ITS control but leaves Beta untouched (discoverable, not gone)
+    fireEvent.click(alpha)
+    expect(alpha).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Field A')).not.toBeInTheDocument()
+    expect(screen.getByText('Field B')).toBeInTheDocument()
+  })
+
+  it('renders no subpanel chrome when the schema declares no sections', () => {
+    const flat = z.object({
+      x: z.number().default(1).meta({ ui: 'number', label: 'Ex' }),
+    })
+    const { container } = render(<SchemaForm schema={flat} value={flat.parse({})} onChange={() => {}} />)
+    expect(container.querySelector('.subpanel')).toBeNull()
+    expect(screen.getByText('Ex')).toBeInTheDocument()
   })
 })

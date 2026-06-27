@@ -11,6 +11,7 @@ export interface FieldMeta {
   step?: number
   options?: string[] // for ui:'segmented' (mirrors enum values)
   showWhen?: { field: string; equals: string } // render only when a sibling field === this value
+  section?: string // groups the field under a collapsible subpanel in the config form
 }
 
 /** Read a field's UI meta via Zod's public .meta(). Returns undefined if unset. */

@@ -197,6 +197,53 @@ button {
   flex-direction: column;
   gap: 18px;
 }
+
+/* ── Subpanels ────────────────────────────────────────────────────────────── */
+/* Collapsible sections that group related controls. Header names the section and
+   toggles its body; default-open so nothing hides until the user tucks it away. */
+.subpanel {
+  display: flex;
+  flex-direction: column;
+}
+.subpanel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0 8px;
+  cursor: pointer;
+  color: var(--accent-2);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.subpanel-head:hover {
+  color: var(--accent);
+}
+.subpanel-chevron {
+  font-size: 14px;
+  width: 14px;
+  text-align: center;
+}
+.subpanel-title {
+  flex: 1;
+  text-align: left;
+}
+.subpanel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 16px;
+}
+/* a preset picker inside a subpanel drops its own divider — the subpanel provides it */
+.subpanel-body .preset-picker {
+  border-bottom: none;
+  padding-bottom: 0;
+}
 .ctl {
   display: flex;
   flex-direction: column;

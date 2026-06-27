@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { Fragment, type ComponentType, type ReactNode } from 'react'
 import type { ZodObject, ZodType } from 'zod'
 import { fields, type FieldMeta } from './fieldMeta'
 import { Slider } from './controls/Slider'
@@ -8,6 +8,7 @@ import { Toggle } from './controls/Toggle'
 import { Swatch } from './controls/Swatch'
 import { ColorList } from './controls/ColorList'
 import { Group } from './controls/Group'
+import { Subpanel } from './controls/Subpanel'
 
 type AnyObj = Record<string, any>
 
@@ -54,36 +55,56 @@ export function SchemaForm({
   value: AnyObj
   onChange: (next: AnyObj) => void
 }) {
+  // Render one field to an element (or null when hidden by showWhen). A field
+  // with showWhen renders only when its sibling holds the named value (e.g.
+  // gradient controls appear only in gradient mode); the data stays discoverable
+  // — switch the controlling field and it returns.
+  const renderField = ([key, field, meta]: [string, ZodType, FieldMeta]): ReactNode => {
+    if (meta.showWhen && value[meta.showWhen.field] !== meta.showWhen.equals) return null
+    if (meta.ui === 'group') {
+      return (
+        <Group key={key} label={meta.label}>
+          <SchemaForm
+            schema={asObject(field)}
+            value={value[key]}
+            onChange={(sub) => onChange({ ...value, [key]: sub })}
+          />
+        </Group>
+      )
+    }
+    const Control = controlFor(meta.ui)
+    if (!Control) throw new Error(`SchemaForm: unknown control ui "${meta.ui}" for field "${key}"`)
+    return (
+      <Control
+        key={key}
+        meta={meta}
+        value={value[key]}
+        onChange={(v: any) => onChange({ ...value, [key]: v })}
+      />
+    )
+  }
+
+  // Bucket fields by their `section` (first-appearance order; fields keep their
+  // schema order within a section). Untagged fields share the `undefined` bucket
+  // and render loose — so a schema with no sections looks exactly as before.
+  const order: Array<string | undefined> = []
+  const buckets = new Map<string | undefined, Array<[string, ZodType, FieldMeta]>>()
+  for (const entry of fields(schema)) {
+    const sec = entry[2].section
+    if (!buckets.has(sec)) { buckets.set(sec, []); order.push(sec) }
+    buckets.get(sec)!.push(entry)
+  }
+
   return (
     <div className="schema-form">
-      {fields(schema).map(([key, field, meta]) => {
-        // Conditional visibility: a field with showWhen renders only when its
-        // sibling field holds the named value (e.g. gradient controls appear
-        // only in gradient mode). The data stays discoverable — switch the
-        // controlling field and it returns.
-        if (meta.showWhen && value[meta.showWhen.field] !== meta.showWhen.equals) {
-          return null
-        }
-        if (meta.ui === 'group') {
-          return (
-            <Group key={key} label={meta.label}>
-              <SchemaForm
-                schema={asObject(field)}
-                value={value[key]}
-                onChange={(sub) => onChange({ ...value, [key]: sub })}
-              />
-            </Group>
-          )
-        }
-        const Control = controlFor(meta.ui)
-        if (!Control) throw new Error(`SchemaForm: unknown control ui "${meta.ui}" for field "${key}"`)
+      {order.map((sec) => {
+        const rendered = buckets.get(sec)!.map(renderField)
+        if (rendered.every((el) => el === null)) return null // all hidden → drop the section
+        if (!sec) return <Fragment key="__loose">{rendered}</Fragment>
         return (
-          <Control
-            key={key}
-            meta={meta}
-            value={value[key]}
-            onChange={(v: any) => onChange({ ...value, [key]: v })}
-          />
+          <Subpanel key={sec} label={sec}>
+            {rendered}
+          </Subpanel>
         )
       })}
     </div>

@@ -19,6 +19,12 @@ describe('gravityWellsSchema', () => {
     expect(() => gravityWellsSchema.parse({ forceMin: -0.5 })).toThrow()
     expect(() => gravityWellsSchema.parse({ forceMax: -0.1 })).toThrow()
   })
+  it('tags fields with config-form sections', () => {
+    const shape = gravityWellsSchema.shape
+    expect((shape.particles.meta() as { section?: string }).section).toBe('Particles')
+    expect((shape.swirl.meta() as { section?: string }).section).toBe('Gravity Wells')
+    expect((shape.seed.meta() as { section?: string }).section).toBe('Advanced')
+  })
   it('offers flow-angle and field gradient sources (flow field, not a physics sim)', () => {
     expect(gravityWellsSchema.parse({ color: { mode: 'gradient', source: 'field',
       colors: ['#ffffffff'], stops: ['#000000ff', '#ffffffff'] } }).color.source).toBe('field')

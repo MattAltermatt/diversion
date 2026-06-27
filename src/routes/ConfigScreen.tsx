@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation, useNavigationType } from 're
 import { getDiversion } from '../framework/registry'
 import { SchemaForm } from '../framework/SchemaForm'
 import { PresetPicker } from '../framework/PresetPicker'
+import { Subpanel } from '../framework/controls/Subpanel'
 import { AnimationHost } from '../framework/AnimationHost'
 import { encodeConfig, decodeConfig } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
@@ -47,7 +48,11 @@ export function ConfigScreen() {
           </Link>
           <h2>{diversion.title}</h2>
         </header>
-        <PresetPicker groups={diversion.presets} value={config} onApply={update} />
+        {diversion.presets?.length ? (
+          <Subpanel label="Presets">
+            <PresetPicker groups={diversion.presets} value={config} onApply={update} />
+          </Subpanel>
+        ) : null}
         <SchemaForm schema={diversion.schema} value={config} onChange={update} />
         <div className="config-actions">
           <Link className="open-btn" to={playHref}>

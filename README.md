@@ -66,7 +66,7 @@ export default myDiversion
 ### The five UX invariants (non-negotiable)
 
 1. **Readability is key** — legible type, no decorative-over-legible tradeoffs.
-2. **Hide nothing** — every param stays discoverable with its live value shown; nested groups expanded. Mode-dependent controls may swap via `showWhen` (e.g. the Color panel shows palette *or* gradient controls) as long as the hidden data returns when you switch the controlling field.
+2. **Discoverable, not buried** — every param stays discoverable and carries help when its effect isn't obvious. Values needn't be on-screen at all times: collapsible sections, subpanels, and `showWhen` mode-swaps (e.g. the Color panel shows palette *or* gradient controls) are all fine, as long as the control is easy to find and its value returns when you open the section / switch the controlling field.
 3. **Add help when confusing** — `.meta({ help })` renders as persistent inline subtext.
 4. **Sliders only when bounded** — `ui:'slider'` needs `min`/`max`; open-ended numbers use `ui:'number'`.
 5. **Err toward more contrast** — high-contrast palette, crisp borders.

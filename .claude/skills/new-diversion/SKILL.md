@@ -11,7 +11,7 @@ Read `CLAUDE.md` and `src/framework/types.ts` before starting. Mirror the refere
 
 ## The five UX invariants (MUST — implement in the first pass)
 
-1. **Readability is key.** 2. **Hide nothing** — every param visible, groups expanded, live values shown. 3. **Add inline help** when a param is confusing (`.meta({ help })`, persistent — not hover-only). 4. **Sliders only when bounds are defined** — `ui:'slider'` requires `min`+`max`; open-ended numbers use `ui:'number'`. 5. **Err toward more contrast.**
+1. **Readability is key.** 2. **Discoverable, not buried** — every param stays discoverable and carries help when its effect isn't obvious. Values needn't be on-screen 100% of the time: collapsible sections, subpanels, and `showWhen` mode-swaps are fine as long as the control is easy to find and its value returns when you open the section / switch the controlling field. 3. **Add inline help** when a param is confusing (`.meta({ help })`, persistent — not hover-only). 4. **Sliders only when bounds are defined** — `ui:'slider'` requires `min`+`max`; open-ended numbers use `ui:'number'`. 5. **Err toward more contrast.**
 
 ## Checklist
 
