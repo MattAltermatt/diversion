@@ -18,6 +18,17 @@ export function hexToRgba(hex: string): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
+const TRAIL_FADE_FLOOR = 0.02
+/** trailLength 0..100 -> per-frame fade alpha 1.0..0.02 (higher length = longer trail). */
+export function trailFadeAlpha(trailLength: number): number {
+  const a = 1 - (trailLength / 100) * (1 - TRAIL_FADE_FLOOR)
+  return Math.min(1, Math.max(TRAIL_FADE_FLOOR, a))
+}
+/** 0..1 alpha -> two-digit hex byte for hex-append (e.g. 0.1376 -> "23"). */
+export function toHex2(alpha: number): string {
+  return Math.round(alpha * 255).toString(16).padStart(2, '0')
+}
+
 export interface FlowState {
   particles: Particle[]
   noise: (x: number, y: number) => number
@@ -28,16 +39,19 @@ export interface FlowState {
   h: number
 }
 
-// Particle recycling lifespans, in MILLISECONDS (so behavior is identical at
-// 30/60/120fps). Without respawning, every particle drifts onto the field's
-// dominant attractor and the rest of the field empties out — so particles get
-// a finite, staggered life and respawn at a fresh position. Mechanism
-// constants, not visual balance knobs (~1.3–4s).
-const MIN_LIFE = 1333
-const MAX_LIFE = 4000
-
-function randomLife(rng: () => number): number {
-  return MIN_LIFE + rng() * (MAX_LIFE - MIN_LIFE)
+// Particle lifespans are derived from the `lifespan` slider (seconds -> ms) so
+// behavior is identical at any fps. The fixed ⅓ min/max ratio preserves the
+// staggered respawns (anti-pulse) and keeps the field populated — without
+// respawning, every particle drifts onto the dominant attractor and the rest
+// empties out. The schema floor (0.5s) keeps the field from degenerating.
+const LIFE_MIN_RATIO = 1 / 3
+function lifeBounds(lifespanSeconds: number): { min: number; max: number } {
+  const max = lifespanSeconds * 1000
+  return { min: max * LIFE_MIN_RATIO, max }
+}
+function randomLife(rng: () => number, lifespanSeconds: number): number {
+  const { min, max } = lifeBounds(lifespanSeconds)
+  return min + rng() * (max - min)
 }
 
 export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): FlowState {
@@ -47,11 +61,12 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
   const rng = mulberry32((cfg.seed ^ 0x9e3779b9) >>> 0)
   const styles = cfg.palette.colors.map(hexToRgba)
   const n = cfg.palette.colors.length
+  const maxLife = lifeBounds(cfg.lifespan).max
   const particles: Particle[] = Array.from({ length: cfg.particles }, () => ({
     x: rng() * w,
     y: rng() * h,
-    age: rng() * MAX_LIFE, // stagger initial ages so respawns don't pulse
-    life: randomLife(rng),
+    age: rng() * maxLife, // stagger initial ages so respawns don't pulse
+    life: randomLife(rng, cfg.lifespan),
     ci: Math.floor(rng() * n), // pick a palette color for this particle's life
   }))
   return { particles, noise, rng, styles, cfg, w, h }
@@ -59,9 +74,10 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
 
 export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: number) {
   const { particles, noise, rng, styles, cfg, w, h } = state
-  // fade the canvas for trails (or hard-clear)
+  // fade the canvas for trails (alpha from the Trail length slider), or hard-clear
   ctx.globalCompositeOperation = 'source-over'
-  ctx.fillStyle = cfg.fadeTrails ? `${cfg.palette.background}22` : cfg.palette.background
+  const fadeAlpha = cfg.fadeTrails ? trailFadeAlpha(cfg.trailLength) : 1
+  ctx.fillStyle = `${cfg.palette.background}${toHex2(fadeAlpha)}`
   ctx.fillRect(0, 0, w, h)
 
   // 'normal' is not a valid composite op — map it to the canvas default.
@@ -76,7 +92,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
       p.x = rng() * w
       p.y = rng() * h
       p.age = 0
-      p.life = randomLife(rng)
+      p.life = randomLife(rng, cfg.lifespan)
       p.ci = Math.floor(rng() * styles.length)
       continue // skip drawing this frame to avoid a streak from old→new position
     }

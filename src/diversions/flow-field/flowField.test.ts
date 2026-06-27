@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createFlowState, hexToRgba } from './flowField'
+import { createFlowState, hexToRgba, trailFadeAlpha, toHex2 } from './flowField'
 import { flowFieldSchema } from './schema'
 
 const base = flowFieldSchema.parse({})
@@ -41,5 +41,56 @@ describe('createFlowState determinism', () => {
     const a = createFlowState({ ...base, particles: 50, seed: 1 }, 800, 600)
     const b = createFlowState({ ...base, particles: 50, seed: 2 }, 800, 600)
     expect(a.particles).not.toEqual(b.particles)
+  })
+})
+
+describe('trailFadeAlpha', () => {
+  it('maps 0 -> full wipe (1.0) and 100 -> the floor (0.02)', () => {
+    expect(trailFadeAlpha(0)).toBe(1)
+    expect(trailFadeAlpha(100)).toBeCloseTo(0.02, 5)
+  })
+  it('matches the legacy ~0.13 fade near the default (88)', () => {
+    expect(trailFadeAlpha(88)).toBeCloseTo(0.1376, 3)
+  })
+  it('is monotonically decreasing in trail length', () => {
+    expect(trailFadeAlpha(20)).toBeGreaterThan(trailFadeAlpha(80))
+  })
+})
+
+describe('toHex2', () => {
+  it('converts a 0..1 alpha to a 2-digit hex byte', () => {
+    expect(toHex2(1)).toBe('ff')
+    expect(toHex2(0)).toBe('00')
+    expect(toHex2(0.1376)).toBe('23') // round(0.1376*255)=35=0x23
+  })
+})
+
+describe('lifespan-derived particle life', () => {
+  it('keeps every particle life within [lifespan/3, lifespan] seconds (default 4s)', () => {
+    const cfg = flowFieldSchema.parse({})
+    const s = createFlowState({ ...cfg, particles: 300 }, 800, 600)
+    for (const p of s.particles) {
+      expect(p.life).toBeGreaterThanOrEqual(1333) // 4000/3
+      expect(p.life).toBeLessThanOrEqual(4000)
+    }
+  })
+  it('scales the bounds with the lifespan slider (12s -> [4000, 12000])', () => {
+    const cfg = flowFieldSchema.parse({})
+    const s = createFlowState({ ...cfg, particles: 300, lifespan: 12 }, 800, 600)
+    for (const p of s.particles) {
+      expect(p.life).toBeGreaterThanOrEqual(4000)
+      expect(p.life).toBeLessThanOrEqual(12000)
+    }
+  })
+})
+
+describe('schema defaults', () => {
+  it('defaults blend to screen (out-of-box white-out tame)', () => {
+    expect(flowFieldSchema.parse({}).blend).toBe('screen')
+  })
+  it('defaults trailLength to 88 and lifespan to 4', () => {
+    const cfg = flowFieldSchema.parse({})
+    expect(cfg.trailLength).toBe(88)
+    expect(cfg.lifespan).toBe(4)
   })
 })
