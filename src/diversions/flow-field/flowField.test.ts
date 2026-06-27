@@ -102,14 +102,14 @@ describe('lifespan-derived particle life', () => {
 })
 
 describe('schema defaults', () => {
-  it('defaults blend to screen (out-of-box white-out tame)', () => {
-    expect(flowFieldSchema.parse({}).blend).toBe('screen')
+  it('defaults blend to normal (color-true out of the box)', () => {
+    expect(flowFieldSchema.parse({}).blend).toBe('normal')
   })
-  it('pins the curated defaults (trailLength 17, lifespan 1.2, particles 7300)', () => {
+  it('pins the curated defaults (Slow Fuzz: trailLength 72, lifespan 6.5, particles 16200)', () => {
     const cfg = flowFieldSchema.parse({})
-    expect(cfg.trailLength).toBe(17)
-    expect(cfg.lifespan).toBe(1.2)
-    expect(cfg.particles).toBe(7300)
+    expect(cfg.trailLength).toBe(72)
+    expect(cfg.lifespan).toBe(6.5)
+    expect(cfg.particles).toBe(16200)
   })
 })
 
@@ -159,7 +159,7 @@ describe('color-panel schema defaults', () => {
   })
   it('keeps background as a top-level field (shared across modes)', () => {
     const cfg = flowFieldSchema.parse({})
-    expect(cfg.background).toBe('#0a0a12')
+    expect(cfg.background).toBe('#050810')
     expect('background' in cfg.color).toBe(false)
   })
   it('defaults the gradient controls: flow-angle source + >=2 evenly-spaced stops', () => {
@@ -255,8 +255,8 @@ describe('field drift', () => {
     expect(state.fieldTime).toBe(12.5) // morph continues, not reset
   })
 
-  it('defaults fieldDrift to 0.14 and round-trips a non-zero value', () => {
-    expect(flowFieldSchema.parse({}).fieldDrift).toBe(0.14)
+  it('defaults fieldDrift to 0.71 and round-trips a non-zero value', () => {
+    expect(flowFieldSchema.parse({}).fieldDrift).toBe(0.71)
     const sp = encodeConfig(flowFieldSchema, { ...base, fieldDrift: 0.3 })
     expect(decodeConfig(flowFieldSchema, sp).fieldDrift).toBeCloseTo(0.3, 10)
   })
