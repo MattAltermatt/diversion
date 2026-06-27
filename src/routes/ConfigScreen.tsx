@@ -5,6 +5,7 @@ import { SchemaForm } from '../framework/SchemaForm'
 import { PresetPicker } from '../framework/PresetPicker'
 import { AnimationHost } from '../framework/AnimationHost'
 import { encodeConfig, decodeConfig } from '../framework/urlCodec'
+import { CopyLinkButton } from '../framework/CopyLinkButton'
 
 export function ConfigScreen() {
   const { slug } = useParams()
@@ -48,9 +49,12 @@ export function ConfigScreen() {
         </header>
         <PresetPicker groups={diversion.presets} value={config} onApply={update} />
         <SchemaForm schema={diversion.schema} value={config} onChange={update} />
-        <Link className="open-btn" to={playHref}>
-          Open animation ↗
-        </Link>
+        <div className="config-actions">
+          <Link className="open-btn" to={playHref}>
+            Open animation ↗
+          </Link>
+          <CopyLinkButton href={playHref} />
+        </div>
       </aside>
       <main className="config-preview">
         <Link className="animate-pill" to={playHref}>

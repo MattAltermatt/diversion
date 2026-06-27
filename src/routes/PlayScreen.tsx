@@ -3,6 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { decodeConfig } from '../framework/urlCodec'
+import { CopyLinkButton } from '../framework/CopyLinkButton'
 
 export function PlayScreen() {
   const { slug } = useParams()
@@ -41,9 +42,12 @@ export function PlayScreen() {
 
   return (
     <div className={`play-screen ${idle ? 'idle' : ''}`}>
-      <Link to={{ pathname: `/d/${diversion.id}`, search }} className="play-back">
-        ← config
-      </Link>
+      <div className="play-chrome">
+        <Link to={{ pathname: `/d/${diversion.id}`, search }} className="play-back">
+          ← config
+        </Link>
+        <CopyLinkButton href={`/d/${diversion.id}/play${search}`} className="play-copy" />
+      </div>
       <AnimationHost diversion={diversion} config={config} fullscreenable />
     </div>
   )

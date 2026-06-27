@@ -489,9 +489,14 @@ input[type='color'] {
   padding: 0 4px;
 }
 
-/* open-animation button */
-.open-btn {
+/* open-animation button + copy-link, paired as the panel's "leave this screen" actions */
+.config-actions {
   margin-top: auto;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.open-btn {
   text-align: center;
   background: var(--accent);
   color: var(--accent-ink);
@@ -499,6 +504,27 @@ input[type='color'] {
   padding: 10px 14px;
   border-radius: var(--radius);
   letter-spacing: 0.04em;
+}
+.config-actions .open-btn {
+  flex: 1;
+}
+
+/* copy-share-link button — label swaps to "✓ Copied"; min-width pinned so it
+   never reflows under the cursor on swap. */
+.copy-link-btn {
+  min-width: 116px;
+  white-space: nowrap;
+  font: inherit;
+  color: var(--accent);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.copy-link-btn:hover {
+  border-color: var(--accent);
 }
 
 /* ── Animation host ───────────────────────────────────────────────────────── */
@@ -544,11 +570,17 @@ input[type='color'] {
   inset: 0;
   background: #000;
 }
-.play-back {
+/* top-left chrome: ← config + copy-link, side by side */
+.play-chrome {
   position: absolute;
   top: 14px;
   left: 16px;
   z-index: 2;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.play-back {
   font-size: 12px;
   color: var(--accent);
   background: rgba(8, 16, 18, 0.6);
@@ -556,14 +588,23 @@ input[type='color'] {
   border-radius: 6px;
   padding: 6px 10px;
 }
+/* match the translucent dark chrome of ← config (overrides the panel look) */
+.play-copy {
+  min-width: 102px;
+  font-size: 12px;
+  background: rgba(8, 16, 18, 0.6);
+  border-color: #2a3a40;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
 
 /* auto-hide chrome on idle (screensaver feel) */
 .play-screen .anim-bar,
-.play-screen .play-back {
+.play-screen .play-chrome {
   transition: opacity 0.4s ease;
 }
 .play-screen.idle .anim-bar,
-.play-screen.idle .play-back {
+.play-screen.idle .play-chrome {
   opacity: 0;
   pointer-events: none;
 }
