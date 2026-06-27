@@ -105,6 +105,10 @@ describe('schema defaults', () => {
   it('defaults blend to normal (color-true out of the box)', () => {
     expect(flowFieldSchema.parse({}).blend).toBe('normal')
   })
+  it('offers lighten (glow without white-out) and has dropped the footgun lighter', () => {
+    expect(flowFieldSchema.parse({ blend: 'lighten' }).blend).toBe('lighten')
+    expect(() => flowFieldSchema.parse({ blend: 'lighter' })).toThrow()
+  })
   it('pins the curated defaults (Slow Fuzz: trailLength 72, lifespan 6.5, particles 16200)', () => {
     const cfg = flowFieldSchema.parse({})
     expect(cfg.trailLength).toBe(72)

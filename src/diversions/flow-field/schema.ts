@@ -21,12 +21,12 @@ export const flowFieldSchema = z.object({
   seed: z.number().int().default(10847)
     .meta({ ui: 'number', step: 1, label: 'Seed',
             help: 'Any integer. The same seed always regenerates the same pattern.' }),
-  blend: z.enum(['lighter', 'screen', 'normal']).default('normal')
-    .meta({ ui: 'segmented', options: ['lighter', 'screen', 'normal'], label: 'Blend',
+  blend: z.enum(['lighten', 'screen', 'normal']).default('normal')
+    .meta({ ui: 'segmented', options: ['lighten', 'screen', 'normal'], label: 'Blend',
             help: 'How overlapping ribbons combine:\n'
                 + '- normal (default): each particle’s true color\n'
                 + '- screen: glows and mixes; dense areas wash to white\n'
-                + '- lighter: stronger glow; whites out fastest' }),
+                + '- lighten: colored glow that keeps its hue — no white-out' }),
   fadeTrails: z.boolean().default(true)
     .meta({ ui: 'toggle', label: 'Motion trails',
             help: 'On: particles leave trails that fade out. Off: each frame is wiped clean.' }),
