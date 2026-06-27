@@ -29,11 +29,11 @@ describe('metaballs schema', () => {
     }
   })
 
-  it('round-trips a tweaked config through the URL codec, omitting defaults', () => {
+  it('round-trips a tweaked config through the URL codec (full snapshot)', () => {
     const cfg = { ...metaballsSchema.parse({}), blobCount: 12, colorB: '#00ffcc' }
     const sp = encodeConfig(metaballsSchema, cfg)
     expect(sp.get('blobCount')).toBe('12')
-    expect(sp.has('speed')).toBe(false) // default omitted
+    expect(sp.has('speed')).toBe(true) // full snapshot — every field emitted
     expect(decodeConfig(metaballsSchema, sp)).toEqual(cfg)
   })
 })

@@ -17,18 +17,24 @@ const schema = z.object({
 
 const defaults = schema.parse({})
 
-describe('encodeConfig', () => {
-  it('omits values equal to defaults (empty for all-default config)', () => {
-    expect(encodeConfig(schema, defaults).toString()).toBe('')
+describe('encodeConfig (full snapshot, flat keys)', () => {
+  it('emits every field (full snapshot, not just changes)', () => {
+    const sp = encodeConfig(schema, defaults)
+    expect(sp.get('particles')).toBe('4000')
+    expect(sp.get('speed')).toBe('1.2')
+    expect(sp.get('blend')).toBe('lighter')
+    expect(sp.get('fadeTrails')).toBe('true')
+    // nested group leaves flatten to their unique leaf name
+    expect(sp.get('background')).toBe('#0a0a12')
+    expect(sp.get('hueStart')).toBe('200')
+    expect(sp.has('palette.hueStart')).toBe(false) // dotted form not used when leaf is unique
   })
 
-  it('emits only changed values, flattening nested keys', () => {
+  it('reflects changed values under flat keys', () => {
     const cfg = { ...defaults, particles: 8000, palette: { background: '#0a0a12', hueStart: 300 } }
     const sp = encodeConfig(schema, cfg)
     expect(sp.get('particles')).toBe('8000')
-    expect(sp.get('palette.hueStart')).toBe('300')
-    expect(sp.has('speed')).toBe(false) // unchanged → omitted
-    expect(sp.has('palette.background')).toBe(false)
+    expect(sp.get('hueStart')).toBe('300')
   })
 })
 
@@ -43,6 +49,12 @@ describe('decodeConfig', () => {
       palette: { background: '#112233', hueStart: 90 },
     }
     expect(decodeConfig(schema, encodeConfig(schema, cfg))).toEqual(cfg)
+  })
+
+  it('still decodes legacy dotted-key URLs', () => {
+    const out = decodeConfig(schema, new URLSearchParams('particles=5000&palette.hueStart=120'))
+    expect(out.particles).toBe(5000)
+    expect(out.palette.hueStart).toBe(120)
   })
 
   it('fills omitted params from defaults', () => {
@@ -98,10 +110,10 @@ describe('non-numeric arrays, vectors, and strings (#3)', () => {
     expect(decodeConfig(arrSchema, encodeConfig(arrSchema, cfg))).toEqual(cfg)
   })
 
-  it('omits arrays still at their default', () => {
+  it('emits arrays even at their default (full snapshot)', () => {
     const sp = encodeConfig(arrSchema, { ...arrDefaults, label: 'ember' })
-    expect(sp.has('ramp')).toBe(false)
-    expect(sp.has('weights')).toBe(false)
+    expect(sp.has('ramp')).toBe(true)
+    expect(sp.has('weights')).toBe(true)
     expect(sp.get('label')).toBe('ember')
   })
 })

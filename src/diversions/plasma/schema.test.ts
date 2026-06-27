@@ -23,11 +23,11 @@ describe('plasma schema', () => {
     }
   })
 
-  it('round-trips a tweaked config through the URL codec, omitting defaults', () => {
+  it('round-trips a tweaked config through the URL codec (full snapshot)', () => {
     const cfg = { ...plasmaSchema.parse({}), scale: 5.5, colorB: '#00ffcc' }
     const sp = encodeConfig(plasmaSchema, cfg)
     expect(sp.get('scale')).toBe('5.5')
-    expect(sp.has('speed')).toBe(false) // default omitted
+    expect(sp.has('speed')).toBe(true) // full snapshot — every field emitted
     expect(decodeConfig(plasmaSchema, sp)).toEqual(cfg)
   })
 })

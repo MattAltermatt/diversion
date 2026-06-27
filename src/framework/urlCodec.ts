@@ -49,6 +49,39 @@ function leafTypes(schema: any, prefix = '', out: Map<string, Leaf> = new Map())
   return out
 }
 
+/** Map each dotted leaf path to its URL key and back. The URL key is the leaf's
+ *  final segment when that name is globally unique within the schema; otherwise
+ *  the full dotted path (collision fallback). Keeps URLs flat while staying
+ *  unambiguous. */
+function buildUrlKeyMap(schema: any): { encode: Map<string, string>; decode: Map<string, string> } {
+  const paths = [...leafTypes(schema).keys()]
+  const counts = new Map<string, number>()
+  for (const p of paths) {
+    const leaf = p.split('.').at(-1)!
+    counts.set(leaf, (counts.get(leaf) ?? 0) + 1)
+  }
+  const encode = new Map<string, string>()
+  const decode = new Map<string, string>()
+  for (const p of paths) {
+    const leaf = p.split('.').at(-1)!
+    const key = counts.get(leaf) === 1 ? leaf : p
+    encode.set(p, key)
+    decode.set(key, p)
+  }
+  return { encode, decode }
+}
+
+/** Leaf names that occur more than once in the schema (would force a dotted
+ *  fallback). Empty array = every leaf flattens cleanly. CI guard. */
+export function leafNameCollisions(schema: any): string[] {
+  const counts = new Map<string, number>()
+  for (const p of leafTypes(schema).keys()) {
+    const leaf = p.split('.').at(-1)!
+    counts.set(leaf, (counts.get(leaf) ?? 0) + 1)
+  }
+  return [...counts.entries()].filter(([, n]) => n > 1).map(([leaf]) => leaf)
+}
+
 // --- value <-> string encoding ----------------------------------------------
 
 // Arrays join with ',' after per-element encodeURIComponent (which escapes ','
@@ -100,12 +133,11 @@ export function encodeConfig<T extends ZodObject<any>>(
   schema: T,
   value: ReturnType<T['parse']>,
 ): URLSearchParams {
-  const defaults = schema.parse({}) as Json
   const flatVal = flatten(value as Json)
-  const flatDef = flatten(defaults)
+  const { encode } = buildUrlKeyMap(schema)
   const sp = new URLSearchParams()
-  for (const [k, v] of Object.entries(flatVal)) {
-    if (v !== flatDef[k]) sp.set(k, v) // omit anything still at default
+  for (const [path, v] of Object.entries(flatVal)) {
+    sp.set(encode.get(path) ?? path, v) // full snapshot — every field, flat leaf name
   }
   return sp
 }
@@ -116,11 +148,13 @@ export function decodeConfig<T extends ZodObject<any>>(
 ): ReturnType<T['parse']> {
   const defaults = schema.parse({}) as Json
   const leaves = leafTypes(schema)
+  const { decode: reverse } = buildUrlKeyMap(schema)
   const out = structuredClone(defaults)
-  for (const [k, raw] of params) {
-    const leaf = leaves.get(k)
+  for (const [rawKey, raw] of params) {
+    const path = reverse.get(rawKey) ?? rawKey // flat → dotted; legacy dotted keys pass through
+    const leaf = leaves.get(path)
     if (!leaf) continue // unknown / non-schema param → ignore
-    setPath(out, k, decodeLeaf(raw, leaf))
+    setPath(out, path, decodeLeaf(raw, leaf))
   }
   // safeParse so a bad/hand-edited URL degrades to defaults instead of throwing.
   const result = schema.safeParse(out)
