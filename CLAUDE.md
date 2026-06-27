@@ -9,6 +9,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 - **`kind: '2d' | 'webgl'`** selects which context the host acquires. 2D contexts are DPR-scaled so sims draw in CSS pixels; WebGL gets device pixels.
 - **Registry auto-discovers** diversions via `import.meta.glob('../diversions/*/index.ts')` — a new folder is picked up with no registration.
 - **Config ⇆ URL codec** (`framework/urlCodec.ts`): flatten nested → dotted keys, omit defaults (short URLs), `safeParse` on decode (bad URL → defaults, never throws into the loop). It is the keystone — keep it fully tested.
+- **Presets are declared data, not chrome** (`framework/presets.ts` + `PresetGroup`/`PresetOption` in `types.ts`). A diversion optionally declares `presets?: PresetGroup<Config>[]` — named groups (independent axes, e.g. Flow Field's `Flow` + `Color`) whose options each carry a `patch: Partial<Config>`. `ConfigScreen` renders one `<PresetPicker>` dropdown per group above the form; picking applies `{...config, ...patch}` through the same `update` path the form uses (so canvas + controls + URL stay in lockstep), and `matchPresets` flips a group to "Custom" the moment a manual edit drifts off the preset. Top-level spread, so a nested group (`color`) must be patched whole. Honors the black-box rule — the framework renders; the diversion only describes. `matchPresets` assumes equal key-sets per group (see its comment).
 
 ## The five UX invariants (treat as MUST)
 

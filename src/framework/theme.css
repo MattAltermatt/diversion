@@ -147,6 +147,35 @@ button {
   background: radial-gradient(130% 130% at 72% 28%, #0c161b, #050507);
 }
 
+/* ── Preset picker ────────────────────────────────────────────────────────── */
+/* Sits above the form: pick a vibe, then fine-tune below. Separated from the
+   per-field controls so it reads as a distinct "starting point" affordance. */
+.preset-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.preset-select {
+  width: 100%;
+  background: var(--field);
+  color: var(--fg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.preset-select:hover {
+  border-color: var(--line-2);
+}
+.preset-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ── Controls ─────────────────────────────────────────────────────────────── */
 .schema-form {
   display: flex;

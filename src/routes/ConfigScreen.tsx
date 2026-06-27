@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { SchemaForm } from '../framework/SchemaForm'
+import { PresetPicker } from '../framework/PresetPicker'
 import { AnimationHost } from '../framework/AnimationHost'
 import { encodeConfig, decodeConfig } from '../framework/urlCodec'
 
@@ -45,6 +46,7 @@ export function ConfigScreen() {
           </Link>
           <h2>{diversion.title}</h2>
         </header>
+        <PresetPicker groups={diversion.presets} value={config} onApply={update} />
         <SchemaForm schema={diversion.schema} value={config} onChange={update} />
         <Link className="open-btn" to={playHref}>
           Open animation ↗

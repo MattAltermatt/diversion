@@ -17,6 +17,21 @@ export type CtxFor<K extends DiversionKind> = K extends '2d'
   ? CanvasRenderingContext2D
   : WebGL2RenderingContext
 
+/** One pickable preset within a group. `patch` holds the subset of config fields
+ *  the preset sets — applied over the current config (top-level), so a nested
+ *  group (e.g. `color`) must be supplied whole. */
+export interface PresetOption<Config = unknown> {
+  name: string
+  patch: Partial<Config>
+}
+
+/** A labeled set of presets along one independent axis (e.g. "Flow", "Color").
+ *  The framework renders one dropdown per group above the config form. */
+export interface PresetGroup<Config = unknown> {
+  label: string
+  options: PresetOption<Config>[]
+}
+
 export interface Diversion<
   Config = unknown,
   State = unknown,
@@ -34,4 +49,7 @@ export interface Diversion<
    *  if applied live; falsy (or omit the hook) → framework re-runs setup(). */
   update?(state: State, config: Config, size: Size): boolean | void
   teardown?(state: State): void
+  /** Optional named preset groups (motion, palette, …). Each option patches a
+   *  subset of config; the framework renders a dropdown per group. */
+  presets?: PresetGroup<Config>[]
 }

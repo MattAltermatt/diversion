@@ -76,6 +76,8 @@ export default myDiversion
 
 Any field can carry `.meta({ showWhen: { field, equals } })` to render only when a sibling field holds a given value — used by Flow Field's Color panel to swap palette vs gradient controls by mode.
 
+A diversion can also declare `presets?: PresetGroup[]` — named groups (independent axes) whose options each patch a subset of config. The config panel renders a dropdown per group above the form; picking one applies the patch through the normal config→URL path, and the dropdown shows "Custom" once a manual edit drifts off the preset. Flow Field ships **Flow** (motion) and **Color** (palette) groups.
+
 ## Stack
 
 Vite · React 19 · TypeScript · Zod 4 (one schema → form + URL + types) · React Router · Vitest. The config⇆URL codec and the schema-driven form are custom and live in `src/framework/`.
