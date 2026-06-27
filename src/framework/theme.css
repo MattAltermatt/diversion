@@ -242,6 +242,7 @@ button {
   line-height: 1.45;
   color: var(--muted);
   font-family: -apple-system, system-ui, sans-serif;
+  white-space: pre-line; /* honor \n in help text so bullet lists render as lines */
 }
 
 /* range slider */
