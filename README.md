@@ -50,6 +50,8 @@ const myDiversion: Diversion<typeof schema._type> = {
   setup(ctx, config, size) { /* build state */ return state },
   frame(state, ctx, t, dt) { /* draw ONE frame; framework owns the loop */ },
   resize(state, size) { /* optional */ },
+  update(state, config, size) { /* optional: apply config live, return true; */
+                               /* falsy → framework re-runs setup */ return true },
   teardown(state) { /* optional */ },
 }
 export default myDiversion

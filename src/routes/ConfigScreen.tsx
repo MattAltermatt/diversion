@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, Link, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { SchemaForm } from '../framework/SchemaForm'
 import { AnimationHost } from '../framework/AnimationHost'
@@ -8,12 +8,23 @@ import { encodeConfig, decodeConfig } from '../framework/urlCodec'
 export function ConfigScreen() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navType = useNavigationType()
   const diversion = getDiversion(slug!)
 
-  // Initialise from the current URL (stable initializer); fall back to defaults.
+  // Initialise from the router URL (stable initializer); fall back to defaults.
   const [config, setConfig] = useState(() =>
-    diversion ? decodeConfig(diversion.schema, new URLSearchParams(window.location.search)) : null,
+    diversion ? decodeConfig(diversion.schema, new URLSearchParams(location.search)) : null,
   )
+
+  // Back/forward changes the URL but not our edit buffer — re-decode on POP only.
+  // Our own form writes use navigate(replace) (navType !== 'POP'), so no loop.
+  useEffect(() => {
+    if (navType === 'POP' && diversion) {
+      setConfig(decodeConfig(diversion.schema, new URLSearchParams(location.search)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 
   if (!diversion || !config) return <div className="empty">Unknown diversion.</div>
 

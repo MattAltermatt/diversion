@@ -19,5 +19,8 @@ export interface Diversion<Config = unknown> {
   setup(ctx: RenderContext, config: Config, size: Size): DiversionState
   frame(state: DiversionState, ctx: RenderContext, t: number, dt: number): void
   resize?(state: DiversionState, size: Size): void
+  /** Apply a config change to live state without a full re-setup. Return truthy
+   *  if applied live; falsy (or omit the hook) → framework re-runs setup(). */
+  update?(state: DiversionState, config: Config, size: Size): boolean | void
   teardown?(state: DiversionState): void
 }

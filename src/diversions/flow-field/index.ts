@@ -1,6 +1,6 @@
 import type { Diversion, RenderContext, Size } from '../../framework/types'
 import { flowFieldSchema, type FlowFieldConfig } from './schema'
-import { createFlowState, stepFlow, type FlowState } from './flowField'
+import { createFlowState, stepFlow, updateFlowState, type FlowState } from './flowField'
 
 const flowField: Diversion<FlowFieldConfig> = {
   id: 'flow-field',
@@ -23,6 +23,10 @@ const flowField: Diversion<FlowFieldConfig> = {
   resize(state, size) {
     const s = state as FlowState
     s.w = size.width; s.h = size.height
+  },
+
+  update(state, config) {
+    return updateFlowState(state as FlowState, config)
   },
 }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  createFlowState, hexToRgba, trailFadeAlpha, toHex2, sampleGradient, colorSourceT,
+  createFlowState, updateFlowState, hexToRgba, trailFadeAlpha, toHex2, sampleGradient, colorSourceT,
 } from './flowField'
 import { flowFieldSchema } from './schema'
 import { encodeConfig, decodeConfig } from '../../framework/urlCodec'
@@ -174,5 +174,35 @@ describe('color-panel codec round-trip', () => {
     expect(back.background).toBe('#101018')
     expect(back.color.source).toBe('x')
     expect(back.color.stops).toEqual(['#11223344', '#55667788', '#99aabbcc'])
+  })
+})
+
+describe('updateFlowState', () => {
+  it('applies a visual change live, keeping the same particle array', () => {
+    const state = createFlowState(base, 800, 600)
+    const particlesRef = state.particles
+    const ok = updateFlowState(state, { ...base, speed: base.speed + 0.2 })
+    expect(ok).toBe(true)
+    expect(state.cfg.speed).toBe(base.speed + 0.2)
+    expect(state.particles).toBe(particlesRef) // no realloc
+  })
+
+  it('recomputes palette styles when colors change', () => {
+    const state = createFlowState(base, 800, 600)
+    const nextColors = [...base.color.colors]
+    nextColors[0] = '#abcdefff'
+    const ok = updateFlowState(state, { ...base, color: { ...base.color, colors: nextColors } })
+    expect(ok).toBe(true)
+    expect(state.styles[0]).toBe('rgba(171, 205, 239, 1)')
+  })
+
+  it('requests a re-setup (false) when particle count changes', () => {
+    const state = createFlowState(base, 800, 600)
+    expect(updateFlowState(state, { ...base, particles: base.particles + 100 })).toBe(false)
+  })
+
+  it('requests a re-setup (false) when the seed changes', () => {
+    const state = createFlowState(base, 800, 600)
+    expect(updateFlowState(state, { ...base, seed: base.seed + 1 })).toBe(false)
   })
 })

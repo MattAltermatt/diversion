@@ -122,6 +122,17 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
   return { particles, noise, rng, styles, cfg, w, h }
 }
 
+/** Apply a config change to a live FlowState in place. Returns false when the
+ *  change is structural (particle count or seed) and needs a full re-setup;
+ *  true when applied live. Every per-frame param is read live from state.cfg,
+ *  so we just swap cfg and recompute the precomputed palette styles. */
+export function updateFlowState(state: FlowState, cfg: FlowFieldConfig): boolean {
+  if (cfg.particles !== state.cfg.particles || cfg.seed !== state.cfg.seed) return false
+  state.cfg = cfg
+  state.styles = cfg.color.colors.map(hexToRgba)
+  return true
+}
+
 export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: number) {
   const { particles, noise, rng, styles, cfg, w, h } = state
   // fade the canvas for trails (alpha from the Trail length slider), or hard-clear

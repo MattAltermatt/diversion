@@ -16,11 +16,15 @@ export function AnimationHost({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const loopRef = useRef<Loop | null>(null)
+  const runRef = useRef<{ ctx: RenderContext; state: unknown; size: Size } | null>(null)
+  const lastConfigRef = useRef<unknown>(null)
   const pausedRef = useRef(false)
   const [paused, setPaused] = useState(false)
   const [fps, setFps] = useState(0)
 
-  // setup/teardown + the rAF loop. Re-runs only when the diversion or config identity changes.
+  // setup/teardown + the rAF loop. Re-runs only when the diversion changes; the
+  // live run is held in runRef so config changes (below) can swap state under a
+  // never-stopping loop.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -44,13 +48,16 @@ export function AnimationHost({
       return { width: canvas.width, height: canvas.height }
     }
 
-    let size = sizeOf()
+    const size = sizeOf()
     const state = diversion.setup(ctx, config, size)
+    const run = { ctx, state, size }
+    runRef.current = run
+    lastConfigRef.current = config
 
     let acc = 0
     let frames = 0
     const loop = createLoop((t, dt) => {
-      diversion.frame(state, ctx, t, dt)
+      diversion.frame(run.state, ctx, t, dt)
       // Only sample fps when the readout is actually shown — gallery tiles
       // (showChrome=false) shouldn't re-render twice a second for an unseen number.
       if (showChrome) {
@@ -68,8 +75,8 @@ export function AnimationHost({
     loop.start()
 
     const onResize = () => {
-      size = sizeOf()
-      diversion.resize?.(state, size)
+      run.size = sizeOf()
+      diversion.resize?.(run.state, run.size)
     }
     const onVisibility = () => loop.setPaused(pausedRef.current || document.hidden)
     window.addEventListener('resize', onResize)
@@ -80,7 +87,22 @@ export function AnimationHost({
       document.removeEventListener('visibilitychange', onVisibility)
       loop.stop()
       loopRef.current = null
-      diversion.teardown?.(state)
+      runRef.current = null
+      diversion.teardown?.(run.state)
+    }
+  }, [diversion])
+
+  // config changes: apply live via update(), else fall back to a full re-setup.
+  // The loop keeps running; we only swap run.state.
+  useEffect(() => {
+    const run = runRef.current
+    if (!run) return // setup effect runs first on mount with this same config
+    if (config === lastConfigRef.current) return
+    lastConfigRef.current = config
+    const handled = diversion.update?.(run.state, config, run.size)
+    if (!handled) {
+      diversion.teardown?.(run.state)
+      run.state = diversion.setup(run.ctx, config, run.size)
     }
   }, [diversion, config])
 
