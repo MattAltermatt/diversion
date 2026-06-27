@@ -319,7 +319,9 @@ git commit -m "test: guard against URL leaf-name collisions across diversions (#
 
 ---
 
-## Task 4: Flow Field presets — retune Silk, Mariners→normal, add Dusk gradient (subagent-able)
+## Task 4: Flow Field presets — redefine Slow Fuzz, Mariners→normal, add Dusk gradient (subagent-able)
+
+Silk is left untouched. Slow Fuzz is redefined to the new default motion.
 
 **Files:**
 - Modify: `src/diversions/flow-field/presets.ts`
@@ -338,11 +340,12 @@ Change the color-count assertion in the `'exposes every flow/color preset as an 
 Add a new test block:
 
 ```ts
-  it('Silk is retuned to the default motion (fieldDrift 0.71, speed 0.15)', () => {
-    const silk = flowPresets.find((p) => p.name === 'Silk')!
-    expect(silk.flow.fieldDrift).toBe(0.71)
-    expect(silk.flow.speed).toBe(0.15)
-    expect(silk.flow.particleSize).toBe(2.5)
+  it('Slow Fuzz is redefined to the new default motion', () => {
+    const sf = flowPresets.find((p) => p.name === 'Slow Fuzz')!
+    expect(sf.flow).toEqual({
+      noiseScale: 0.0014, fieldDrift: 0.71, speed: 0.11, lifespan: 6.5,
+      trailLength: 72, particles: 16200, particleSize: 2.6, fadeTrails: true,
+    })
   })
 
   it('Mariners uses normal blend (color-true)', () => {
@@ -361,19 +364,19 @@ Add a new test block:
 - [ ] **Step 2: Run to verify the new tests fail**
 
 Run: `npx vitest run src/diversions/flow-field/presets.test.ts`
-Expected: FAIL — Silk still has `fieldDrift 0.05 / speed 0.24`, Mariners is `screen`, Dusk does not exist, color count is 7.
+Expected: FAIL — Slow Fuzz still has its old values, Mariners is `screen`, Dusk does not exist, color count is 7.
 
 - [ ] **Step 3: Edit `presets.ts`**
 
 In `src/diversions/flow-field/presets.ts`:
 
-Retune the Silk entry in `flowPresets`:
+Leave the **Silk** entry untouched. Redefine the **Slow Fuzz** entry in `flowPresets`:
 
 ```ts
   {
-    name: 'Silk',
-    flow: { noiseScale: 0.0014, fieldDrift: 0.71, speed: 0.15, lifespan: 6.5,
-            trailLength: 72, particles: 7200, particleSize: 2.5, fadeTrails: true },
+    name: 'Slow Fuzz',
+    flow: { noiseScale: 0.0014, fieldDrift: 0.71, speed: 0.11, lifespan: 6.5,
+            trailLength: 72, particles: 16200, particleSize: 2.6, fadeTrails: true },
   },
 ```
 
@@ -402,7 +405,7 @@ Expected: PASS.
 
 ```bash
 git add src/diversions/flow-field/presets.ts src/diversions/flow-field/presets.test.ts
-git commit -m "flow-field: retune Silk, Mariners→normal, add Dusk gradient preset (#38/#40)"
+git commit -m "flow-field: redefine Slow Fuzz, Mariners→normal, add Dusk gradient preset (#38/#40)"
 ```
 
 ---
@@ -425,9 +428,9 @@ Add a new describe block at the end of the file:
 
 ```ts
 describe('flow-field default config', () => {
-  it('resolves to the named pair Silk / Mariners (not Custom/Custom)', () => {
+  it('resolves to the named pair Slow Fuzz / Mariners (not Custom/Custom)', () => {
     const defaults = flowFieldSchema.parse({})
-    expect(matchPresets(flowField.presets!, defaults)).toEqual(['Silk', 'Mariners'])
+    expect(matchPresets(flowField.presets!, defaults)).toEqual(['Slow Fuzz', 'Mariners'])
   })
 
   it('defaults blend to normal (color-true out of the box)', () => {
@@ -446,9 +449,9 @@ Expected: FAIL — current defaults match neither Silk nor Mariners; blend defau
 In `src/diversions/flow-field/schema.ts`, set the field defaults to the Silk+Mariners values:
 
 ```ts
-  particles: z.number().int().min(100).max(20000).default(7200)
+  particles: z.number().int().min(100).max(20000).default(16200)
     .meta({ ui: 'slider', min: 100, max: 20000, step: 100, label: 'Particles' }),
-  particleSize: z.number().min(0.5).max(6).default(2.5)
+  particleSize: z.number().min(0.5).max(6).default(2.6)
     .meta({ ui: 'slider', min: 0.5, max: 6, step: 0.1, label: 'Particle size',
             help: 'Thickness of each particle stroke, in pixels.' }),
   noiseScale: z.number().min(0.0005).max(0.02).default(0.0014)
@@ -457,7 +460,7 @@ In `src/diversions/flow-field/schema.ts`, set the field defaults to the Silk+Mar
   fieldDrift: z.number().min(0).max(1).default(0.71)
     .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
             help: 'Slowly morphs the flow field over time. 0 = frozen.' }),
-  speed: z.number().min(0).max(1).default(0.15)
+  speed: z.number().min(0).max(1).default(0.11)
     .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
   lifespan: z.number().min(0.5).max(12).default(6.5)
     .meta({ ui: 'slider', min: 0.5, max: 12, step: 0.1, label: 'Particle lifespan',
@@ -524,7 +527,7 @@ Expected: PASS — default resolves to `['Silk', 'Mariners']`, blend default `no
 
 ```bash
 git add src/diversions/flow-field/schema.ts src/diversions/flow-field/presets.test.ts
-git commit -m "flow-field: default to Silk/Mariners + normal blend, bulleted blend help (#38)"
+git commit -m "flow-field: default to Slow Fuzz/Mariners + normal blend, bulleted blend help (#38)"
 ```
 
 ---
@@ -562,7 +565,83 @@ git commit -m "framework: render multi-line control help (bullets) via pre-line"
 
 ---
 
-## Task 7: Chrome verification + docs (inline)
+## Task 7: Animate pill — quick editor→animation jump (inline)
+
+A floating `animate →` pill in the **top-left** of the config preview (mirroring the play screen's `← config` pill in the same corner), so the user no longer has to scroll the panel to the bottom `Open animation ↗` button. The bottom button stays (primary CTA + discoverability); the pill is quick-access.
+
+**Files:**
+- Modify: `src/routes/ConfigScreen.tsx`
+- Modify: `src/framework/theme.css`
+- Test: `src/routes/ConfigScreen.test.tsx`
+
+- [ ] **Step 1: Write the failing test**
+
+In `src/routes/ConfigScreen.test.tsx`, add:
+
+```ts
+it('shows an animate pill linking to the play route with the current config', () => {
+  const { getByText } = renderAt(['/d/flow-field?particles=1000'])
+  const pill = getByText('animate →').closest('a') as HTMLAnchorElement
+  expect(pill).not.toBeNull()
+  expect(pill.getAttribute('href')).toContain('/d/flow-field/play')
+  expect(pill.getAttribute('href')).toContain('particles=1000')
+})
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npx vitest run src/routes/ConfigScreen.test.tsx -t "animate pill"`
+Expected: FAIL — no `animate →` element yet.
+
+- [ ] **Step 3: Add the pill to `ConfigScreen.tsx`**
+
+In `src/routes/ConfigScreen.tsx`, add the pill as the first child of the preview `<main>` (it already has `position: relative` via `.config-preview`):
+
+```tsx
+      <main className="config-preview">
+        <Link className="animate-pill" to={playHref}>
+          animate →
+        </Link>
+        <AnimationHost diversion={diversion} config={config} />
+      </main>
+```
+
+(`Link` and `playHref` already exist in the file — no new imports.)
+
+- [ ] **Step 4: Style `.animate-pill` to mirror `.play-back`**
+
+In `src/framework/theme.css`, add after the `.config-preview` rule (around line 148):
+
+```css
+.animate-pill {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 2;
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(8, 16, 18, 0.6);
+  border: 1px solid #2a3a40;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+```
+
+- [ ] **Step 5: Run the test + typecheck**
+
+Run: `npx vitest run src/routes/ConfigScreen.test.tsx && npx tsc --noEmit`
+Expected: PASS / no type errors.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/routes/ConfigScreen.tsx src/routes/ConfigScreen.test.tsx src/framework/theme.css
+git commit -m "config screen: floating animate → pill for quick jump to animation"
+```
+
+---
+
+## Task 8: Chrome verification + docs (inline)
 
 **Files:**
 - Modify (docs): `README.md` (feature set / share-link note if present), `CLAUDE.md` (codec gotcha note).
@@ -574,11 +653,12 @@ Run: `npm run dev` (background). Confirm the listening port (expected 5180; Vite
 - [ ] **Step 2: Verify in Chrome (chrome-devtools MCP)**
 
 Navigate to `http://localhost:5180/d/flow-field?mute=1` (use the actual port) and confirm:
-- Both dropdowns read **Flow = Silk**, **Color = Mariners** (not Custom).
+- Both dropdowns read **Flow = Slow Fuzz**, **Color = Mariners** (not Custom).
 - Canvas is color-true (blue/amber Mariners palette, normal blend) — **no white-out**.
 - BLEND help renders as three bullet lines.
 - The address-bar URL is a full snapshot with flat keys (`colors=…`, not `color.colors=…`); copy it, open in a fresh tab, confirm the identical image.
 - Switch Color → **Dusk**; confirm the indigo→magenta→amber gradient renders.
+- The `animate →` pill shows top-left of the preview and jumps straight to the play route (no scroll needed).
 
 - [ ] **Step 3: Update docs**
 
@@ -594,7 +674,7 @@ git commit -m "docs: full-snapshot share links + Silk/Mariners default"
 
 ---
 
-## Task 8: Code review (required phase)
+## Task 9: Code review (required phase)
 
 - [ ] **Step 1: Dispatch the `diversion-reviewer` subagent** against the branch diff (no implementation bias). Focus: the codec keystone change (round-trip integrity, per-field degradation correctness, flat-naming collision handling), the 5 UX invariants, schema-as-single-source-of-truth.
 - [ ] **Step 2: Triage findings.** Mechanism fixes apply directly; any numeric/tuning change is surfaced to the user (gameplay-tuning rule). Re-run `npx vitest run` after fixes.
@@ -604,6 +684,6 @@ git commit -m "docs: full-snapshot share links + Silk/Mariners default"
 
 ## Self-review notes
 
-- **Spec coverage:** #4 → Tasks 1–3 (full-snapshot, flat names, legacy fallback, per-field degradation, uniqueness guard, arrays-as-comma kept, no version marker). #38 → Tasks 4–5 (Silk retune, Mariners normal, defaults resolve to named pair). Blend default + help → Tasks 5–6. #40 Dusk → Task 4. Verify/docs/review → Tasks 7–8. No gaps.
+- **Spec coverage:** #4 → Tasks 1–3 (full-snapshot, flat names, legacy fallback, per-field degradation, uniqueness guard, arrays-as-comma kept, no version marker). #38 → Tasks 4–5 (Slow Fuzz redefine, Mariners normal, defaults resolve to named pair; gallery tracks defaults automatically). Blend default + help → Tasks 5–6. #40 Dusk → Task 4. Animate pill → Task 7. Verify/docs/review → Tasks 8–9. No gaps.
 - **Placeholders:** none — every code step shows full content; Dusk stops are concrete.
 - **Type consistency:** `buildUrlKeyMap`/`leafNodes`/`leafNameCollisions`/`encodeConfig`/`decodeConfig` signatures consistent across Tasks 1–3; preset field names (`flow`, `blend`, `color.mode`, `color.stops`) match `presets.ts` and the schema; `matchPresets(groups, config)` matches `framework/presets.ts`.

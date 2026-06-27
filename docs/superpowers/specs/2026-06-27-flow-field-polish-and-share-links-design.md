@@ -66,24 +66,26 @@ Arrays stay comma-separated, per-element `encodeURIComponent` (already collision
 
 ---
 
-## 2. #38 — default lands on a named preset (Silk + Mariners)
+## 2. #38 — default lands on a named preset (Slow Fuzz + Mariners)
 
 Make the schema defaults equal a real named pair so `matchPresets` resolves both axes on first load.
 
-**Flow → retune Silk (option A).** The user's chosen default flow is Silk with two sliders moved. Bake them into the **Silk** preset (keep the name):
+**Flow → redefine Slow Fuzz.** Silk is left untouched. The new default flow becomes the **Slow Fuzz** preset, redefined to the user's chosen values:
 
 ```
-Silk: noiseScale 0.0014, fieldDrift 0.05→0.71, speed 0.24→0.15,
-      lifespan 6.5, trailLength 72, particles 7200, particleSize 0.8→2.5, fadeTrails true
+Slow Fuzz: noiseScale 0.0014, fieldDrift 0.71, speed 0.11, lifespan 6.5,
+           trailLength 72, particles 16200, particleSize 2.6, fadeTrails true
+  (was: noiseScale 0.0085, fieldDrift 1.0, speed 0.07, lifespan 2.1,
+        trailLength 69, particles 17300, particleSize 5.4, fadeTrails true)
 ```
 
 **Color → Mariners with normal blend.** Change the **Mariners** color preset's `blend` from `'screen'` to `'normal'` (each color preset still carries its own ideal blend — Nebula etc. stay `screen`).
 
-**Schema defaults** become Silk(updated) + Mariners(normal):
+**Schema defaults** become Slow Fuzz(new) + Mariners(normal):
 
 ```
-particles 7200, particleSize 2.5, noiseScale 0.0014, fieldDrift 0.71,
-speed 0.15, lifespan 6.5, seed 10847 (unchanged), blend 'normal',
+particles 16200, particleSize 2.6, noiseScale 0.0014, fieldDrift 0.71,
+speed 0.11, lifespan 6.5, seed 10847 (unchanged), blend 'normal',
 fadeTrails true, trailLength 72, background '#050810',
 color: { mode 'palette', colors ['#2a5cf066','#4d9bff66','#ffc22e66','#ffe08a66'],
          source 'flow-angle', stops <FALLBACK_STOPS, unchanged> }
@@ -91,7 +93,9 @@ color: { mode 'palette', colors ['#2a5cf066','#4d9bff66','#ffc22e66','#ffe08a66'
 
 `seed` is excluded from preset matching (the 🎲 stays independent), so it does not affect the match.
 
-**Acceptance:** fresh `/d/flow-field` with no query string shows **Flow = Silk** and **Color = Mariners** (not Custom/Custom).
+**Gallery:** `Gallery.tsx` renders each tile from `d.schema.parse({})`, so the gallery preview tracks the schema default automatically — no separate gallery config to change.
+
+**Acceptance:** fresh `/d/flow-field` with no query string shows **Flow = Slow Fuzz** and **Color = Mariners** (not Custom/Custom); the gallery tile shows the same look.
 
 ---
 
