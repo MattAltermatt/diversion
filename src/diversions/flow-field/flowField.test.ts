@@ -81,12 +81,14 @@ describe('toHex2', () => {
 })
 
 describe('lifespan-derived particle life', () => {
-  it('keeps every particle life within [lifespan/3, lifespan] seconds (default 4s)', () => {
+  it('keeps every particle life within [lifespan/3, lifespan] seconds', () => {
     const cfg = flowFieldSchema.parse({})
+    const lo = (cfg.lifespan / 3) * 1000 // derive from the default, not a literal
+    const hi = cfg.lifespan * 1000
     const s = createFlowState({ ...cfg, particles: 300 }, 800, 600)
     for (const p of s.particles) {
-      expect(p.life).toBeGreaterThanOrEqual(1333) // 4000/3
-      expect(p.life).toBeLessThanOrEqual(4000)
+      expect(p.life).toBeGreaterThanOrEqual(lo)
+      expect(p.life).toBeLessThanOrEqual(hi)
     }
   })
   it('scales the bounds with the lifespan slider (12s -> [4000, 12000])', () => {
@@ -103,10 +105,11 @@ describe('schema defaults', () => {
   it('defaults blend to screen (out-of-box white-out tame)', () => {
     expect(flowFieldSchema.parse({}).blend).toBe('screen')
   })
-  it('defaults trailLength to 88 and lifespan to 4', () => {
+  it('pins the curated defaults (trailLength 17, lifespan 1.2, particles 7300)', () => {
     const cfg = flowFieldSchema.parse({})
-    expect(cfg.trailLength).toBe(88)
-    expect(cfg.lifespan).toBe(4)
+    expect(cfg.trailLength).toBe(17)
+    expect(cfg.lifespan).toBe(1.2)
+    expect(cfg.particles).toBe(7300)
   })
 })
 
@@ -252,8 +255,8 @@ describe('field drift', () => {
     expect(state.fieldTime).toBe(12.5) // morph continues, not reset
   })
 
-  it('schema defaults fieldDrift to 0 and round-trips a non-zero value', () => {
-    expect(flowFieldSchema.parse({}).fieldDrift).toBe(0)
+  it('defaults fieldDrift to 0.14 and round-trips a non-zero value', () => {
+    expect(flowFieldSchema.parse({}).fieldDrift).toBe(0.14)
     const sp = encodeConfig(flowFieldSchema, { ...base, fieldDrift: 0.3 })
     expect(decodeConfig(flowFieldSchema, sp).fieldDrift).toBeCloseTo(0.3, 10)
   })

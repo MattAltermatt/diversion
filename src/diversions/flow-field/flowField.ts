@@ -162,6 +162,9 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
   ctx.globalCompositeOperation = (
     cfg.blend === 'normal' ? 'source-over' : cfg.blend
   ) as GlobalCompositeOperation
+  // Stroke thickness for the particle segments; round caps keep thick strokes soft.
+  ctx.lineWidth = cfg.particleSize
+  ctx.lineCap = 'round'
   const speed = cfg.speed * dt * 0.06
   // advance the morph clock once per frame; z=0-rate when fieldDrift=0 (frozen)
   state.fieldTime = advanceFieldTime(state.fieldTime, dt, cfg.fieldDrift)

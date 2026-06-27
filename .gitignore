@@ -9,6 +9,9 @@ dist-ssr/
 # brainstorm / visual-companion scratch (mockups, server state)
 .superpowers/
 
+# preset-design verification screenshots (scratch)
+.ff-presets/
+
 # remember plugin state
 .remember/
 

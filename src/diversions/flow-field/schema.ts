@@ -1,17 +1,20 @@
 import { z } from 'zod'
 
 export const flowFieldSchema = z.object({
-  particles: z.number().int().min(100).max(20000).default(4000)
+  particles: z.number().int().min(100).max(20000).default(7300)
     .meta({ ui: 'slider', min: 100, max: 20000, step: 100, label: 'Particles' }),
+  particleSize: z.number().min(0.5).max(6).default(1)
+    .meta({ ui: 'slider', min: 0.5, max: 6, step: 0.1, label: 'Particle size',
+            help: 'Thickness of each particle stroke, in pixels.' }),
   noiseScale: z.number().min(0.0005).max(0.02).default(0.004)
     .meta({ ui: 'slider', min: 0.0005, max: 0.02, step: 0.0005, label: 'Noise scale',
             help: 'Lower = broad, sweeping currents. Higher = tight, turbulent detail.' }),
-  fieldDrift: z.number().min(0).max(1).default(0)
+  fieldDrift: z.number().min(0).max(1).default(0.14)
     .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
             help: 'Slowly morphs the flow field over time. 0 = frozen.' }),
-  speed: z.number().min(0).max(1).default(0.5)
+  speed: z.number().min(0).max(1).default(0.3)
     .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
-  lifespan: z.number().min(0.5).max(12).default(4)
+  lifespan: z.number().min(0.5).max(12).default(1.2)
     .meta({ ui: 'slider', min: 0.5, max: 12, step: 0.1, label: 'Particle lifespan',
             help: 'Seconds a particle lives before respawning elsewhere. Shorter = busier, '
                 + 'fewer long streaks; longer = sparser, longer ribbons.' }),
@@ -23,7 +26,7 @@ export const flowFieldSchema = z.object({
   fadeTrails: z.boolean().default(true)
     .meta({ ui: 'toggle', label: 'Motion trails',
             help: 'On: particles leave trails that fade out. Off: each frame is wiped clean.' }),
-  trailLength: z.number().min(0).max(100).default(88)
+  trailLength: z.number().min(0).max(100).default(17)
     .meta({ ui: 'slider', min: 0, max: 100, step: 1, label: 'Trail length',
             help: 'Length of the fading motion trails. 0 wipes each frame; higher leaves '
                 + 'longer, slower-fading ribbons. Only affects the look when Motion Trails is on.' }),
@@ -35,28 +38,28 @@ export const flowFieldSchema = z.object({
               help: 'Palette: each particle keeps one random color from the list. '
                   + 'Gradient: color is sampled along a source (direction or position).' }),
     colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
-      .default(['#1e63ff1f', '#16d6ff1a', '#ff3ea51a', '#ffffff14'])
+      .default(['#1e63ff66', '#16d6ff66', '#ff3ea566', '#d6e6ff66'])
       .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'palette' },
               help: 'Each particle picks one color at random when it spawns and keeps it for '
-                  + 'life. Low alpha lets overlapping ribbons build up into richer color '
-                  + 'instead of clipping to white.' }),
+                  + 'life. Overlapping ribbons always build toward white; higher alpha shows '
+                  + 'truer color per stroke before it does, lower alpha layers up more slowly.' }),
     source: z.enum(['flow-angle', 'x', 'y']).default('flow-angle')
       .meta({ ui: 'segmented', options: ['flow-angle', 'x', 'y'], label: 'Gradient source',
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'What maps onto the gradient: flow-angle (particle direction — cyclic, '
                   + 'wraps), or x / y screen position.' }),
     stops: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(8)
-      .default(['#ff3b3b22', '#ffd23b22', '#3bff7a22', '#3bd2ff22', '#6a3bff22'])
+      .default(['#ff3b3b66', '#ffd23b66', '#3bff7a66', '#3bd2ff66', '#6a3bff66'])
       .meta({ ui: 'colorList', label: 'Gradient stops', min: 2, max: 8,
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'Colors are evenly spaced and sampled along the source; per-stop alpha '
                   + 'controls additive build-up.' }),
   }).default({
     mode: 'palette',
-    colors: ['#1e63ff1f', '#16d6ff1a', '#ff3ea51a', '#ffffff14'],
+    colors: ['#1e63ff66', '#16d6ff66', '#ff3ea566', '#d6e6ff66'],
     source: 'flow-angle',
-    stops: ['#ff3b3b22', '#ffd23b22', '#3bff7a22', '#3bd2ff22', '#6a3bff22'],
+    stops: ['#ff3b3b66', '#ffd23b66', '#3bff7a66', '#3bd2ff66', '#6a3bff66'],
   }).meta({ ui: 'group', label: 'Color' }),
 })
 
