@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import flowField from './index'
 import { flowPresets, colorPresets } from './presets'
 import { flowFieldSchema } from './schema'
+import { matchPresets } from '../../framework/presets'
 
 describe('flow-field preset groups', () => {
   it('declares two groups: Flow and Color', () => {
@@ -58,5 +59,16 @@ describe('flow-field preset groups', () => {
         expect(() => flowFieldSchema.parse({ ...defaults, ...opt.patch })).not.toThrow()
       }
     }
+  })
+})
+
+describe('flow-field default config', () => {
+  it('resolves to the named pair Slow Fuzz / Mariners (not Custom/Custom)', () => {
+    const defaults = flowFieldSchema.parse({})
+    expect(matchPresets(flowField.presets!, defaults)).toEqual(['Slow Fuzz', 'Mariners'])
+  })
+
+  it('defaults blend to normal (color-true out of the box)', () => {
+    expect(flowFieldSchema.parse({}).blend).toBe('normal')
   })
 })
