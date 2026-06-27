@@ -74,7 +74,7 @@ Make the schema defaults equal a real named pair so `matchPresets` resolves both
 
 ```
 Silk: noiseScale 0.0014, fieldDrift 0.05→0.71, speed 0.24→0.15,
-      lifespan 6.5, trailLength 72, particles 7200, particleSize 0.8, fadeTrails true
+      lifespan 6.5, trailLength 72, particles 7200, particleSize 0.8→2.5, fadeTrails true
 ```
 
 **Color → Mariners with normal blend.** Change the **Mariners** color preset's `blend` from `'screen'` to `'normal'` (each color preset still carries its own ideal blend — Nebula etc. stay `screen`).
@@ -82,7 +82,7 @@ Silk: noiseScale 0.0014, fieldDrift 0.05→0.71, speed 0.24→0.15,
 **Schema defaults** become Silk(updated) + Mariners(normal):
 
 ```
-particles 7200, particleSize 0.8, noiseScale 0.0014, fieldDrift 0.71,
+particles 7200, particleSize 2.5, noiseScale 0.0014, fieldDrift 0.71,
 speed 0.15, lifespan 6.5, seed 10847 (unchanged), blend 'normal',
 fadeTrails true, trailLength 72, background '#050810',
 color: { mode 'palette', colors ['#2a5cf066','#4d9bff66','#ffc22e66','#ffe08a66'],
