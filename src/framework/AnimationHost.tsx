@@ -29,7 +29,16 @@ export function AnimationHost({
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = (
-      diversion.kind === 'webgl' ? canvas.getContext('webgl2') : canvas.getContext('2d')
+      diversion.kind === 'webgl'
+        ? canvas.getContext('webgl2', {
+            alpha: false,
+            // every WebGL diversion so far is a full-viewport fragment shader (no
+            // geometry edges to multisample) — MSAA would just cost backing-buffer
+            // memory on a long-running screensaver for no visual gain.
+            antialias: false,
+            powerPreference: 'high-performance',
+          })
+        : canvas.getContext('2d')
     ) as RenderContext | null
     if (!ctx) return
 
@@ -82,9 +91,30 @@ export function AnimationHost({
     window.addEventListener('resize', onResize)
     document.addEventListener('visibilitychange', onVisibility)
 
+    // WebGL context loss (#8): a GPU reset blanks the canvas permanently unless we
+    // preventDefault() on loss and rebuild GL resources on restore. setup() owns all
+    // GL allocation, so re-running it (with the latest config) is the recovery path.
+    const onLost = (e: Event) => {
+      e.preventDefault() // required, or 'webglcontextrestored' never fires
+      loop.setPaused(true)
+    }
+    const onRestored = () => {
+      run.size = sizeOf()
+      run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
+      loop.setPaused(pausedRef.current || document.hidden)
+    }
+    if (diversion.kind === 'webgl') {
+      canvas.addEventListener('webglcontextlost', onLost as EventListener)
+      canvas.addEventListener('webglcontextrestored', onRestored)
+    }
+
     return () => {
       window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisibility)
+      if (diversion.kind === 'webgl') {
+        canvas.removeEventListener('webglcontextlost', onLost as EventListener)
+        canvas.removeEventListener('webglcontextrestored', onRestored)
+      }
       loop.stop()
       loopRef.current = null
       runRef.current = null
