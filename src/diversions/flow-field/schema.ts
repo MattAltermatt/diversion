@@ -6,6 +6,9 @@ export const flowFieldSchema = z.object({
   noiseScale: z.number().min(0.0005).max(0.02).default(0.004)
     .meta({ ui: 'slider', min: 0.0005, max: 0.02, step: 0.0005, label: 'Noise scale',
             help: 'Lower = broad, sweeping currents. Higher = tight, turbulent detail.' }),
+  fieldDrift: z.number().min(0).max(1).default(0)
+    .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
+            help: 'Slowly morphs the flow field over time. 0 = frozen.' }),
   speed: z.number().min(0).max(1).default(0.5)
     .meta({ ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
   lifespan: z.number().min(0.5).max(12).default(4)

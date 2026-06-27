@@ -1,5 +1,13 @@
-import { makeNoise2D, mulberry32 } from './noise'
+import { makeNoise3D, mulberry32 } from './noise'
 import type { FlowFieldConfig } from './schema'
+
+// fieldTime advance per ms at fieldDrift=1. Tuned so max drift is "obviously
+// moving" but organic (~1 noise-cell of z every ~12.5s). 🎚️ tunable.
+const DRIFT_RATE = 0.00008
+/** Advance the morph clock. drift=0 → unchanged (frozen field). */
+export function advanceFieldTime(fieldTime: number, dt: number, fieldDrift: number): number {
+  return fieldTime + dt * fieldDrift * DRIFT_RATE
+}
 
 interface Particle {
   x: number
@@ -89,10 +97,11 @@ export function colorSourceT(
 
 export interface FlowState {
   particles: Particle[]
-  noise: (x: number, y: number) => number
+  noise: (x: number, y: number, z: number) => number
   rng: () => number // seeded — keeps respawns deterministic per seed
   styles: string[] // one precomputed rgba() per palette color — see hexToRgba
   cfg: FlowFieldConfig
+  fieldTime: number // morph clock; advances by dt·fieldDrift·DRIFT_RATE
   w: number
   h: number
 }
@@ -113,7 +122,7 @@ function randomLife(rng: () => number, lifespanSeconds: number): number {
 }
 
 export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): FlowState {
-  const noise = makeNoise2D(cfg.seed)
+  const noise = makeNoise3D(cfg.seed)
   // Separate seeded stream for particles (derived so it doesn't mirror the noise
   // grid's stream). Same seed → same particle layout AND respawns, every run.
   const rng = mulberry32((cfg.seed ^ 0x9e3779b9) >>> 0)
@@ -127,7 +136,7 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
     life: randomLife(rng, cfg.lifespan),
     ci: Math.floor(rng() * n), // pick a palette color for this particle's life
   }))
-  return { particles, noise, rng, styles, cfg, w, h }
+  return { particles, noise, rng, styles, cfg, fieldTime: 0, w, h }
 }
 
 /** Apply a config change to a live FlowState in place. Returns false when the
@@ -154,6 +163,9 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
     cfg.blend === 'normal' ? 'source-over' : cfg.blend
   ) as GlobalCompositeOperation
   const speed = cfg.speed * dt * 0.06
+  // advance the morph clock once per frame; z=0-rate when fieldDrift=0 (frozen)
+  state.fieldTime = advanceFieldTime(state.fieldTime, dt, cfg.fieldDrift)
+  const z = state.fieldTime
   for (const p of particles) {
     // recycle: respawn at a fresh position so the field stays populated
     p.age += dt
@@ -166,7 +178,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
       continue // skip drawing this frame to avoid a streak from old→new position
     }
 
-    const angle = noise(p.x * cfg.noiseScale, p.y * cfg.noiseScale) * Math.PI * 2
+    const angle = noise(p.x * cfg.noiseScale, p.y * cfg.noiseScale, z) * Math.PI * 2
     const nx = p.x + Math.cos(angle) * speed * 16
     const ny = p.y + Math.sin(angle) * speed * 16
     // Palette mode: each particle's spawn color. Gradient mode: sample the gradient

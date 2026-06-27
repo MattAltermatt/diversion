@@ -218,3 +218,43 @@ describe('updateFlowState', () => {
     expect(updateFlowState(state, { ...base, seed: base.seed + 1 })).toBe(false)
   })
 })
+
+import { advanceFieldTime } from './flowField'
+
+describe('field drift', () => {
+  it('does not advance fieldTime when drift is 0 (frozen field)', () => {
+    expect(advanceFieldTime(0, 16, 0)).toBe(0)
+    expect(advanceFieldTime(42, 16, 0)).toBe(42)
+  })
+
+  it('advances fieldTime proportionally to dt and drift', () => {
+    const half = advanceFieldTime(0, 16, 0.5)
+    expect(half).toBeGreaterThan(0)
+    expect(advanceFieldTime(0, 16, 1.0)).toBeCloseTo(half * 2, 10)
+    expect(advanceFieldTime(0, 32, 0.5)).toBeCloseTo(half * 2, 10)
+  })
+
+  it('accumulates from the current fieldTime', () => {
+    const step = advanceFieldTime(0, 16, 0.5)
+    expect(advanceFieldTime(10, 16, 0.5)).toBeCloseTo(10 + step, 10)
+  })
+
+  it('createFlowState starts fieldTime at 0', () => {
+    expect(createFlowState(base, 800, 600).fieldTime).toBe(0)
+  })
+
+  it('updateFlowState applies fieldDrift live without resetting fieldTime', () => {
+    const state = createFlowState(base, 800, 600)
+    state.fieldTime = 12.5 // pretend it has been drifting
+    const ok = updateFlowState(state, { ...base, fieldDrift: 0.5 })
+    expect(ok).toBe(true)
+    expect(state.cfg.fieldDrift).toBe(0.5)
+    expect(state.fieldTime).toBe(12.5) // morph continues, not reset
+  })
+
+  it('schema defaults fieldDrift to 0 and round-trips a non-zero value', () => {
+    expect(flowFieldSchema.parse({}).fieldDrift).toBe(0)
+    const sp = encodeConfig(flowFieldSchema, { ...base, fieldDrift: 0.3 })
+    expect(decodeConfig(flowFieldSchema, sp).fieldDrift).toBeCloseTo(0.3, 10)
+  })
+})
