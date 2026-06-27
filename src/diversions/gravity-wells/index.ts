@@ -102,25 +102,22 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
       ctx.stroke()
     }
 
-    // 4. well markers — a soft tonal halo, no edges: an attractor gently DARKENS
-    //    the flow (a subtle sink), a repulsor gently LIGHTENS it (a soft bloom).
-    //    Low alpha + blurred radial falloff so it blends; a slow breath is the
-    //    only motion. Present if you look, invisible if you don't.
+    // 4. well markers — a soft tonal halo, no edges: each attractor gently
+    //    DARKENS the flow (a subtle sink). Low alpha + blurred radial falloff so
+    //    it blends; a slow breath is the only motion, scaled by the well's
+    //    current pull. Present if you look, invisible if you don't.
     ctx.globalCompositeOperation = 'source-over'
     const bg = hexRgb(cfg.background)
-    const sink = mixRgb(bg, { r: 0, g: 0, b: 0 }, 0.55)       // darker than bg
-    const bloom = mixRgb(bg, { r: 200, g: 210, b: 235 }, 0.4) // lighter than bg
+    const sink = mixRgb(bg, { r: 0, g: 0, b: 0 }, 0.55) // darker than bg
     for (const wl of wells) {
       const env = wellEnvelope(wl)
       if (env <= 0.01) continue
-      const attract = wl.force >= 0
       const breath = 0.5 + 0.5 * Math.sin(t / 2200 + (wl.x + wl.y) * 0.01) // ~14s, desynced
-      const R = (30 + Math.min(2, Math.abs(wl.force)) * 30) * (0.72 + 0.28 * breath)
+      const R = (30 + Math.min(2, wl.force) * 30) * (0.72 + 0.28 * breath)
       const alpha = env * 0.3 * (0.55 + 0.45 * breath)
-      const c = attract ? sink : bloom
       const grad = ctx.createRadialGradient(wl.x, wl.y, 0, wl.x, wl.y, R)
-      grad.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${alpha.toFixed(3)})`)
-      grad.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`)
+      grad.addColorStop(0, `rgba(${sink.r},${sink.g},${sink.b},${alpha.toFixed(3)})`)
+      grad.addColorStop(1, `rgba(${sink.r},${sink.g},${sink.b},0)`)
       ctx.fillStyle = grad
       ctx.beginPath()
       ctx.arc(wl.x, wl.y, R, 0, Math.PI * 2)

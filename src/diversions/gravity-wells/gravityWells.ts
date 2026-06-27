@@ -4,43 +4,46 @@ import { mulberry32, makeNoise3D } from '../flow-field/noise'
 export interface Well {
   x: number
   y: number
-  force: number // signed: negative repels, positive attracts
+  force: number // current attractive strength (≥ 0) — recomputed each frame
   age: number   // ms
   life: number  // ms
-  fade: number  // ms of fade-in and (separately) fade-out
 }
 
 // Each well lives wellLifespan seconds ± 30% jitter so the pool doesn't all
-// flip at once; fade is 35% of life (no cap) so longer-lived wells breathe in
-// and out slowly rather than snapping on.
+// peak at once. Force starts at forceMin and ramps toward forceMax over the
+// life (see wellForce); a fresh well begins at the floor.
 export function spawnWell(rng: () => number, cfg: GravityWellsConfig, w: number, h: number): Well {
   const jitter = 0.7 + rng() * 0.6 // 0.7..1.3
   const life = cfg.wellLifespan * 1000 * jitter
   return {
     x: rng() * w,
     y: rng() * h,
-    force: cfg.forceMin + rng() * (cfg.forceMax - cfg.forceMin),
+    force: cfg.forceMin,
     age: 0,
     life,
-    fade: life * 0.35,
   }
 }
 
-// Trapezoid envelope: ramp 0->1 over the first `fade`, hold at 1, ramp 1->0 over
-// the last `fade`. Keeps the bend from ever appearing/vanishing instantly.
+// A single smooth arc across the well's life: 0 at birth, 1 at mid-life, 0 at
+// death. Drives both the force ramp (forceMin→forceMax→forceMin) and the
+// marker's fade, so the well breathes in and out instead of snapping on.
 export function wellEnvelope(well: Well): number {
-  const { age, life, fade } = well
+  const { age, life } = well
   if (age <= 0 || age >= life) return 0
-  if (age < fade) return age / fade
-  if (age > life - fade) return (life - age) / fade
-  return 1
+  return Math.sin(Math.PI * (age / life))
+}
+
+// The well's attractive force right now: ramps forceMin → forceMax → forceMin
+// across its life, peaking at mid-life. Attract-only (always ≥ 0).
+export function wellForce(well: Well, cfg: GravityWellsConfig): number {
+  return cfg.forceMin + (cfg.forceMax - cfg.forceMin) * wellEnvelope(well)
 }
 
 export function maintainWells(
   wells: Well[], dt: number, rng: () => number,
   cfg: GravityWellsConfig, w: number, h: number,
 ): void {
-  for (const wl of wells) wl.age += dt
+  for (const wl of wells) { wl.age += dt; wl.force = wellForce(wl, cfg) }
   // drop expired (iterate backwards so splice is safe)
   for (let i = wells.length - 1; i >= 0; i--) if (wells[i].age >= wells[i].life) wells.splice(i, 1)
   // trim if maxWells shrank
@@ -51,21 +54,30 @@ export function maintainWells(
 
 export const SOFTENING = 60      // px — soft core; removes the r->0 singularity
 export const G = 26000           // force -> bend-vector scale
-export const GRAVITY_K = 0.002   // scales the gravity bend to ~unit (noise) near wells
+export const GRAVITY_K = 0.012   // scales the gravity bend so the wells lead the field
+export const FLOW_FLOOR = 0.18   // faint base-flow magnitude — only carries stragglers
+                                 // through the dead zones where the wells cancel out
 
-// The summed gravity vector at a point: inverse-LINEAR (softened) so a well
-// reaches across the whole field, not just its neighbourhood. This is a bend
-// direction, not an acceleration — particles never accumulate it as momentum.
-export function accelAt(px: number, py: number, wells: Well[]): { ax: number; ay: number } {
+// The summed well vector at a point: inverse-LINEAR (softened) so a well reaches
+// across the whole field, not just its neighbourhood. Each well contributes a
+// RADIAL component (toward it — a drain) blended with a TANGENTIAL component
+// (perpendicular — an orbit), controlled by `swirl` (0 = pure radial pull,
+// 1 = pure orbit around). `wl.force` already carries the well's time-varying
+// strength. This is a bend direction, not an acceleration — particles never
+// accumulate it as momentum.
+export function accelAt(
+  px: number, py: number, wells: Well[], swirl = 0,
+): { ax: number; ay: number } {
   let ax = 0, ay = 0
   for (const wl of wells) {
-    const env = wellEnvelope(wl)
-    if (env === 0) continue
+    if (wl.force === 0) continue
     const dx = wl.x - px, dy = wl.y - py
     const dist = Math.sqrt(dx * dx + dy * dy + SOFTENING * SOFTENING)
-    const mag = (wl.force * env * G) / dist // signed: + pulls toward well, - pushes away
-    ax += (dx / dist) * mag
-    ay += (dy / dist) * mag
+    const ux = dx / dist, uy = dy / dist            // unit vector toward the well
+    const mag = (wl.force * G) / dist
+    // radial (ux,uy) blended with perpendicular (-uy,ux) by swirl
+    ax += (ux * (1 - swirl) - uy * swirl) * mag
+    ay += (uy * (1 - swirl) + ux * swirl) * mag
   }
   return { ax, ay }
 }
@@ -127,20 +139,22 @@ export function advanceFieldTime(t: number, dt: number, fieldDrift: number): num
 
 export interface FieldSample { dx: number; dy: number; strength: number }
 
-// The blended flow direction at a point: the noise current bent by gravity.
-// Returns a unit step direction plus the local gravity-bend strength (0..1) for
-// the `field` color source.
+// The flow direction at a point: the WELLS drive it (radial + swirl), with a
+// faint noise floor underneath that only matters where the wells cancel out.
+// Returns a unit step direction plus the local well-bend strength (0..1) for the
+// `field` color source. gravityInfluence 0 → pure flow field (the floor alone).
 export function fieldAt(state: GravityState, px: number, py: number): FieldSample {
   const { noise, fieldTime, cfg, wells } = state
-  const a = noise(px * cfg.noiseScale, py * cfg.noiseScale, fieldTime) * Math.PI * 2
-  let fx = Math.cos(a), fy = Math.sin(a)
-  const { ax, ay } = accelAt(px, py, wells)
+  const { ax, ay } = accelAt(px, py, wells, cfg.swirl)
   const k = GRAVITY_K * cfg.gravityInfluence
-  fx += ax * k
-  fy += ay * k
+  const gx = ax * k, gy = ay * k
+  // faint base flow — additive, so where the wells are strong they swamp it and
+  // where they vanish (dead zones / saddle points) it keeps particles drifting.
+  const a = noise(px * cfg.noiseScale, py * cfg.noiseScale, fieldTime) * Math.PI * 2
+  const fx = gx + Math.cos(a) * FLOW_FLOOR
+  const fy = gy + Math.sin(a) * FLOW_FLOOR
   const len = Math.hypot(fx, fy) || 1
-  const gravMag = Math.hypot(ax, ay)
-  return { dx: fx / len, dy: fy / len, strength: Math.min(1, gravMag * GRAVITY_K) }
+  return { dx: fx / len, dy: fy / len, strength: Math.min(1, Math.hypot(gx, gy)) }
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)

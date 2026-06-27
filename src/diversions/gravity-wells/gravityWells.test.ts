@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mulberry32 } from '../flow-field/noise'
 import { gravityWellsSchema } from './schema'
 import {
-  spawnWell, wellEnvelope, maintainWells, accelAt,
+  spawnWell, wellEnvelope, wellForce, maintainWells, accelAt,
   createGravityState, respawnParticle, outOfBounds, colorT, fieldAt,
   BOUNDS_MARGIN, type Well, type Particle, type GravityState,
 } from './gravityWells'
@@ -10,14 +10,13 @@ import {
 const cfg = gravityWellsSchema.parse({})
 
 describe('spawnWell', () => {
-  it('places the well in-bounds with force inside [forceMin, forceMax]', () => {
+  it('places the well in-bounds and starts its force at the floor', () => {
     const rng = mulberry32(1)
     for (let i = 0; i < 50; i++) {
       const wl = spawnWell(rng, cfg, 800, 600)
       expect(wl.x).toBeGreaterThanOrEqual(0)
       expect(wl.x).toBeLessThanOrEqual(800)
-      expect(wl.force).toBeGreaterThanOrEqual(cfg.forceMin - 1e-9)
-      expect(wl.force).toBeLessThanOrEqual(cfg.forceMax + 1e-9)
+      expect(wl.force).toBeCloseTo(cfg.forceMin, 9) // ramps up from here over its life
       expect(wl.life).toBeGreaterThan(0)
     }
   })
@@ -25,10 +24,23 @@ describe('spawnWell', () => {
 
 describe('wellEnvelope', () => {
   it('is 0 at birth, ~1 mid-life, and 0 at the very end', () => {
-    const wl: Well = { x: 0, y: 0, force: 1, age: 0, life: 10000, fade: 1000 }
+    const wl: Well = { x: 0, y: 0, force: 1, age: 0, life: 10000 }
     expect(wellEnvelope({ ...wl, age: 0 })).toBeCloseTo(0, 2)
     expect(wellEnvelope({ ...wl, age: 5000 })).toBeCloseTo(1, 2)
     expect(wellEnvelope({ ...wl, age: 10000 })).toBeCloseTo(0, 2)
+  })
+})
+
+describe('wellForce', () => {
+  it('ramps forceMin → forceMax → forceMin across the well life', () => {
+    const wl: Well = { x: 0, y: 0, force: 0, age: 0, life: 10000 }
+    expect(wellForce({ ...wl, age: 0 }, cfg)).toBeCloseTo(cfg.forceMin, 5)
+    expect(wellForce({ ...wl, age: 5000 }, cfg)).toBeCloseTo(cfg.forceMax, 5)
+    expect(wellForce({ ...wl, age: 10000 }, cfg)).toBeCloseTo(cfg.forceMin, 5)
+  })
+  it('never goes negative (attract-only)', () => {
+    const wl: Well = { x: 0, y: 0, force: 0, age: 2500, life: 10000 }
+    expect(wellForce(wl, cfg)).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -54,17 +66,17 @@ describe('maintainWells', () => {
 
 describe('accelAt (gravity bend vector)', () => {
   it('an attractor (force>0) points toward the well', () => {
-    const wells = [{ x: 100, y: 0, force: 1, age: 5000, life: 10000, fade: 100 }]
+    const wells = [{ x: 100, y: 0, force: 1, age: 5000, life: 10000 }]
     const { ax } = accelAt(0, 0, wells) // well to the right → ax > 0
     expect(ax).toBeGreaterThan(0)
   })
   it('a repulsor (force<0) points away from the well', () => {
-    const wells = [{ x: 100, y: 0, force: -1, age: 5000, life: 10000, fade: 100 }]
+    const wells = [{ x: 100, y: 0, force: -1, age: 5000, life: 10000 }]
     const { ax } = accelAt(0, 0, wells)
     expect(ax).toBeLessThan(0)
   })
   it('stays finite at the singularity (particle on the well) via softening', () => {
-    const wells = [{ x: 0, y: 0, force: 2, age: 5000, life: 10000, fade: 100 }]
+    const wells = [{ x: 0, y: 0, force: 2, age: 5000, life: 10000 }]
     const { ax, ay } = accelAt(0, 0, wells)
     expect(Number.isFinite(ax)).toBe(true)
     expect(Number.isFinite(ay)).toBe(true)
@@ -84,24 +96,33 @@ describe('fieldAt (noise ⊕ gravity, 1st-order)', () => {
     expect(Math.hypot(f.dx, f.dy)).toBeCloseTo(1, 5)
   })
   it('with gravityInfluence 0 it ignores the wells (pure flow field)', () => {
-    const wells: Well[] = [{ x: 410, y: 300, force: 2, age: 5000, life: 10000, fade: 100 }]
+    const wells: Well[] = [{ x: 410, y: 300, force: 2, age: 5000, life: 10000 }]
     const a = fieldAt(stateWith({ gravityInfluence: 0 }, wells), 0, 300)
     const b = fieldAt(stateWith({ gravityInfluence: 0 }, []), 0, 300)
     expect(a.dx).toBeCloseTo(b.dx, 10)
     expect(a.dy).toBeCloseTo(b.dy, 10)
   })
-  it('an attractor bends the field toward the well (vs the same flow with no well)', () => {
-    // well directly to the right of the particle; the bend should rotate the
-    // field rightward relative to the pure-noise flow at the same point.
-    const wells: Well[] = [{ x: 700, y: 300, force: 2, age: 5000, life: 10000, fade: 100 }]
-    const withWell = fieldAt(stateWith({ gravityInfluence: 2 }, wells), 400, 300)
-    const noWell = fieldAt(stateWith({ gravityInfluence: 2 }, []), 400, 300)
-    expect(withWell.dx).toBeGreaterThan(noWell.dx)
+  it('a strong nearby attractor (swirl 0) makes the flow point toward it', () => {
+    // well close to the right; with no swirl the radial pull dominates the faint
+    // floor, so the flow points almost straight at the well regardless of noise.
+    const wells: Well[] = [{ x: 700, y: 300, force: 2, age: 5000, life: 10000 }]
+    const f = fieldAt(stateWith({ gravityInfluence: 2, swirl: 0 }, wells), 650, 300)
+    expect(f.dx).toBeGreaterThan(0.9)
+  })
+  it('swirl turns radial pull into tangential orbit', () => {
+    // well directly to the right (dy=0): pure radial bends the flow only in x;
+    // pure swirl bends it perpendicular, so |dy| grows with swirl.
+    const wells: Well[] = [{ x: 700, y: 300, force: 2, age: 5000, life: 10000 }]
+    const radial = fieldAt(stateWith({ gravityInfluence: 2, swirl: 0 }, wells), 650, 300)
+    const orbit = fieldAt(stateWith({ gravityInfluence: 2, swirl: 1 }, wells), 650, 300)
+    expect(Math.abs(orbit.dy)).toBeGreaterThan(Math.abs(radial.dy))
   })
   it('reports higher bend strength nearer a well', () => {
-    const wells: Well[] = [{ x: 400, y: 300, force: 2, age: 5000, life: 10000, fade: 100 }]
-    const near = fieldAt(stateWith({}, wells), 420, 300).strength
-    const far = fieldAt(stateWith({}, wells), 50, 50).strength
+    // low influence keeps both samples below the 1.0 clamp so the gradient (which
+    // falls off with distance) is visible rather than saturated.
+    const wells: Well[] = [{ x: 400, y: 300, force: 1, age: 5000, life: 10000 }]
+    const near = fieldAt(stateWith({ gravityInfluence: 0.3 }, wells), 650, 300).strength
+    const far = fieldAt(stateWith({ gravityInfluence: 0.3 }, wells), 50, 300).strength
     expect(near).toBeGreaterThan(far)
   })
 })
