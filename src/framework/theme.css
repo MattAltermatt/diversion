@@ -146,6 +146,20 @@ button {
   position: relative;
   background: radial-gradient(130% 130% at 72% 28%, #0c161b, #050507);
 }
+/* Quick jump to the full animation — mirrors the play screen's "← config" pill
+   in the same top-left corner, so you don't have to scroll to the bottom CTA. */
+.animate-pill {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 2;
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(8, 16, 18, 0.6);
+  border: 1px solid #2a3a40;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
 
 /* ── Preset picker ────────────────────────────────────────────────────────── */
 /* Sits above the form: pick a vibe, then fine-tune below. Separated from the

@@ -53,6 +53,9 @@ export function ConfigScreen() {
         </Link>
       </aside>
       <main className="config-preview">
+        <Link className="animate-pill" to={playHref}>
+          animate →
+        </Link>
         <AnimationHost diversion={diversion} config={config} />
       </main>
     </div>
