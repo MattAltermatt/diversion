@@ -48,15 +48,27 @@ describe('createFlowState determinism', () => {
 })
 
 describe('trailFadeAlpha', () => {
+  // Trail length is perceptual: a mark survives ~1/fadeAlpha frames. We map the
+  // slider LINEARLY in survival-frames (1..50), so equal slider steps feel like
+  // equal trail-length changes. Endpoints preserved: 0 = hard wipe (1 frame,
+  // alpha 1.0), 100 = longest trail (50 frames, alpha 0.02).
+  const frames = (t: number) => 1 / trailFadeAlpha(t)
+
   it('maps 0 -> full wipe (1.0) and 100 -> the floor (0.02)', () => {
     expect(trailFadeAlpha(0)).toBe(1)
     expect(trailFadeAlpha(100)).toBeCloseTo(0.02, 5)
   })
-  it('matches the legacy ~0.13 fade near the default (88)', () => {
-    expect(trailFadeAlpha(88)).toBeCloseTo(0.1376, 3)
-  })
   it('is monotonically decreasing in trail length', () => {
     expect(trailFadeAlpha(20)).toBeGreaterThan(trailFadeAlpha(80))
+  })
+  it('spaces trail length evenly: the 99->100 step is no bigger than a mid step', () => {
+    // The whole point of the perceptual remap — no cliff at the top of the slider.
+    const topStep = frames(100) - frames(99)
+    const midStep = frames(51) - frames(50)
+    expect(topStep).toBeCloseTo(midStep, 6)
+  })
+  it('places the default (88) near the long end of the survival-frame range', () => {
+    expect(frames(88)).toBeCloseTo(1 + 0.88 * 49, 4) // ~44 frames
   })
 })
 

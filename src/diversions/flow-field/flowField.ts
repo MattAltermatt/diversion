@@ -18,11 +18,19 @@ export function hexToRgba(hex: string): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
-const TRAIL_FADE_FLOOR = 0.02
-/** trailLength 0..100 -> per-frame fade alpha 1.0..0.02 (higher length = longer trail). */
+// A drawn mark survives ~1/fadeAlpha frames before the per-frame background wash
+// erases it, so *perceived* trail length is ~1/alpha — hyperbolic in alpha. A
+// slider that's linear in alpha therefore crowds almost all the visible change
+// into the top few percent (the 99->100 cliff). Instead map the slider LINEARLY
+// in survival-frames so equal steps feel equal. Endpoints unchanged: 0 = hard
+// wipe (1 frame), 100 = longest trail (50 frames -> alpha 0.02).
+const TRAIL_MIN_FRAMES = 1
+const TRAIL_MAX_FRAMES = 50
+/** trailLength 0..100 -> per-frame fade alpha (perceptually even; higher = longer trail). */
 export function trailFadeAlpha(trailLength: number): number {
-  const a = 1 - (trailLength / 100) * (1 - TRAIL_FADE_FLOOR)
-  return Math.min(1, Math.max(TRAIL_FADE_FLOOR, a))
+  const t = Math.min(1, Math.max(0, trailLength / 100))
+  const survivalFrames = TRAIL_MIN_FRAMES + t * (TRAIL_MAX_FRAMES - TRAIL_MIN_FRAMES)
+  return 1 / survivalFrames
 }
 /** 0..1 alpha -> two-digit hex byte for hex-append (e.g. 0.1376 -> "23"). */
 export function toHex2(alpha: number): string {
