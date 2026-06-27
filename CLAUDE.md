@@ -12,7 +12,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ## The five UX invariants (treat as MUST)
 
-1. Readability is key. 2. Hide nothing (no collapsed groups; show every live value). 3. Add inline help when confusing (`.meta({ help })`, persistent — not hover-only). 4. Sliders only when bounds are defined (`ui:'slider'` needs min/max; open-ended → `ui:'number'`). 5. Err toward more contrast.
+1. Readability is key. 2. Hide nothing — every variable stays **discoverable** and shows its live value; never bury live state behind an accordion the user must expand to see it. Mode-dependent controls *may* swap (a `showWhen` panel that shows only the active mode's options — e.g. the Color panel's palette-vs-gradient controls) as long as the hidden data returns when you switch the controlling field. Discoverable ≠ always-on-screen. 3. Add inline help when confusing (`.meta({ help })`, persistent — not hover-only). 4. Sliders only when bounds are defined (`ui:'slider'` needs min/max; open-ended → `ui:'number'`). 5. Err toward more contrast.
 
 ## Conventions
 

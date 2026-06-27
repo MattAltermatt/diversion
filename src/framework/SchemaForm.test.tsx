@@ -39,4 +39,20 @@ describe('SchemaForm', () => {
     expect(screen.getByText('Palette')).toBeInTheDocument()
     expect(screen.getByDisplayValue('200')).toHaveAttribute('type', 'range')
   })
+
+  it('honors showWhen: renders a field only when its sibling holds the named value', () => {
+    const swSchema = z.object({
+      mode: z.enum(['a', 'b']).default('a').meta({ ui: 'segmented', options: ['a', 'b'], label: 'Mode' }),
+      onlyA: z.number().default(5).meta({ ui: 'number', label: 'Only A', showWhen: { field: 'mode', equals: 'a' } }),
+      onlyB: z.number().default(9).meta({ ui: 'number', label: 'Only B', showWhen: { field: 'mode', equals: 'b' } }),
+    })
+    // mode 'a' → onlyA shows, onlyB hidden
+    const { rerender } = render(<SchemaForm schema={swSchema} value={{ mode: 'a', onlyA: 5, onlyB: 9 }} onChange={() => {}} />)
+    expect(screen.getByText('Only A')).toBeInTheDocument()
+    expect(screen.queryByText('Only B')).not.toBeInTheDocument()
+    // flip to 'b' → swap
+    rerender(<SchemaForm schema={swSchema} value={{ mode: 'b', onlyA: 5, onlyB: 9 }} onChange={() => {}} />)
+    expect(screen.queryByText('Only A')).not.toBeInTheDocument()
+    expect(screen.getByText('Only B')).toBeInTheDocument()
+  })
 })

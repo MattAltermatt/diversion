@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { createFlowState, hexToRgba, trailFadeAlpha, toHex2 } from './flowField'
+import {
+  createFlowState, hexToRgba, trailFadeAlpha, toHex2, sampleGradient, colorSourceT,
+} from './flowField'
 import { flowFieldSchema } from './schema'
+import { encodeConfig, decodeConfig } from '../../framework/urlCodec'
 
 const base = flowFieldSchema.parse({})
 
@@ -15,12 +18,12 @@ describe('hexToRgba', () => {
 describe('createFlowState palette', () => {
   it('precomputes one rgba style per palette color', () => {
     const s = createFlowState({ ...base, particles: 20 }, 800, 600)
-    expect(s.styles).toHaveLength(base.palette.colors.length)
-    expect(s.styles[0]).toBe(hexToRgba(base.palette.colors[0]))
+    expect(s.styles).toHaveLength(base.color.colors.length)
+    expect(s.styles[0]).toBe(hexToRgba(base.color.colors[0]))
   })
 
   it('assigns every particle a color index within the palette range', () => {
-    const n = base.palette.colors.length
+    const n = base.color.colors.length
     const s = createFlowState({ ...base, particles: 200 }, 800, 600)
     for (const p of s.particles) {
       expect(p.ci).toBeGreaterThanOrEqual(0)
@@ -92,5 +95,84 @@ describe('schema defaults', () => {
     const cfg = flowFieldSchema.parse({})
     expect(cfg.trailLength).toBe(88)
     expect(cfg.lifespan).toBe(4)
+  })
+})
+
+describe('sampleGradient', () => {
+  it('returns the first stop at t=0 and the last stop at t=1 (non-wrap)', () => {
+    expect(sampleGradient(['#ff000080', '#0000ff80'], 0, false)).toBe('rgba(255, 0, 0, 0.502)')
+    expect(sampleGradient(['#ff000080', '#0000ff80'], 1, false)).toBe('rgba(0, 0, 255, 0.502)')
+  })
+  it('linearly interpolates at the midpoint of two stops', () => {
+    expect(sampleGradient(['#ff000080', '#0000ff80'], 0.5, false)).toBe('rgba(128, 0, 128, 0.502)')
+  })
+  it('locates the right segment among many evenly-spaced stops', () => {
+    // 3 stops, non-wrap → 2 segments; t=0.5 lands exactly on the middle stop
+    expect(sampleGradient(['#ff0000ff', '#00ff00ff', '#0000ffff'], 0.5, false)).toBe('rgba(0, 255, 0, 1)')
+  })
+  it('wraps the last stop back to the first when wrap=true', () => {
+    const stops = ['#ff0000ff', '#00ff00ff', '#0000ffff'] // 3 stops, wrap → 3 segments
+    // t=1 closes the loop back to stop0
+    expect(sampleGradient(stops, 1, true)).toBe('rgba(255, 0, 0, 1)')
+    // t=5/6 is the midpoint of the wrap segment (blue -> red)
+    expect(sampleGradient(stops, 5 / 6, true)).toBe('rgba(128, 0, 128, 1)')
+  })
+  it('clamps t outside [0,1]', () => {
+    expect(sampleGradient(['#ff000080', '#0000ff80'], -1, false)).toBe('rgba(255, 0, 0, 0.502)')
+    expect(sampleGradient(['#ff000080', '#0000ff80'], 2, false)).toBe('rgba(0, 0, 255, 0.502)')
+  })
+})
+
+describe('colorSourceT', () => {
+  it('normalizes x and y position to [0,1] and clamps', () => {
+    expect(colorSourceT('x', 400, 0, 0, 800, 600)).toBeCloseTo(0.5, 6)
+    expect(colorSourceT('y', 0, 300, 0, 800, 600)).toBeCloseTo(0.5, 6)
+    expect(colorSourceT('x', 1000, 0, 0, 800, 600)).toBe(1) // clamp over
+    expect(colorSourceT('y', 0, -50, 0, 800, 600)).toBe(0) // clamp under
+  })
+  it('maps flow-angle into [0,1) cyclically', () => {
+    expect(colorSourceT('flow-angle', 0, 0, 0, 800, 600)).toBeCloseTo(0, 6)
+    expect(colorSourceT('flow-angle', 0, 0, Math.PI, 800, 600)).toBeCloseTo(0.5, 6)
+    expect(colorSourceT('flow-angle', 0, 0, 2 * Math.PI, 800, 600)).toBeCloseTo(0, 6) // wraps to 0
+    expect(colorSourceT('flow-angle', 0, 0, -Math.PI / 2, 800, 600)).toBeCloseTo(0.75, 6) // negative wraps
+  })
+})
+
+describe('color-panel schema defaults', () => {
+  it('defaults color.mode to palette (today\'s look preserved)', () => {
+    expect(flowFieldSchema.parse({}).color.mode).toBe('palette')
+  })
+  it('keeps background as a top-level field (shared across modes)', () => {
+    const cfg = flowFieldSchema.parse({})
+    expect(cfg.background).toBe('#0a0a12')
+    expect('background' in cfg.color).toBe(false)
+  })
+  it('defaults the gradient controls: flow-angle source + >=2 evenly-spaced stops', () => {
+    const cfg = flowFieldSchema.parse({})
+    expect(cfg.color.source).toBe('flow-angle')
+    expect(cfg.color.stops.length).toBeGreaterThanOrEqual(2)
+    for (const s of cfg.color.stops) expect(s).toMatch(/^#[0-9a-fA-F]{8}$/)
+  })
+})
+
+describe('color-panel codec round-trip', () => {
+  it('round-trips color.mode, gradient source/stops, and top-level background', () => {
+    const defaults = flowFieldSchema.parse({})
+    const cfg = {
+      ...defaults,
+      background: '#101018',
+      color: {
+        ...defaults.color,
+        mode: 'gradient' as const,
+        source: 'x' as const,
+        stops: ['#11223344', '#55667788', '#99aabbcc'],
+      },
+    }
+    const sp = encodeConfig(flowFieldSchema, cfg)
+    const back = decodeConfig(flowFieldSchema, sp)
+    expect(back.color.mode).toBe('gradient')
+    expect(back.background).toBe('#101018')
+    expect(back.color.source).toBe('x')
+    expect(back.color.stops).toEqual(['#11223344', '#55667788', '#99aabbcc'])
   })
 })

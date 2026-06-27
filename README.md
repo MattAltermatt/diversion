@@ -60,7 +60,7 @@ export default myDiversion
 ### The five UX invariants (non-negotiable)
 
 1. **Readability is key** — legible type, no decorative-over-legible tradeoffs.
-2. **Hide nothing** — every param visible, nested groups expanded, live values shown.
+2. **Hide nothing** — every param stays discoverable with its live value shown; nested groups expanded. Mode-dependent controls may swap via `showWhen` (e.g. the Color panel shows palette *or* gradient controls) as long as the hidden data returns when you switch the controlling field.
 3. **Add help when confusing** — `.meta({ help })` renders as persistent inline subtext.
 4. **Sliders only when bounded** — `ui:'slider'` needs `min`/`max`; open-ended numbers use `ui:'number'`.
 5. **Err toward more contrast** — high-contrast palette, crisp borders.
@@ -68,6 +68,8 @@ export default myDiversion
 ## Control vocabulary
 
 `slider` · `number` · `segmented` (enum) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested, expanded). More get added when a diversion needs them.
+
+Any field can carry `.meta({ showWhen: { field, equals } })` to render only when a sibling field holds a given value — used by Flow Field's Color panel to swap palette vs gradient controls by mode.
 
 ## Stack
 

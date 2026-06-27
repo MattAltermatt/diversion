@@ -57,6 +57,13 @@ export function SchemaForm({
   return (
     <div className="schema-form">
       {fields(schema).map(([key, field, meta]) => {
+        // Conditional visibility: a field with showWhen renders only when its
+        // sibling field holds the named value (e.g. gradient controls appear
+        // only in gradient mode). The data stays discoverable — switch the
+        // controlling field and it returns.
+        if (meta.showWhen && value[meta.showWhen.field] !== meta.showWhen.equals) {
+          return null
+        }
         if (meta.ui === 'group') {
           return (
             <Group key={key} label={meta.label}>

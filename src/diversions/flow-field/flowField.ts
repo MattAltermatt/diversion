@@ -29,6 +29,56 @@ export function toHex2(alpha: number): string {
   return Math.round(alpha * 255).toString(16).padStart(2, '0')
 }
 
+/** "#rrggbbaa" -> {r,g,b, a in 0..1}. */
+function parseHex8(hex: string): { r: number; g: number; b: number; a: number } {
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+    a: parseInt(hex.slice(7, 9), 16) / 255,
+  }
+}
+
+/** Linear-interpolate rgba across evenly-spaced `stops` at t in [0,1].
+ *  wrap=true treats the stops as cyclic (last blends back to first) — for the
+ *  flow-angle source, which rolls over at 2π. Returns an rgba() string in the
+ *  same format as hexToRgba. */
+export function sampleGradient(stops: string[], t: number, wrap: boolean): string {
+  const tc = Math.min(1, Math.max(0, t))
+  const n = stops.length
+  const fmt = (r: number, g: number, b: number, a: number) =>
+    `rgba(${r}, ${g}, ${b}, ${Math.round(a * 1000) / 1000})`
+  if (n === 1) {
+    const c = parseHex8(stops[0])
+    return fmt(c.r, c.g, c.b, c.a)
+  }
+  const segments = wrap ? n : n - 1
+  const scaled = tc * segments
+  let i = Math.floor(scaled)
+  if (i >= segments) i = segments - 1 // pull t===1 into the last segment
+  const f = scaled - i
+  const a = parseHex8(stops[i])
+  const b = parseHex8(stops[wrap ? (i + 1) % n : i + 1])
+  return fmt(
+    Math.round(a.r + (b.r - a.r) * f),
+    Math.round(a.g + (b.g - a.g) * f),
+    Math.round(a.b + (b.b - a.b) * f),
+    a.a + (b.a - a.a) * f,
+  )
+}
+
+/** Map a particle's chosen color source to t in [0,1]. flow-angle is cyclic
+ *  (pairs with sampleGradient wrap=true); x/y are clamped screen fractions. */
+export function colorSourceT(
+  source: 'flow-angle' | 'x' | 'y',
+  x: number, y: number, angle: number, w: number, h: number,
+): number {
+  if (source === 'x') return Math.min(1, Math.max(0, x / w))
+  if (source === 'y') return Math.min(1, Math.max(0, y / h))
+  const tau = Math.PI * 2
+  return (((angle % tau) + tau) % tau) / tau
+}
+
 export interface FlowState {
   particles: Particle[]
   noise: (x: number, y: number) => number
@@ -59,8 +109,8 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
   // Separate seeded stream for particles (derived so it doesn't mirror the noise
   // grid's stream). Same seed → same particle layout AND respawns, every run.
   const rng = mulberry32((cfg.seed ^ 0x9e3779b9) >>> 0)
-  const styles = cfg.palette.colors.map(hexToRgba)
-  const n = cfg.palette.colors.length
+  const styles = cfg.color.colors.map(hexToRgba)
+  const n = cfg.color.colors.length
   const maxLife = lifeBounds(cfg.lifespan).max
   const particles: Particle[] = Array.from({ length: cfg.particles }, () => ({
     x: rng() * w,
@@ -77,7 +127,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
   // fade the canvas for trails (alpha from the Trail length slider), or hard-clear
   ctx.globalCompositeOperation = 'source-over'
   const fadeAlpha = cfg.fadeTrails ? trailFadeAlpha(cfg.trailLength) : 1
-  ctx.fillStyle = `${cfg.palette.background}${toHex2(fadeAlpha)}`
+  ctx.fillStyle = `${cfg.background}${toHex2(fadeAlpha)}`
   ctx.fillRect(0, 0, w, h)
 
   // 'normal' is not a valid composite op — map it to the canvas default.
@@ -100,8 +150,16 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
     const angle = noise(p.x * cfg.noiseScale, p.y * cfg.noiseScale) * Math.PI * 2
     const nx = p.x + Math.cos(angle) * speed * 16
     const ny = p.y + Math.sin(angle) * speed * 16
+    // Palette mode: each particle's spawn color. Gradient mode: sample the gradient
+    // at the particle's color-source position (flow-angle wraps; x/y clamp).
     // styles.length is >=1 (schema min); modulo keeps a stale index valid if the set shrank
-    ctx.strokeStyle = styles[p.ci % styles.length]
+    ctx.strokeStyle = cfg.color.mode === 'gradient'
+      ? sampleGradient(
+          cfg.color.stops,
+          colorSourceT(cfg.color.source, p.x, p.y, angle, w, h),
+          cfg.color.source === 'flow-angle',
+        )
+      : styles[p.ci % styles.length]
     ctx.beginPath()
     ctx.moveTo(p.x, p.y)
     ctx.lineTo(nx, ny)

@@ -10,6 +10,7 @@ export interface FieldMeta {
   max?: number // required for ui:'slider'
   step?: number
   options?: string[] // for ui:'segmented' (mirrors enum values)
+  showWhen?: { field: string; equals: string } // render only when a sibling field === this value
 }
 
 /** Read a field's UI meta via Zod's public .meta(). Returns undefined if unset. */

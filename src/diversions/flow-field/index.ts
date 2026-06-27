@@ -11,7 +11,7 @@ const flowField: Diversion<FlowFieldConfig> = {
 
   setup(ctx: RenderContext, config: FlowFieldConfig, size: Size): FlowState {
     const c = ctx as CanvasRenderingContext2D
-    c.fillStyle = config.palette.background
+    c.fillStyle = config.background
     c.fillRect(0, 0, size.width, size.height)
     return createFlowState(config, size.width, size.height)
   },
