@@ -14,8 +14,9 @@ export const motionPresets: SquiralPreset[] = [
 
 // All five share one key-set (background/cycle/cellStyle/color) so the Color
 // group stays a clean independent axis — matchPresets assumes equal key-sets
-// per group (see framework/presets.ts). The three presets that don't restyle
-// cells carry cellStyle at its schema default ('square'), preserving behavior.
+// per group (see framework/presets.ts). Only Neon restyles cells ('ribbon');
+// the other four carry cellStyle at its schema default ('square'), preserving
+// behavior while keeping the key-set uniform.
 export const colorPresets: SquiralPreset[] = [
   { name: 'Ember', patch: {
     background: '#11131a', cycle: false, cellStyle: 'square',

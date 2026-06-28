@@ -231,6 +231,10 @@ export function AnimationHost({
       try {
         run.state = diversion.setup(run.ctx, config, run.size)
       } catch (e) {
+        // setup() threw mid-run on a config edit: stop the loop so frame() can't
+        // tick the just-torn-down state, then re-throw via render so the
+        // DiversionErrorBoundary takes over this tile.
+        loopRef.current?.stop()
         setSetupError(() => {
           throw e
         })
