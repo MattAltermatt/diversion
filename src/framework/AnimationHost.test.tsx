@@ -1,77 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { z } from 'zod'
 import { AnimationHost } from './AnimationHost'
-import type { Diversion } from './types'
+import type { Diversion, Size } from './types'
+// The GL/2D context, matchMedia, Resize/Intersection observers and the rAF queue
+// are stubbed globally in src/test-setup.ts (#128). This file drives them through
+// the shared `harness` + `flushRaf` rather than re-stubbing per file.
+import { harness, flushRaf } from '../test-setup'
 
-// jsdom has no GL/2D context or rAF — stub them so the host's effect runs.
-// Record getContext args so the WebGL-attributes test can assert them.
-let lastContextArgs: unknown[] = []
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let lastResizeObserver: any = null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let lastIntersectionObserver: any = null
-let rafCbs: FrameRequestCallback[] = []
-let reducedMotion = false
-// Drive one round of queued rAF callbacks (each re-queues the next frame).
-function drainRaf() {
-  const cbs = rafCbs
-  rafCbs = []
-  cbs.forEach((cb) => cb(0))
-}
-beforeEach(() => {
-  lastContextArgs = []
-  lastResizeObserver = null
-  lastIntersectionObserver = null
-  rafCbs = []
-  reducedMotion = false
-  HTMLCanvasElement.prototype.getContext = vi.fn((...args: unknown[]) => {
-    lastContextArgs = args
-    return {
-      setTransform() {},
-      fillRect() {},
-      viewport() {},
-      drawingBufferWidth: 300,
-      drawingBufferHeight: 150,
-    }
-  }) as unknown as typeof HTMLCanvasElement.prototype.getContext
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-    rafCbs.push(cb)
-    return rafCbs.length
-  })
-  vi.stubGlobal('cancelAnimationFrame', () => {})
-  vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: reducedMotion && q.includes('reduced-motion'),
-    addEventListener() {},
-    removeEventListener() {},
-  }))
-  // jsdom lacks ResizeObserver — capture the callback so tests can drive it.
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      cb: ResizeObserverCallback
-      constructor(cb: ResizeObserverCallback) {
-        this.cb = cb
-        lastResizeObserver = this
-      }
-      observe() {}
-      disconnect() {}
-    },
-  )
-  // jsdom lacks IntersectionObserver — capture the callback so tests can drive it.
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      cb: IntersectionObserverCallback
-      constructor(cb: IntersectionObserverCallback) {
-        this.cb = cb
-        lastIntersectionObserver = this
-      }
-      observe() {}
-      disconnect() {}
-    },
-  )
-})
+// Local alias kept so the existing assertions read unchanged.
+const drainRaf = flushRaf
 
 function makeDiv(calls: string[], updateReturns: boolean): Diversion {
   return {
@@ -115,8 +53,11 @@ function makeWebglDiv(calls: string[]): Diversion {
 describe('AnimationHost WebGL host (#8)', () => {
   it('creates webgl2 with sane context attributes', () => {
     render(<AnimationHost diversion={makeWebglDiv([])} config={{ v: 0 }} />)
-    expect(lastContextArgs[0]).toBe('webgl2')
-    expect(lastContextArgs[1]).toMatchObject({ alpha: false, powerPreference: 'high-performance' })
+    expect(harness.lastContextArgs[0]).toBe('webgl2')
+    expect(harness.lastContextArgs[1]).toMatchObject({
+      alpha: false,
+      powerPreference: 'high-performance',
+    })
   })
 
   it('preventDefaults webglcontextlost (so restore can fire)', () => {
@@ -167,7 +108,7 @@ describe('AnimationHost reduced-motion (#39)', () => {
   })
 
   it('paints exactly one frame then freezes when reduced-motion is on', () => {
-    reducedMotion = true
+    harness.reducedMotion = true
     const calls: string[] = []
     render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
     drainRaf()
@@ -177,7 +118,7 @@ describe('AnimationHost reduced-motion (#39)', () => {
   })
 
   it('shows a visible opt-in chip + ▶ icon, and a single click resumes motion', () => {
-    reducedMotion = true
+    harness.reducedMotion = true
     const calls: string[] = []
     const { container } = render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
     act(() => drainRaf()) // paint first frame → reduced gate engages + chip renders
@@ -189,6 +130,25 @@ describe('AnimationHost reduced-motion (#39)', () => {
     drainRaf()
     expect(calls.filter((c) => c === 'frame').length).toBeGreaterThan(before)
   })
+
+  it('freezes after one frame with the chip up and no unwrapped-act() warning', () => {
+    harness.reducedMotion = true
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const calls: string[] = []
+      const { container } = render(
+        <AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />,
+      )
+      act(() => drainRaf()) // first frame paints inside act → gate engages, chip renders
+      act(() => drainRaf()) // any further flush must NOT paint (frozen)
+      expect(calls.filter((c) => c === 'frame').length).toBe(1)
+      expect(container.querySelector('.anim-hint')?.textContent).toContain('Reduced motion')
+      const actWarnings = errSpy.mock.calls.filter((c) => String(c[0]).includes('act('))
+      expect(actWarnings).toEqual([])
+    } finally {
+      errSpy.mockRestore()
+    }
+  })
 })
 
 describe('AnimationHost offscreen pause (#6)', () => {
@@ -197,11 +157,13 @@ describe('AnimationHost offscreen pause (#6)', () => {
     render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
     drainRaf()
     const baseline = calls.filter((c) => c === 'frame').length
-    lastIntersectionObserver.cb([{ isIntersecting: false }], lastIntersectionObserver)
+    const io = harness.lastIntersectionObserver!
+    const ioArg = io as unknown as IntersectionObserver
+    io.cb([{ isIntersecting: false }] as IntersectionObserverEntry[], ioArg)
     drainRaf()
     drainRaf()
     expect(calls.filter((c) => c === 'frame').length).toBe(baseline) // frozen
-    lastIntersectionObserver.cb([{ isIntersecting: true }], lastIntersectionObserver)
+    io.cb([{ isIntersecting: true }] as IntersectionObserverEntry[], ioArg)
     drainRaf()
     expect(calls.filter((c) => c === 'frame').length).toBeGreaterThan(baseline) // resumed
   })
@@ -211,8 +173,81 @@ describe('AnimationHost resize (#7)', () => {
   it('refits via ResizeObserver, passing the context to resize()', () => {
     const calls: string[] = []
     render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
-    expect(lastResizeObserver).not.toBeNull()
-    lastResizeObserver.cb([], lastResizeObserver) // fire a resize
+    expect(harness.lastResizeObserver).not.toBeNull()
+    const ro = harness.lastResizeObserver!
+    ro.cb([], ro) // fire a resize
     expect(calls).toContain('resize')
+  })
+})
+
+describe('AnimationHost HiDPI sizing (#128)', () => {
+  it('hands setup() the CSS-pixel size, not the device-pixel backing store', () => {
+    // Stub a 400×300 CSS box at devicePixelRatio 2 → backing store should be
+    // 800×600, but a 2D diversion must draw in CSS pixels (the sizeOf seam).
+    const protoRect = HTMLCanvasElement.prototype.getBoundingClientRect
+    HTMLCanvasElement.prototype.getBoundingClientRect = () =>
+      ({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0 }) as DOMRect
+    const prevDpr = window.devicePixelRatio
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true })
+    try {
+      let captured: Size | null = null
+      const div: Diversion = {
+        id: 'sizefake',
+        title: 'SizeFake',
+        description: '',
+        kind: '2d',
+        schema: z.object({ v: z.number().default(0) }),
+        setup: (_ctx, _cfg, size) => {
+          captured = size
+          return {}
+        },
+        frame: () => {},
+      }
+      const { container } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+      expect(captured).toEqual({ width: 400, height: 300 }) // CSS px, NOT 800×600
+      const canvas = container.querySelector('canvas')!
+      expect(canvas.width).toBe(800) // backing store IS device px
+      expect(canvas.height).toBe(600)
+    } finally {
+      HTMLCanvasElement.prototype.getBoundingClientRect = protoRect
+      Object.defineProperty(window, 'devicePixelRatio', { value: prevDpr, configurable: true })
+    }
+  })
+})
+
+describe('AnimationHost teardown frees resources (#128)', () => {
+  it('calls teardown once and removes every listener/observer on unmount', () => {
+    const calls: string[] = []
+    const div: Diversion = {
+      id: 'teardownfake',
+      title: 'TeardownFake',
+      description: '',
+      kind: 'webgl', // webgl path also wires the context-lost/restored listeners
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        calls.push('setup')
+        return {}
+      },
+      frame: () => {},
+      teardown: () => {
+        calls.push('teardown')
+      },
+    }
+    const { container, unmount } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    const canvas = container.querySelector('canvas')!
+    const removeSpy = vi.spyOn(canvas, 'removeEventListener')
+    const docRemoveSpy = vi.spyOn(document, 'removeEventListener')
+    const roSpy = vi.spyOn(harness.lastResizeObserver!, 'disconnect')
+    const ioSpy = vi.spyOn(harness.lastIntersectionObserver!, 'disconnect')
+
+    unmount()
+
+    expect(calls.filter((c) => c === 'teardown').length).toBe(1)
+    expect(roSpy).toHaveBeenCalledTimes(1)
+    expect(ioSpy).toHaveBeenCalledTimes(1)
+    const removedEvents = removeSpy.mock.calls.map((c) => c[0])
+    expect(removedEvents).toContain('webglcontextlost')
+    expect(removedEvents).toContain('webglcontextrestored')
+    expect(docRemoveSpy.mock.calls.map((c) => c[0])).toContain('visibilitychange')
   })
 })
