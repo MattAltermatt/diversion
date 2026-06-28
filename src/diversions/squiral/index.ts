@@ -1,6 +1,6 @@
 // Squiral — clean-room reimplementation of xscreensaver's "squiral" by Jeff
 // Epler (1999). Faithful square-spiral mechanic; gallery-grade presentation.
-import type { Diversion, PresetGroup } from '../../framework/types'
+import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { squiralSchema, type SquiralConfig } from './schema'
 import {
   createSquiralState, stepSquiral, updateSquiralState, resizeSquiralState,
@@ -33,7 +33,7 @@ const presets: PresetGroup<SquiralConfig>[] = [
   { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
-const squiral: Diversion<SquiralConfig, SquiralState, '2d'> = {
+const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
   id: 'squiral',
   title: 'Squiral',
   description: 'Worms crawl a grid, each winding itself into a tight square spiral until boxed in, '
@@ -74,6 +74,6 @@ const squiral: Diversion<SquiralConfig, SquiralState, '2d'> = {
   update(state, config, size) {
     return updateSquiralState(state, config, size)
   },
-}
+})
 
 export default squiral

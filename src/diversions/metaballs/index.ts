@@ -1,4 +1,4 @@
-import type { Diversion, Size } from '../../framework/types'
+import { defineDiversion, type Size } from '../../framework/types'
 import { metaballsSchema, type MetaballsConfig } from './schema'
 import { seedBlobs, stepBlobs, applyRadius, rescaleX, type Blob } from './motion'
 import { initGL, render, disposeGL, type MetaballsGL } from './metaballs'
@@ -12,7 +12,7 @@ type MetaballsState = {
   t: number
 }
 
-const metaballs: Diversion<MetaballsConfig, MetaballsState, 'webgl'> = {
+const metaballs = defineDiversion<typeof metaballsSchema, MetaballsState, 'webgl'>({
   id: 'metaballs',
   title: 'Metaballs',
   description: 'Gooey blobs that rise, merge, and split — a lava lamp.',
@@ -55,6 +55,6 @@ const metaballs: Diversion<MetaballsConfig, MetaballsState, 'webgl'> = {
   teardown(state) {
     disposeGL(state.gl, state.res) // free program + VAO on diversion switch
   },
-}
+})
 
 export default metaballs

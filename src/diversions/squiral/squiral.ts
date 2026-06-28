@@ -214,10 +214,11 @@ export function stepSquiral(st: SquiralState, dt: number): void {
 
 /** Apply a config change live; false for structural changes (→ framework re-setup). */
 export function updateSquiralState(st: SquiralState, cfg: SquiralConfig, _size: Size): boolean {
+  // fillThreshold is read live every frame (threshold()), so it applies without
+  // a re-setup — listing it here would needlessly wipe the painting on change.
   if (
     cfg.count !== st.cfg.count ||
     cfg.cellSize !== st.cfg.cellSize ||
-    cfg.fillThreshold !== st.cfg.fillThreshold ||
     cfg.seed !== st.cfg.seed ||
     cfg.background !== st.cfg.background
   ) return false

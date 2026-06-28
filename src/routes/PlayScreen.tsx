@@ -10,12 +10,15 @@ export function PlayScreen() {
   const { search } = useLocation()
   const diversion = getDiversion(slug!)
 
-  // Parse config ONCE from the URL; frozen for the session.
+  // Parse config ONCE from the URL; frozen for the session. Source the query
+  // string from the router (useLocation) rather than window.location.search so
+  // it stays correct under a HashRouter (where the query lives inside the hash)
+  // and consistent with the rest of the router-driven app.
   const config = useMemo(
-    () =>
-      diversion
-        ? decodeConfig(diversion.schema, new URLSearchParams(window.location.search))
-        : null,
+    () => (diversion ? decodeConfig(diversion.schema, new URLSearchParams(search)) : null),
+    // Frozen for the session: re-decode only when the diversion changes, not on
+    // every search edit. `search` is the mount-time snapshot by intent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [diversion],
   )
 

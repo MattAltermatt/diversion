@@ -1,4 +1,4 @@
-import type { Diversion, Size } from '../../framework/types'
+import { defineDiversion, type Size } from '../../framework/types'
 import { plasmaSchema, type PlasmaConfig } from './schema'
 import { initGL, render, disposeGL, type PlasmaGL } from './plasma'
 
@@ -9,7 +9,7 @@ type PlasmaState = {
   phase: number
 }
 
-const plasma: Diversion<PlasmaConfig, PlasmaState, 'webgl'> = {
+const plasma = defineDiversion<typeof plasmaSchema, PlasmaState, 'webgl'>({
   id: 'plasma',
   title: 'Plasma',
   description: 'Domain-warped color fields drifting across the screen — demoscene plasma.',
@@ -40,6 +40,6 @@ const plasma: Diversion<PlasmaConfig, PlasmaState, 'webgl'> = {
   teardown(state) {
     disposeGL(state.gl, state.res) // free program + VAO when the diversion changes
   },
-}
+})
 
 export default plasma

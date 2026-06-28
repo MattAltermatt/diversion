@@ -1,4 +1,4 @@
-import type { Diversion, PresetGroup } from '../../framework/types'
+import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { flowFieldSchema, type FlowFieldConfig } from './schema'
 import { createFlowState, stepFlow, updateFlowState, type FlowState } from './flowField'
 import { flowPresets, colorPresets } from './presets'
@@ -19,7 +19,7 @@ const presets: PresetGroup<FlowFieldConfig>[] = [
 
 // Typed as Diversion<Config, State, '2d'> so the framework threads FlowState and
 // a CanvasRenderingContext2D through every hook — no `as` casts needed.
-const flowField: Diversion<FlowFieldConfig, FlowState, '2d'> = {
+const flowField = defineDiversion<typeof flowFieldSchema, FlowState, '2d'>({
   id: 'flow-field',
   title: 'Flow Field',
   description: 'Particles drifting through a noise-driven vector field.',
@@ -50,6 +50,6 @@ const flowField: Diversion<FlowFieldConfig, FlowState, '2d'> = {
   },
 
   presets,
-}
+})
 
 export default flowField

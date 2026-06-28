@@ -1,8 +1,8 @@
 // Substrate — clean-room reimplementation of the algorithm from Jared
 // Tarbell's "Substrate" (complexification.net/gallery/machines/substrate/).
 // Reproduced from the published algorithm; not a code port. Original © Jared Tarbell.
-import type { Diversion } from '../../framework/types'
-import { substrateSchema, type SubstrateConfig } from './schema'
+import { defineDiversion } from '../../framework/types'
+import { substrateSchema } from './schema'
 import {
   createSubstrateState, stepSubstrate, updateSubstrateState, resizeSubstrateState,
   type SubstrateState,
@@ -25,7 +25,7 @@ function getOffscreen(state: SubstrateState) {
   return off
 }
 
-const substrate: Diversion<SubstrateConfig, SubstrateState, '2d'> = {
+const substrate = defineDiversion<typeof substrateSchema, SubstrateState, '2d'>({
   id: 'substrate',
   title: 'Substrate',
   description: 'Cracks grow and branch at right angles into an organic network, '
@@ -53,6 +53,6 @@ const substrate: Diversion<SubstrateConfig, SubstrateState, '2d'> = {
   update(state, config, size) {
     return updateSubstrateState(state, config, size)
   },
-}
+})
 
 export default substrate

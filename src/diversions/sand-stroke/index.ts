@@ -1,8 +1,8 @@
 // Sand Stroke — clean-room reimplementation of the algorithm from Jared
 // Tarbell's "Sand Stroke" (complexification.net/gallery/machines/sandstroke/).
 // Reproduced from the published algorithm; not a code port. Original © Jared Tarbell.
-import type { Diversion } from '../../framework/types'
-import { sandStrokeSchema, type SandStrokeConfig } from './schema'
+import { defineDiversion } from '../../framework/types'
+import { sandStrokeSchema } from './schema'
 import {
   createSandState, stepSand, updateSandState, resizeSandState, type SandState,
 } from './sandStroke'
@@ -24,7 +24,7 @@ function getOffscreen(state: SandState) {
   return off
 }
 
-const sandStroke: Diversion<SandStrokeConfig, SandState, '2d'> = {
+const sandStroke = defineDiversion<typeof sandStrokeSchema, SandState, '2d'>({
   id: 'sand-stroke',
   title: 'Sand Stroke',
   description: 'Grainy sand-painted colour ribbons that accrete across the canvas. '
@@ -54,6 +54,6 @@ const sandStroke: Diversion<SandStrokeConfig, SandState, '2d'> = {
   update(state, config, size) {
     return updateSandState(state, config, size)
   },
-}
+})
 
 export default sandStroke

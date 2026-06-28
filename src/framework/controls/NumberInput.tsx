@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { FieldMeta } from '../fieldMeta'
+import { clampToBounds } from './Slider'
 
 /**
  * Pick a fresh value for a number field. Bounded fields (rare here — those are
@@ -26,20 +28,37 @@ export function NumberInput({
   onChange: (v: number) => void
   meta: FieldMeta
 }) {
+  // While focused, show exactly what's being typed (allows partial/empty input
+  // like "" or "-"); when idle (draft === null) the readout reflects the
+  // committed value. Committed values are clamped to whichever of [min, max]
+  // meta defines — so −/＋ and typing can't drive the field out of bounds (the
+  // form was previously laxer than the URL codec, which silently caught it).
+  const [draft, setDraft] = useState<string | null>(null)
+  const readout = draft ?? String(value)
+  const step = meta.step ?? 1
+
   return (
     <div className="ctl">
       <div className="ctl-top">
         <span className="ctl-name">{meta.label}</span>
       </div>
       <div className="num">
-        <button onClick={() => onChange(value - (meta.step ?? 1))}>–</button>
+        <button onClick={() => onChange(clampToBounds(value - step, meta))}>–</button>
         <input
           type="number"
-          step={meta.step ?? 1}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          min={meta.min}
+          max={meta.max}
+          step={step}
+          value={readout}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            if (e.target.value === '') return // allow an empty draft mid-edit
+            const n = Number(e.target.value)
+            if (!Number.isNaN(n)) onChange(clampToBounds(n, meta))
+          }}
+          onBlur={() => setDraft(null)}
         />
-        <button onClick={() => onChange(value + (meta.step ?? 1))}>+</button>
+        <button onClick={() => onChange(clampToBounds(value + step, meta))}>+</button>
         <button
           className="num-random"
           aria-label={`Randomize ${meta.label}`}

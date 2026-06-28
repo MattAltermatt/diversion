@@ -1,4 +1,4 @@
-import type { Diversion, PresetGroup } from '../../framework/types'
+import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { sampleGradient, trailFadeAlpha, toHex2 } from '../../framework/gradient'
 import { parseHex6, mix, rgba } from '../../framework/color'
 import { gravityWellsSchema, type GravityWellsConfig } from './schema'
@@ -34,7 +34,7 @@ const presets: PresetGroup<GravityWellsConfig>[] = [
   },
 ]
 
-const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
+const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
   id: 'gravity-wells',
   title: 'Gravity Wells',
   description: 'Particles caught in a field of gravity wells that appear and fade.',
@@ -133,6 +133,6 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
   },
 
   presets,
-}
+})
 
 export default gravityWells

@@ -1,4 +1,4 @@
-import type { ZodObject } from 'zod'
+import type { z, ZodObject } from 'zod'
 
 export interface Size {
   width: number
@@ -52,4 +52,17 @@ export interface Diversion<
   /** Optional named preset groups (motion, palette, …). Each option patches a
    *  subset of config; the framework renders a dropdown per group. */
   presets?: PresetGroup<Config>[]
+}
+
+/** Identity factory that ties a diversion's `Config` to its Zod `schema` at the
+ *  type level: `Config` is forced to `z.infer<typeof schema>`, so the schema is
+ *  the single source of truth the COMPILER enforces — not discipline. If a
+ *  diversion's hand-written config type drifts from its schema, this stops
+ *  compiling. Runtime behavior is unchanged: it returns its argument verbatim. */
+export function defineDiversion<
+  S extends ZodObject<any>,
+  State,
+  K extends DiversionKind = DiversionKind,
+>(diversion: Diversion<z.infer<S>, State, K> & { schema: S }): Diversion<z.infer<S>, State, K> {
+  return diversion
 }

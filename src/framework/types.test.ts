@@ -1,6 +1,6 @@
-import { describe, it, expectTypeOf } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
 import { z } from 'zod'
-import type { Diversion, CtxFor } from './types'
+import { defineDiversion, type Diversion, type CtxFor } from './types'
 
 // These assertions are compile-time: if the generic stops threading State or the
 // per-kind context, tsc (and this test) fail. Guards #10 against regressing to
@@ -38,5 +38,46 @@ describe('Diversion contract types', () => {
   it('maps kind to the concrete context type', () => {
     expectTypeOf<CtxFor<'2d'>>().toEqualTypeOf<CanvasRenderingContext2D>()
     expectTypeOf<CtxFor<'webgl'>>().toEqualTypeOf<WebGL2RenderingContext>()
+  })
+})
+
+describe('defineDiversion', () => {
+  const schema = z.object({
+    speed: z.number().default(1).meta({ ui: 'number', label: 'Speed' }),
+    label: z.string().default('hi').meta({ ui: 'color', label: 'Label' }),
+  })
+
+  it('forces Config to be z.infer<typeof schema> in every hook', () => {
+    defineDiversion<typeof schema, { n: number }, '2d'>({
+      id: 'x',
+      title: 'X',
+      description: '',
+      kind: '2d',
+      schema,
+      setup: (ctx, config, size) => {
+        // The compiler ties config to the schema's inferred output — the whole
+        // point of the factory. If they ever diverge, this stops compiling.
+        expectTypeOf(config).toEqualTypeOf<z.infer<typeof schema>>()
+        expectTypeOf(ctx).toEqualTypeOf<CanvasRenderingContext2D>()
+        return { n: config.speed + size.width }
+      },
+      frame: (state) => {
+        expectTypeOf(state).toEqualTypeOf<{ n: number }>()
+      },
+    })
+  })
+
+  it('returns its argument unchanged (identity at runtime)', () => {
+    const div = defineDiversion<typeof schema, null, '2d'>({
+      id: 'ident',
+      title: 'Ident',
+      description: '',
+      kind: '2d',
+      schema,
+      setup: () => null,
+      frame: () => {},
+    })
+    expect(div.id).toBe('ident')
+    expect(div.schema).toBe(schema)
   })
 })
