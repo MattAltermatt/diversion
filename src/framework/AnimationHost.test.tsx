@@ -227,6 +227,28 @@ describe('AnimationHost reduced-motion (#39)', () => {
   })
 })
 
+describe('AnimationHost static repaint when paused (#120)', () => {
+  it('paints one static frame on a config edit while reduced-motion-frozen', () => {
+    harness.reducedMotion = true
+    const calls: string[] = []
+    // Keep the SAME diversion instance across rerender so the [config] effect
+    // (live update) runs — a new instance would re-run the whole [diversion] setup.
+    const div = makeDiv(calls, true)
+    const { rerender } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    act(() => drainRaf()) // first frame paints → reduced gate engages, loop frozen
+    const before = calls.filter((c) => c === 'frame').length
+    expect(before).toBe(1)
+    // Editing config while frozen: update() runs but the frozen loop never
+    // repaints, so the host must paint exactly one static frame (#120).
+    act(() => rerender(<AnimationHost diversion={div} config={{ v: 1 }} />))
+    expect(calls.filter((c) => c === 'update').length).toBe(1)
+    expect(calls.filter((c) => c === 'frame').length).toBe(before + 1)
+    // …and it stays frozen afterward (the static paint is one-shot, not a resume).
+    act(() => drainRaf())
+    expect(calls.filter((c) => c === 'frame').length).toBe(before + 1)
+  })
+})
+
 describe('AnimationHost offscreen pause (#6)', () => {
   it('stops animating when scrolled out of view, resumes when back', () => {
     const calls: string[] = []

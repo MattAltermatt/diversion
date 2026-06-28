@@ -192,6 +192,10 @@ export function AnimationHost({
       }
       pauseRef.current.lost = false
       syncPaused()
+      // If another source still freezes the loop (e.g. the reduced-motion gate),
+      // it won't repaint the freshly-rebuilt context — paint one static frame so
+      // a restore-while-paused doesn't leave a blank canvas (#120).
+      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, performance.now(), 0)
     }
     if (diversion.kind === 'webgl') {
       canvas.addEventListener('webglcontextlost', onLost as EventListener)
@@ -230,8 +234,14 @@ export function AnimationHost({
         setSetupError(() => {
           throw e
         })
+        return
       }
     }
+    // When the loop is frozen (reduced-motion gate, manual pause, offscreen, …)
+    // it never repaints, so a live config edit would look dead. Paint exactly one
+    // static frame to reflect the change. When NOT paused the running loop owns
+    // the repaint, so this is skipped (#120).
+    if (shouldPause(pauseRef.current)) diversion.frame(run.state, run.ctx, performance.now(), 0)
   }, [diversion, config])
 
   // reflect manual pause into the running loop without re-running setup
