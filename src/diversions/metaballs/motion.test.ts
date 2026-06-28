@@ -26,16 +26,30 @@ describe('metaballs motion', () => {
     const cfg = metaballsSchema.parse({ seed: 3, speed: 2 })
     const blobs = seedBlobs(cfg, 1.6)
     let t = 0
+    // Accumulate worst-case bounds across the whole run and assert once at the
+    // end: calling expect() ~20000×N times inside the hot loop is pure harness
+    // overhead (it timed out on slower CI runners). Same invariants, same
+    // 20000-step run — just no per-iteration expect().
+    let allFinite = true
+    let minY = Infinity,
+      maxY = -Infinity,
+      minT = Infinity,
+      maxT = -Infinity
     for (let i = 0; i < 20000; i++) {
       t = stepBlobs(blobs, cfg, 16, t)
       for (const b of blobs) {
-        expect(Number.isFinite(b.y)).toBe(true)
-        expect(b.y).toBeGreaterThanOrEqual(-1.001)
-        expect(b.y).toBeLessThanOrEqual(1.001)
-        expect(b.T).toBeGreaterThanOrEqual(-0.001)
-        expect(b.T).toBeLessThanOrEqual(1.001)
+        if (!Number.isFinite(b.y)) allFinite = false
+        if (b.y < minY) minY = b.y
+        if (b.y > maxY) maxY = b.y
+        if (b.T < minT) minT = b.T
+        if (b.T > maxT) maxT = b.T
       }
     }
+    expect(allFinite).toBe(true)
+    expect(minY).toBeGreaterThanOrEqual(-1.001)
+    expect(maxY).toBeLessThanOrEqual(1.001)
+    expect(minT).toBeGreaterThanOrEqual(-0.001)
+    expect(maxT).toBeLessThanOrEqual(1.001)
   })
 
   it('makes most blobs individually traverse, not just collapse', () => {
