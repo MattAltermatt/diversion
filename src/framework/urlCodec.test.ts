@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { encodeConfig, decodeConfig } from './urlCodec'
+import { encodeConfig, decodeConfig, nonScalarArrayLeaves } from './urlCodec'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -137,6 +137,83 @@ describe('urlCodec — palette colors (8-digit hex array)', () => {
     params.set('palette.colors', 'not-a-hex,#00ff00ff')
     const decoded = decodeConfig(schema, params)
     expect(decoded.palette.colors).toEqual(['#1e63ff1f', '#16d6ff1a']) // back to defaults
+  })
+})
+
+describe('#123 — codec hardening guards', () => {
+  it('empty-string scalar param reverts to default (not 0 / false / "")', () => {
+    // ?speed= must NOT silently become 0; ?fadeTrails= must NOT become false.
+    const out = decodeConfig(schema, new URLSearchParams('speed=&fadeTrails=&blend='))
+    expect(out.speed).toBe(defaults.speed)
+    expect(out.fadeTrails).toBe(defaults.fadeTrails)
+    expect(out.blend).toBe(defaults.blend)
+  })
+
+  it('empty array element reverts the whole array field to default (not [1,0,3])', () => {
+    const arrSchema = z.object({ weights: z.array(z.number()).default([1, 2, 3]) })
+    const out = decodeConfig(arrSchema, new URLSearchParams('weights=1,,3'))
+    expect(out.weights).toEqual([1, 2, 3]) // NaN element rejected → default, not [1,0,3]
+  })
+
+  it('still accepts a genuinely empty array param (full-snapshot round-trip)', () => {
+    const arrSchema = z.object({ tags: z.array(z.string()).default([]) })
+    const out = decodeConfig(arrSchema, new URLSearchParams('tags='))
+    expect(out.tags).toEqual([])
+  })
+
+  it('decodes booleans case-insensitively (true/True/1)', () => {
+    expect(decodeConfig(schema, new URLSearchParams('fadeTrails=True')).fadeTrails).toBe(true)
+    expect(decodeConfig(schema, new URLSearchParams('fadeTrails=1')).fadeTrails).toBe(true)
+    expect(decodeConfig(schema, new URLSearchParams('fadeTrails=TRUE')).fadeTrails).toBe(true)
+    expect(decodeConfig(schema, new URLSearchParams('fadeTrails=false')).fadeTrails).toBe(false)
+    expect(decodeConfig(schema, new URLSearchParams('fadeTrails=0')).fadeTrails).toBe(false)
+  })
+
+  it('rejects prototype-pollution keys in dotted paths (no global pollution)', () => {
+    const params = new URLSearchParams()
+    params.set('__proto__.polluted', 'true')
+    params.set('constructor.prototype.polluted', 'true')
+    decodeConfig(schema, params)
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined()
+  })
+
+  it('per-field degradation survives a failing cross-field refine (no whole-config wipe)', () => {
+    // min must be <= max; the URL violates it. The bad pair should NOT nuke `speed`.
+    const refined = z
+      .object({
+        speed: z.number().default(2),
+        min: z.number().default(0),
+        max: z.number().default(10),
+      })
+      .refine((c) => c.min <= c.max, { message: 'min must be <= max' })
+    const out = decodeConfig(refined, new URLSearchParams('speed=4&min=9&max=1'))
+    expect(out.speed).toBe(4) // unrelated field preserved despite refine failure
+    expect(out.min).toBe(9) // each field individually valid → kept
+    expect(out.max).toBe(1)
+  })
+
+  it('throws at encode time on an array-of-objects leaf (loud, not silent)', () => {
+    const badSchema = z.object({
+      stops: z.array(z.object({ at: z.number(), color: z.string() })).default([]),
+    })
+    expect(() => encodeConfig(badSchema, badSchema.parse({}))).toThrow(/non-scalar elements/)
+    expect(() => decodeConfig(badSchema, new URLSearchParams('stops=x'))).toThrow(
+      /non-scalar elements/,
+    )
+  })
+
+  it('throws on a nested-array leaf too', () => {
+    const badSchema = z.object({ grid: z.array(z.array(z.number())).default([]) })
+    expect(() => encodeConfig(badSchema, badSchema.parse({}))).toThrow(/non-scalar elements/)
+  })
+
+  it('nonScalarArrayLeaves: clean for scalar arrays, flags object arrays', () => {
+    const ok = z.object({ ramp: z.array(z.string()).default([]) })
+    const bad = z.object({ stops: z.array(z.object({ at: z.number() })).default([]) })
+    expect(nonScalarArrayLeaves(ok)).toEqual([])
+    expect(nonScalarArrayLeaves(bad)).toHaveLength(1)
+    expect(nonScalarArrayLeaves(bad)[0]).toMatch(/non-scalar elements/)
   })
 })
 

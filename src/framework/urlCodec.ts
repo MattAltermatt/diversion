@@ -31,6 +31,23 @@ function scalarKind(t: string): LeafKind {
   return t === 'number' ? 'number' : t === 'boolean' ? 'boolean' : 'string'
 }
 
+// The URL codec only models arrays of *scalars* — encode stringifies each element
+// with String(), so an object/array element would serialize as '[object Object]'
+// (or a flattened inner array) and decode would silently revert the whole field to
+// its default. No diversion uses this shape; rather than corrupt a share link in
+// silence, make the limitation loud at schema-introspection time (encode/decode of
+// any such schema, and the CI sweep in urlKeys.test.ts). See #123.
+function arrayElemKind(elemType: string, path: string): LeafKind {
+  if (elemType === 'object' || elemType === 'array') {
+    throw new Error(
+      `urlCodec: array leaf "${path}" has non-scalar elements (${elemType}); the URL ` +
+        `codec only supports arrays of scalars (number/boolean/string/enum/literal). ` +
+        `Flatten the shape or split into scalar fields.`,
+    )
+  }
+  return scalarKind(elemType)
+}
+
 /** Map each dotted leaf path of an object schema to how its value decodes. */
 function leafTypes(schema: any, prefix = '', out: Map<string, Leaf> = new Map()): Map<string, Leaf> {
   const shape = schema.shape as Record<string, unknown>
@@ -41,7 +58,7 @@ function leafTypes(schema: any, prefix = '', out: Map<string, Leaf> = new Map())
     if (t === 'object') {
       leafTypes(inner, path, out)
     } else if (t === 'array') {
-      out.set(path, { kind: 'array', elem: scalarKind(defType(unwrap(inner.element))) })
+      out.set(path, { kind: 'array', elem: arrayElemKind(defType(unwrap(inner.element)), path) })
     } else {
       out.set(path, { kind: scalarKind(t) })
     }
@@ -94,6 +111,20 @@ export function leafNameCollisions(schema: any): string[] {
   return [...counts.entries()].filter(([, n]) => n > 1).map(([leaf]) => leaf)
 }
 
+/** Dotted paths of array leaves whose elements are non-scalar (object / nested
+ *  array) — these can't round-trip through the flat URL codec and make encode/
+ *  decode throw. Empty array = every array leaf is scalar-element. CI guard,
+ *  parallel to {@link leafNameCollisions}. #123 */
+export function nonScalarArrayLeaves(schema: any): string[] {
+  const bad: string[] = []
+  try {
+    leafTypes(schema)
+  } catch (e) {
+    bad.push(e instanceof Error ? e.message : String(e))
+  }
+  return bad
+}
+
 // --- value <-> string encoding ----------------------------------------------
 
 // Arrays join with ',' after per-element encodeURIComponent (which escapes ','
@@ -104,15 +135,23 @@ function encodeArray(v: unknown[]): string {
   return v.map((e) => encodeURIComponent(String(e))).join(',')
 }
 
+// Booleans accept 'true'/'1' case-insensitively (generated links emit 'true'/
+// 'false', but a hand-edited link shouldn't silently read 'True' as false). #123
+function decodeBool(raw: string): boolean {
+  return /^(true|1)$/i.test(raw)
+}
+
 function decodeLeaf(raw: string, leaf: Leaf): unknown {
   if (leaf.kind === 'array') {
     const parts = raw === '' ? [] : raw.split(',').map(decodeURIComponent)
-    if (leaf.elem === 'number') return parts.map(Number)
-    if (leaf.elem === 'boolean') return parts.map((p) => p === 'true')
+    // An empty element ('a,,b') must NOT coerce to 0 — map it to NaN so the
+    // array's safeParse rejects and the field reverts to default, not [1,0,3]. #123
+    if (leaf.elem === 'number') return parts.map((p) => (p === '' ? NaN : Number(p)))
+    if (leaf.elem === 'boolean') return parts.map(decodeBool)
     return parts
   }
   if (leaf.kind === 'number') return Number(raw)
-  if (leaf.kind === 'boolean') return raw === 'true'
+  if (leaf.kind === 'boolean') return decodeBool(raw)
   return raw
 }
 
@@ -129,9 +168,15 @@ function flatten(obj: Json, prefix = '', out: Record<string, string> = {}): Reco
   return out
 }
 
+// Keys that could walk into Object.prototype if a path were ever attacker-shaped.
+// Schema paths never contain these, and unknown params are already dropped before
+// setPath, so this is belt-and-suspenders on a module decoding URL input. #123
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 /** Assign a decoded value at a dotted path, only if the path exists in the target. */
 function setPath(root: Json, path: string, value: unknown): void {
   const parts = path.split('.')
+  if (parts.some((p) => UNSAFE_KEYS.has(p))) return // prototype-pollution guard
   let cur: Json = root
   for (let i = 0; i < parts.length - 1; i++) {
     const next = cur[parts[i]]
@@ -167,15 +212,20 @@ export function decodeConfig<T extends ZodObject<any>>(
     const path = reverse.get(rawKey) ?? rawKey // flat → dotted; legacy dotted keys pass through
     const leaf = leaves.get(path)
     if (!leaf) continue // unknown / non-schema param → ignore
+    // Empty whole-param on a scalar leaf means "no value": revert to default rather
+    // than coerce '' → 0 / false / ''. Arrays keep '' → [] (a legit empty array). #123
+    if (raw === '' && leaf.kind !== 'array') continue
     const value = decodeLeaf(raw, leaf)
     const node = nodes.get(path)
     if (node && !node.safeParse(value).success) continue // bad field → keep its default
     setPath(out, path, value)
   }
   // Per-field validation above is the primary degradation path (one bad field
-  // keeps its default, the rest survive). This whole-object safeParse is only a
-  // net for cross-field refinements (none today) and to type the result; it
-  // degrades to full defaults rather than throwing into the loop.
+  // keeps its default, the rest survive). This whole-object safeParse only applies
+  // schema-level transforms and types the result. If it fails (e.g. a future
+  // cross-field .refine() conflict), fall back to the per-field-degraded `out` —
+  // every leaf there is already individually valid — never to whole-config
+  // defaults, which would discard every other field over one conflict. #123
   const result = schema.safeParse(out)
-  return (result.success ? result.data : defaults) as ReturnType<T['parse']>
+  return (result.success ? result.data : out) as ReturnType<T['parse']>
 }
