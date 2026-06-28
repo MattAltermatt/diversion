@@ -616,6 +616,15 @@ input[type='color'] {
   font-size: 11px;
   background: rgba(8, 16, 18, 0.6);
 }
+.anim-bar .anim-hint {
+  color: var(--accent);
+  border: 1px solid #2a3a40;
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 11px;
+  background: rgba(8, 16, 18, 0.6);
+  white-space: nowrap;
+}
 
 /* ── Play screen ──────────────────────────────────────────────────────────── */
 .play-screen {

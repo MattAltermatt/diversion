@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Diversion, RenderContext, Size } from './types'
 import { createLoop, type Loop } from './useAnimationLoop'
+import { shouldPause, type PauseSources } from './pauseModel'
 
 export function AnimationHost({
   diversion,
@@ -18,9 +19,18 @@ export function AnimationHost({
   const loopRef = useRef<Loop | null>(null)
   const runRef = useRef<{ ctx: RenderContext; state: unknown; size: Size } | null>(null)
   const lastConfigRef = useRef<unknown>(null)
-  const pausedRef = useRef(false)
+  const pauseRef = useRef<PauseSources>({
+    manual: false,
+    hidden: false,
+    reduced: false,
+    offscreen: false,
+  })
   const [paused, setPaused] = useState(false)
+  const [reducedActive, setReducedActive] = useState(false)
   const [fps, setFps] = useState(0)
+
+  // Single source of truth for the loop's pause state: paused if ANY source is.
+  const syncPaused = () => loopRef.current?.setPaused(shouldPause(pauseRef.current))
 
   // setup/teardown + the rAF loop. Re-runs only when the diversion changes; the
   // live run is held in runRef so config changes (below) can swap state under a
@@ -63,10 +73,25 @@ export function AnimationHost({
     runRef.current = run
     lastConfigRef.current = config
 
+    // #39: honor prefers-reduced-motion. We paint exactly ONE frame (so the
+    // diversion shows its initial state, not a blank canvas) then freeze, with
+    // a visible opt-in. The gate engages after the first frame paints.
+    let framePainted = false
+    const mql =
+      typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : null
+
     let acc = 0
     let frames = 0
     const loop = createLoop((t, dt) => {
       diversion.frame(run.state, ctx, t, dt)
+      if (!framePainted) {
+        framePainted = true
+        if (mql?.matches) {
+          pauseRef.current.reduced = true
+          setReducedActive(true)
+          syncPaused()
+        }
+      }
       // Only sample fps when the readout is actually shown — gallery tiles
       // (showChrome=false) shouldn't re-render twice a second for an unseen number.
       if (showChrome) {
@@ -80,16 +105,45 @@ export function AnimationHost({
       }
     })
     loopRef.current = loop
-    loop.setPaused(pausedRef.current || document.hidden)
+    // reduced starts false so the FIRST frame runs even under reduced-motion;
+    // the gate engages above once it has painted.
+    pauseRef.current.hidden = document.hidden
+    syncPaused()
     loop.start()
 
     const onResize = () => {
       run.size = sizeOf()
-      diversion.resize?.(run.state, run.size)
+      diversion.resize?.(run.state, run.size, ctx)
     }
-    const onVisibility = () => loop.setPaused(pausedRef.current || document.hidden)
-    window.addEventListener('resize', onResize)
+    // ResizeObserver catches container/layout reflow and fullscreen transitions
+    // that never fire a window 'resize'. Observe the canvas — exactly the drawn box.
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null
+    ro?.observe(canvas)
+
+    // #6: pause tiles scrolled out of view. On the play screen the host fills
+    // the viewport (always intersecting), so this is a no-op there.
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver((entries) => {
+            pauseRef.current.offscreen = !entries[entries.length - 1].isIntersecting
+            syncPaused()
+          })
+        : null
+    if (wrapRef.current) io?.observe(wrapRef.current)
+
+    const onVisibility = () => {
+      pauseRef.current.hidden = document.hidden
+      syncPaused()
+    }
     document.addEventListener('visibilitychange', onVisibility)
+
+    // Live OS reduced-motion toggle: engage/release the gate (and the chip).
+    const onReducedChange = () => {
+      pauseRef.current.reduced = mql?.matches ?? false
+      setReducedActive(pauseRef.current.reduced)
+      syncPaused()
+    }
+    mql?.addEventListener('change', onReducedChange)
 
     // WebGL context loss (#8): a GPU reset blanks the canvas permanently unless we
     // preventDefault() on loss and rebuild GL resources on restore. setup() owns all
@@ -101,7 +155,7 @@ export function AnimationHost({
     const onRestored = () => {
       run.size = sizeOf()
       run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
-      loop.setPaused(pausedRef.current || document.hidden)
+      syncPaused()
     }
     if (diversion.kind === 'webgl') {
       canvas.addEventListener('webglcontextlost', onLost as EventListener)
@@ -109,7 +163,9 @@ export function AnimationHost({
     }
 
     return () => {
-      window.removeEventListener('resize', onResize)
+      ro?.disconnect()
+      io?.disconnect()
+      mql?.removeEventListener('change', onReducedChange)
       document.removeEventListener('visibilitychange', onVisibility)
       if (diversion.kind === 'webgl') {
         canvas.removeEventListener('webglcontextlost', onLost as EventListener)
@@ -138,9 +194,27 @@ export function AnimationHost({
 
   // reflect manual pause into the running loop without re-running setup
   useEffect(() => {
-    pausedRef.current = paused
-    loopRef.current?.setPaused(paused || document.hidden)
+    pauseRef.current.manual = paused
+    syncPaused()
   }, [paused])
+
+  // The chrome reflects the EFFECTIVE freeze (manual OR the reduced-motion gate),
+  // not just the manual flag — otherwise a reduced-frozen canvas shows a ⏸ icon
+  // and the opt-in chip stays hidden.
+  const effectivePaused = paused || reducedActive
+
+  const togglePause = () => {
+    // Pressing play while the reduced-motion gate holds = explicitly opting into
+    // motion. manual is always false under the gate, so the [paused] effect won't
+    // re-fire — clear the gate and sync the loop directly.
+    if (reducedActive) {
+      pauseRef.current.reduced = false
+      setReducedActive(false)
+      syncPaused()
+      return
+    }
+    setPaused((p) => !p)
+  }
 
   const toggleFullscreen = () => {
     const el = wrapRef.current
@@ -155,8 +229,11 @@ export function AnimationHost({
       {showChrome && (
         <div className="anim-bar">
           <span className="fps">{fps} fps</span>
-          <button onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play' : 'Pause'}>
-            {paused ? '▶' : '⏸'}
+          {reducedActive && (
+            <span className="anim-hint">Reduced motion — press ▶ for full motion</span>
+          )}
+          <button onClick={togglePause} aria-label={effectivePaused ? 'Play' : 'Pause'}>
+            {effectivePaused ? '▶' : '⏸'}
           </button>
           {fullscreenable && (
             <button onClick={toggleFullscreen} aria-label="Fullscreen">

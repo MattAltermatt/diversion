@@ -44,7 +44,7 @@ export interface Diversion<
   schema: ZodObject<any> // drives form + URL codec + Config type
   setup(ctx: CtxFor<K>, config: Config, size: Size): State
   frame(state: State, ctx: CtxFor<K>, t: number, dt: number): void
-  resize?(state: State, size: Size): void
+  resize?(state: State, size: Size, ctx: CtxFor<K>): void
   /** Apply a config change to live state without a full re-setup. Return truthy
    *  if applied live; falsy (or omit the hook) → framework re-runs setup(). */
   update?(state: State, config: Config, size: Size): boolean | void

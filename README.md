@@ -53,7 +53,7 @@ const myDiversion: Diversion<typeof schema._type> = {
   schema,
   setup(ctx, config, size) { /* build state */ return state },
   frame(state, ctx, t, dt) { /* draw ONE frame; framework owns the loop */ },
-  resize(state, size) { /* optional */ },
+  resize(state, size, ctx) { /* optional; ctx lets you repaint on reflow */ },
   update(state, config, size) { /* optional: apply config live, return true; */
                                /* falsy → framework re-runs setup */ return true },
   teardown(state) { /* optional */ },
@@ -61,7 +61,7 @@ const myDiversion: Diversion<typeof schema._type> = {
 export default myDiversion
 ```
 
-**The framework owns the rAF loop** and gives you pause, tab-hidden auto-pause, an FPS readout, and fullscreen. You just draw a frame.
+**The framework owns the rAF loop** and gives you pause, tab-hidden auto-pause, offscreen-tile auto-pause, `prefers-reduced-motion` politeness (static first frame + opt-in), crisp `ResizeObserver` refit, an FPS readout, and fullscreen. You just draw a frame.
 
 ### The five UX invariants (non-negotiable)
 

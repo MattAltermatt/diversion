@@ -72,9 +72,13 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
     return true
   },
 
-  resize(state, size) {
+  resize(state, size, ctx) {
     state.w = size.width
     state.h = size.height
+    // Setting canvas dims wipes the backing store; repaint the bg so the
+    // newly-sized canvas doesn't flash the page colour before trails rebuild.
+    ctx.fillStyle = state.cfg.background
+    ctx.fillRect(0, 0, size.width, size.height)
   },
 
   frame(state, ctx, t, dt) {

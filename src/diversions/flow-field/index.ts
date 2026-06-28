@@ -36,9 +36,13 @@ const flowField: Diversion<FlowFieldConfig, FlowState, '2d'> = {
     stepFlow(state, ctx, dt)
   },
 
-  resize(state, size) {
+  resize(state, size, ctx) {
     state.w = size.width
     state.h = size.height
+    // Setting canvas dims wipes the backing store; repaint the bg so the
+    // newly-sized canvas doesn't flash the page colour before trails rebuild.
+    ctx.fillStyle = state.cfg.background
+    ctx.fillRect(0, 0, size.width, size.height)
   },
 
   update(state, config) {
