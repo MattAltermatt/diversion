@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { encodeConfig, decodeConfig, nonScalarArrayLeaves } from './urlCodec'
+import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions } from './urlCodec'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -214,6 +214,57 @@ describe('#123 — codec hardening guards', () => {
     expect(nonScalarArrayLeaves(ok)).toEqual([])
     expect(nonScalarArrayLeaves(bad)).toHaveLength(1)
     expect(nonScalarArrayLeaves(bad)[0]).toMatch(/non-scalar elements/)
+  })
+})
+
+describe('#127 — codec regression battery (non-finite, collisions, array garbage)', () => {
+  it('non-finite number strings (Infinity / 1e999 / NaN) revert to default', () => {
+    // An UNBOUNDED number, so this locks the Zod-4 non-finite reject itself —
+    // not a min/max bound incidentally catching Infinity.
+    const nSchema = z.object({ n: z.number().default(7) })
+    expect(decodeConfig(nSchema, new URLSearchParams('n=Infinity')).n).toBe(7)
+    expect(decodeConfig(nSchema, new URLSearchParams('n=-Infinity')).n).toBe(7)
+    expect(decodeConfig(nSchema, new URLSearchParams('n=1e999')).n).toBe(7) // overflows → Infinity
+    expect(decodeConfig(nSchema, new URLSearchParams('n=NaN')).n).toBe(7)
+  })
+
+  it('a non-numeric array element (weights=abc,2) reverts the WHOLE array to default', () => {
+    const arrSchema = z.object({ weights: z.array(z.number()).default([1, 2, 3]) })
+    const out = decodeConfig(arrSchema, new URLSearchParams('weights=abc,2'))
+    expect(out.weights).toEqual([1, 2, 3]) // 'abc' → NaN → array safeParse fails → default
+  })
+
+  describe('leaf-name collision → dotted-key fallback (buildUrlKeyMap else branch)', () => {
+    // Two distinct object leaves both named `value` collide on the flat leaf name,
+    // so the codec must fall back to the full dotted path for BOTH — exercising
+    // the branch the unique-name schemas never reach.
+    const collide = z.object({
+      a: z.object({ value: z.number().default(1) }).default({ value: 1 }),
+      b: z.object({ value: z.number().default(2) }).default({ value: 2 }),
+    })
+    const collideDefaults = collide.parse({})
+
+    it('leafNameCollisions flags the shared leaf name', () => {
+      expect(leafNameCollisions(collide)).toEqual(['value'])
+    })
+
+    it('encodes both collided leaves under dotted keys (not the bare name)', () => {
+      const sp = encodeConfig(collide, collideDefaults)
+      expect(sp.get('a.value')).toBe('1')
+      expect(sp.get('b.value')).toBe('2')
+      expect(sp.has('value')).toBe(false) // never the ambiguous flat name
+    })
+
+    it('round-trips a custom value through the dotted-key fallback', () => {
+      const cfg = { a: { value: 11 }, b: { value: 22 } }
+      expect(decodeConfig(collide, encodeConfig(collide, cfg))).toEqual(cfg)
+    })
+
+    it('decodes the dotted keys back to the right leaves', () => {
+      const out = decodeConfig(collide, new URLSearchParams('a.value=5&b.value=9'))
+      expect(out.a.value).toBe(5)
+      expect(out.b.value).toBe(9)
+    })
   })
 })
 
