@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mulberry32 } from '../flow-field/noise'
+import { mulberry32 } from '../../framework/rng'
 import { gravityWellsSchema } from './schema'
 import {
   spawnWell, wellEnvelope, wellForce, maintainWells, accelAt,

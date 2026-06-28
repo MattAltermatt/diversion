@@ -1,9 +1,9 @@
+import { hexToRgb } from '../../framework/color'
 import type { PlasmaConfig } from './schema'
 
-export function hexToRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16)
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
-}
+// hexToRgb (WebGL 0-1 float form) now lives in the framework; re-exported so its
+// co-located test keeps importing it from here.
+export { hexToRgb }
 
 // Fullscreen triangle generated from gl_VertexID — no attribute buffers needed.
 export const VERT_SRC = `#version 300 es

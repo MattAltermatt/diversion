@@ -2,31 +2,17 @@
 // Tarbell's "Sand Stroke" (complexification.net). Not a code port; the algorithm
 // was reproduced from its published description. Original © Jared Tarbell.
 
-export interface RGBA { r: number; g: number; b: number; a: number }
+import { mulberry32 } from '../../framework/rng'
+import { parseHex8, type RGBA } from '../../framework/color'
+import { sampleGradientRGBA } from '../../framework/gradient'
+
+// PRNG, colour parsing + gradient sampling now live in the framework; re-exported
+// so existing sand-stroke imports (and its tests) keep resolving them from here.
+export { mulberry32, parseHex8, sampleGradientRGBA }
+export type { RGBA }
 
 /** The gain clamp from Tarbell's source — defines the wave's character. */
 export const MAX_GAIN = 0.3
-
-/** mulberry32 PRNG — same as flow-field's, kept local so the diversion is self-contained. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-/** "#rrggbbaa" -> { r, g, b, a in 0..1 }. */
-export function parseHex8(hex: string): RGBA {
-  return {
-    r: parseInt(hex.slice(1, 3), 16),
-    g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16),
-    a: parseInt(hex.slice(7, 9), 16) / 255,
-  }
-}
 
 /** Per-grain alpha: spine `opacity` at i=0, feathering to ~1% of spine at the band edge.
  *  Faithful to Tarbell's `0.1 - i/(wd*10+10)` (which feathers 0.1 → ~0.001 only because
@@ -55,25 +41,6 @@ export function blendPixel(
   buf[idx + 1] += (c.g - buf[idx + 1]) * a
   buf[idx + 2] += (c.b - buf[idx + 2]) * a
   buf[idx + 3] = 255
-}
-
-/** Linear-interpolate RGBA across evenly-spaced `stops` (hex8) at t in [0,1]. */
-export function sampleGradientRGBA(stops: string[], t: number): RGBA {
-  const tc = Math.min(1, Math.max(0, t))
-  const n = stops.length
-  if (n === 1) return parseHex8(stops[0])
-  const scaled = tc * (n - 1)
-  let i = Math.floor(scaled)
-  if (i >= n - 1) i = n - 2
-  const f = scaled - i
-  const a = parseHex8(stops[i])
-  const b = parseHex8(stops[i + 1])
-  return {
-    r: a.r + (b.r - a.r) * f,
-    g: a.g + (b.g - a.g) * f,
-    b: a.b + (b.b - a.b) * f,
-    a: a.a + (b.a - a.a) * f,
-  }
 }
 
 /** Amplitude scale: gage·sin(MAX_GAIN) == bandHeight·h (band height scales with canvas). */

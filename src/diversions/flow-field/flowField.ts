@@ -1,5 +1,10 @@
-import { makeNoise3D, mulberry32 } from './noise'
+import { makeNoise3D, mulberry32 } from '../../framework/rng'
+import { hexToRgba, trailFadeAlpha, toHex2, sampleGradient } from '../../framework/gradient'
 import type { FlowFieldConfig } from './schema'
+
+// Colour + trail-fade helpers now live in the framework; re-exported so existing
+// flow-field imports (and its tests) keep resolving them from here.
+export { hexToRgba, trailFadeAlpha, toHex2, sampleGradient }
 
 // fieldTime advance per ms at fieldDrift=1. Tuned so max drift is "obviously
 // moving" but organic (~1 noise-cell of z every ~12.5s). 🎚️ tunable.
@@ -15,72 +20,6 @@ interface Particle {
   age: number
   life: number
   ci: number // index into the palette; chosen at spawn, kept for life
-}
-
-/** "#rrggbbaa" -> "rgba(r, g, b, a)" (alpha rounded to 3 dp). */
-export function hexToRgba(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const a = Math.round((parseInt(hex.slice(7, 9), 16) / 255) * 1000) / 1000
-  return `rgba(${r}, ${g}, ${b}, ${a})`
-}
-
-// A drawn mark survives ~1/fadeAlpha frames before the per-frame background wash
-// erases it, so *perceived* trail length is ~1/alpha — hyperbolic in alpha. A
-// slider that's linear in alpha therefore crowds almost all the visible change
-// into the top few percent (the 99->100 cliff). Instead map the slider LINEARLY
-// in survival-frames so equal steps feel equal. Endpoints unchanged: 0 = hard
-// wipe (1 frame), 100 = longest trail (50 frames -> alpha 0.02).
-const TRAIL_MIN_FRAMES = 1
-const TRAIL_MAX_FRAMES = 50
-/** trailLength 0..100 -> per-frame fade alpha (perceptually even; higher = longer trail). */
-export function trailFadeAlpha(trailLength: number): number {
-  const t = Math.min(1, Math.max(0, trailLength / 100))
-  const survivalFrames = TRAIL_MIN_FRAMES + t * (TRAIL_MAX_FRAMES - TRAIL_MIN_FRAMES)
-  return 1 / survivalFrames
-}
-/** 0..1 alpha -> two-digit hex byte for hex-append (e.g. 0.1376 -> "23"). */
-export function toHex2(alpha: number): string {
-  return Math.round(alpha * 255).toString(16).padStart(2, '0')
-}
-
-/** "#rrggbbaa" -> {r,g,b, a in 0..1}. */
-function parseHex8(hex: string): { r: number; g: number; b: number; a: number } {
-  return {
-    r: parseInt(hex.slice(1, 3), 16),
-    g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16),
-    a: parseInt(hex.slice(7, 9), 16) / 255,
-  }
-}
-
-/** Linear-interpolate rgba across evenly-spaced `stops` at t in [0,1].
- *  wrap=true treats the stops as cyclic (last blends back to first) — for the
- *  flow-angle source, which rolls over at 2π. Returns an rgba() string in the
- *  same format as hexToRgba. */
-export function sampleGradient(stops: string[], t: number, wrap: boolean): string {
-  const tc = Math.min(1, Math.max(0, t))
-  const n = stops.length
-  const fmt = (r: number, g: number, b: number, a: number) =>
-    `rgba(${r}, ${g}, ${b}, ${Math.round(a * 1000) / 1000})`
-  if (n === 1) {
-    const c = parseHex8(stops[0])
-    return fmt(c.r, c.g, c.b, c.a)
-  }
-  const segments = wrap ? n : n - 1
-  const scaled = tc * segments
-  let i = Math.floor(scaled)
-  if (i >= segments) i = segments - 1 // pull t===1 into the last segment
-  const f = scaled - i
-  const a = parseHex8(stops[i])
-  const b = parseHex8(stops[wrap ? (i + 1) % n : i + 1])
-  return fmt(
-    Math.round(a.r + (b.r - a.r) * f),
-    Math.round(a.g + (b.g - a.g) * f),
-    Math.round(a.b + (b.b - a.b) * f),
-    a.a + (b.a - a.a) * f,
-  )
 }
 
 /** Map a particle's chosen color source to t in [0,1]. flow-angle is cyclic

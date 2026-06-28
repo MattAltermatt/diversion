@@ -1,5 +1,6 @@
 import type { Diversion, PresetGroup } from '../../framework/types'
-import { sampleGradient, trailFadeAlpha, toHex2 } from '../flow-field/flowField'
+import { sampleGradient, trailFadeAlpha, toHex2 } from '../../framework/gradient'
+import { parseHex6, mix, rgba } from '../../framework/color'
 import { gravityWellsSchema, type GravityWellsConfig } from './schema'
 import { motionPresets, colorPresets } from './presets'
 import {
@@ -12,19 +13,6 @@ interface GWState extends GravityState { styles: string[] }
 
 function buildStyles(cfg: GravityWellsConfig): string[] {
   return cfg.color.colors.length ? cfg.color.colors : ['#ffffffff']
-}
-
-interface Rgb { r: number; g: number; b: number }
-function hexRgb(hex: string): Rgb {
-  const n = parseInt(hex.slice(1), 16)
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
-}
-function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
-  return {
-    r: Math.round(a.r + (b.r - a.r) * t),
-    g: Math.round(a.g + (b.g - a.g) * t),
-    b: Math.round(a.b + (b.b - a.b) * t),
-  }
 }
 
 function assignColorIndices(state: GWState): void {
@@ -126,8 +114,8 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
     //    it blends; a slow breath is the only motion, scaled by the well's
     //    current pull. Present if you look, invisible if you don't.
     ctx.globalCompositeOperation = 'source-over'
-    const bg = hexRgb(cfg.background)
-    const sink = mixRgb(bg, { r: 0, g: 0, b: 0 }, 0.55) // darker than bg
+    const bg = parseHex6(cfg.background)
+    const sink = mix(bg, { r: 0, g: 0, b: 0 }, 0.55) // darker than bg
     for (const wl of wells) {
       const env = wellEnvelope(wl)
       if (env <= 0.01) continue
@@ -135,8 +123,8 @@ const gravityWells: Diversion<GravityWellsConfig, GWState, '2d'> = {
       const R = (30 + Math.min(2, wl.force) * 30) * (0.72 + 0.28 * breath)
       const alpha = env * 0.3 * (0.55 + 0.45 * breath)
       const grad = ctx.createRadialGradient(wl.x, wl.y, 0, wl.x, wl.y, R)
-      grad.addColorStop(0, `rgba(${sink.r},${sink.g},${sink.b},${alpha.toFixed(3)})`)
-      grad.addColorStop(1, `rgba(${sink.r},${sink.g},${sink.b},0)`)
+      grad.addColorStop(0, rgba(sink, alpha.toFixed(3)))
+      grad.addColorStop(1, rgba(sink, 0))
       ctx.fillStyle = grad
       ctx.beginPath()
       ctx.arc(wl.x, wl.y, R, 0, Math.PI * 2)

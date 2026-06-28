@@ -4,49 +4,14 @@
 import type { Size } from '../../framework/types'
 import type { SquiralConfig } from './schema'
 
-export interface RGBA { r: number; g: number; b: number; a: number }
+import { mulberry32 } from '../../framework/rng'
+import { parseHex8, parseHex6, type RGBA } from '../../framework/color'
+import { sampleGradientRGBA, sampleCyclic } from '../../framework/gradient'
 
-/** mulberry32 PRNG — local so the diversion is self-contained. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-export function parseHex8(hex: string): RGBA {
-  return {
-    r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16), a: parseInt(hex.slice(7, 9), 16) / 255,
-  }
-}
-export function parseHex6(hex: string): RGBA {
-  return {
-    r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16), a: 1,
-  }
-}
-
-/** Linear interpolate evenly-spaced hex8 stops at t in [0,1]. */
-export function sampleGradient(stops: string[], t: number): RGBA {
-  const tc = Math.min(1, Math.max(0, t))
-  const n = stops.length
-  if (n === 1) return parseHex8(stops[0])
-  const scaled = tc * (n - 1)
-  let i = Math.floor(scaled); if (i >= n - 1) i = n - 2
-  const f = scaled - i
-  const a = parseHex8(stops[i]), b = parseHex8(stops[i + 1])
-  return { r: a.r + (b.r - a.r) * f, g: a.g + (b.g - a.g) * f,
-           b: a.b + (b.b - a.b) * f, a: a.a + (b.a - a.a) * f }
-}
-
-/** Like sampleGradient but cyclic: stop[n-1] interpolates back to stop[0]. */
-export function sampleCyclic(stops: string[], t: number): RGBA {
-  return sampleGradient([...stops, stops[0]], ((t % 1) + 1) % 1)
-}
+// PRNG, colour parsing + gradient sampling now live in the framework; re-exported
+// so existing squiral imports (and its tests) keep resolving them from here.
+export { mulberry32, parseHex8, parseHex6, sampleCyclic }
+export type { RGBA }
 
 // Heading deltas: 0 up, 1 right, 2 down, 3 left.
 const DH = [0, 1, 0, -1]
@@ -122,7 +87,7 @@ export function getWormColor(st: SquiralState, w: Worm): RGBA {
   if (col.mode === 'gradient') {
     const t = col.source === 'y' ? w.row / Math.max(1, st.rows - 1)
                                  : w.col / Math.max(1, st.cols - 1)
-    return sampleGradient(col.stops, t)
+    return sampleGradientRGBA(col.stops, t)
   }
   return w.fixed
 }

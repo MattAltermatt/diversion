@@ -1,5 +1,5 @@
 import type { GravityWellsConfig } from './schema'
-import { mulberry32, makeNoise3D } from '../flow-field/noise'
+import { mulberry32, makeNoise3D } from '../../framework/rng'
 
 export interface Well {
   x: number

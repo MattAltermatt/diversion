@@ -2,7 +2,14 @@
 // Tarbell's "Substrate" (complexification.net). Not a code port; the algorithm
 // was reproduced from its published description. Original © Jared Tarbell.
 
-export interface RGBA { r: number; g: number; b: number; a: number }
+import { mulberry32 } from '../../framework/rng'
+import { parseHex8, parseHex6, type RGBA } from '../../framework/color'
+import { sampleGradientRGBA } from '../../framework/gradient'
+
+// PRNG, colour parsing + gradient sampling now live in the framework; re-exported
+// so existing substrate imports (and its tests) keep resolving them from here.
+export { mulberry32, parseHex8, parseHex6, sampleGradientRGBA }
+export type { RGBA }
 
 // ── Faithfulness constants (hardcoded, not knobs) ───────────────────────────
 export const STEP = 0.42          // px a crack advances per step
@@ -15,40 +22,9 @@ export const MAX_STEPS = 12       // per-frame advance cap (safety)
 export const FUZZ = 0.33          // crack-head positional fuzz
 export const EMPTY = -1           // occupancy-grid sentinel
 
-/** mulberry32 PRNG — kept local so the diversion is self-contained. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 /** Per-crack RNG seed offset. */
 export function seedFor(seed: number, i: number): number {
   return (seed + i * 0x9e3779b1) >>> 0
-}
-
-/** "#rrggbbaa" -> { r, g, b, a in 0..1 }. */
-export function parseHex8(hex: string): RGBA {
-  return {
-    r: parseInt(hex.slice(1, 3), 16),
-    g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16),
-    a: parseInt(hex.slice(7, 9), 16) / 255,
-  }
-}
-
-/** "#rrggbb" -> opaque RGBA. */
-export function parseHex6(hex: string): RGBA {
-  return {
-    r: parseInt(hex.slice(1, 3), 16),
-    g: parseInt(hex.slice(3, 5), 16),
-    b: parseInt(hex.slice(5, 7), 16),
-    a: 1,
-  }
 }
 
 /** tpoint: move pixel (x,y) a fraction `a` toward colour `c`, set opaque. OOB = no-op. */
@@ -62,25 +38,6 @@ export function blendPixel(
   buf[idx + 1] += (c.g - buf[idx + 1]) * a
   buf[idx + 2] += (c.b - buf[idx + 2]) * a
   buf[idx + 3] = 255
-}
-
-/** Linear-interpolate RGBA across evenly-spaced hex8 `stops` at t in [0,1]. */
-export function sampleGradientRGBA(stops: string[], t: number): RGBA {
-  const tc = Math.min(1, Math.max(0, t))
-  const n = stops.length
-  if (n === 1) return parseHex8(stops[0])
-  const scaled = tc * (n - 1)
-  let i = Math.floor(scaled)
-  if (i >= n - 1) i = n - 2
-  const f = scaled - i
-  const a = parseHex8(stops[i])
-  const b = parseHex8(stops[i + 1])
-  return {
-    r: a.r + (b.r - a.r) * f,
-    g: a.g + (b.g - a.g) * f,
-    b: a.b + (b.b - a.b) * f,
-    a: a.a + (b.a - a.a) * f,
-  }
 }
 
 /** Per-grain alpha: `opacity` at i=0, feathering to ~0 at i=grains. */
