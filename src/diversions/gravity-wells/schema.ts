@@ -54,7 +54,8 @@ export const gravityWellsSchema = z.object({
                 + '- screen: glows and mixes; dense areas wash to white\n'
                 + '- normal: each particle’s true color' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05060f')
-    .meta({ section: 'Color', ui: 'color', label: 'Background' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Background',
+            help: 'Trails fade toward this colour.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Color mode',

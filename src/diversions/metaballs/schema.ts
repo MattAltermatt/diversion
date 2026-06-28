@@ -6,10 +6,12 @@ export const metaballsSchema = z.object({
             help: 'How many blobs. More = busier, more merges.' }),
   radiusMin: z.number().min(0.02).max(0.2).default(0.06)
     .meta({ section: 'Blobs', ui: 'slider', min: 0.02, max: 0.2, step: 0.005, label: 'Radius min',
-            help: 'Smallest blob size (fraction of the short screen dimension).' }),
+            help: 'Smallest blob size (fraction of the short screen dimension). '
+                + '(If min exceeds max they are simply used as an unordered range.)' }),
   radiusMax: z.number().min(0.05).max(0.4).default(0.16)
     .meta({ section: 'Blobs', ui: 'slider', min: 0.05, max: 0.4, step: 0.005, label: 'Radius max',
-            help: 'Largest blob size (fraction of the short screen dimension).' }),
+            help: 'Largest blob size (fraction of the short screen dimension). '
+                + '(If min exceeds max they are simply used as an unordered range.)' }),
   threshold: z.number().min(0.5).max(3).default(1.0)
     .meta({ section: 'Blobs', ui: 'slider', min: 0.5, max: 3, step: 0.05, label: 'Threshold',
             help: 'Blob fatness — lower = fatter, merges more readily.' }),

@@ -13,7 +13,8 @@ export const flowFieldSchema = z.object({
     .meta({ section: 'The Flow', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Field drift',
             help: 'Slowly morphs the flow field over time. 0 = frozen.' }),
   speed: z.number().min(0).max(1).default(0.11)
-    .meta({ section: 'The Flow', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed' }),
+    .meta({ section: 'The Flow', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Speed',
+            help: 'How fast particles travel along the field. 0 = frozen.' }),
   lifespan: z.number().min(0.5).max(12).default(6.5)
     .meta({ section: 'The Flow', ui: 'slider', min: 0.5, max: 12, step: 0.1, label: 'Particle lifespan',
             help: 'Seconds a particle lives before respawning elsewhere. Shorter = busier, '
@@ -32,7 +33,8 @@ export const flowFieldSchema = z.object({
                 + '- screen: glows and mixes; dense areas wash to white\n'
                 + '- lighten: colored glow that keeps its hue — no white-out' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050810')
-    .meta({ section: 'Color', ui: 'color', label: 'Background' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Background',
+            help: 'Trails fade toward this colour.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
