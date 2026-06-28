@@ -85,6 +85,10 @@ Vite · React 19 · TypeScript · Zod 4 (one schema → form + URL + types) · R
 
 See [`VISION.md`](VISION.md) for the north-star and [`docs/superpowers/specs/`](docs/superpowers/specs/) for the design spec. Planned work, bugs, and shipped history all live in **[GitHub Issues](https://github.com/MattAltermatt/diversion/issues)** and **[Releases](https://github.com/MattAltermatt/diversion/releases)** — the single source of truth.
 
+## Credits / Inspiration
+
+Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
+
 ## License
 
 [MIT](LICENSE) © MattAltermatt
