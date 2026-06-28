@@ -1,6 +1,9 @@
 import type { ZodType, ZodObject } from 'zod'
 
-export type FieldUi = 'slider' | 'number' | 'segmented' | 'toggle' | 'color' | 'colorList' | 'group'
+// 'hidden' — a field that is part of the schema (so the URL codec round-trips it)
+// but is not rendered as a form control. Used for values driven indirectly, e.g.
+// a preset-dropdown-only field. SchemaForm skips it in renderField.
+export type FieldUi = 'slider' | 'number' | 'segmented' | 'toggle' | 'color' | 'colorList' | 'group' | 'hidden'
 
 export interface FieldMeta {
   ui: FieldUi

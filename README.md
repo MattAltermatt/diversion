@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Seven diversions:**
+- **Eight diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -15,6 +15,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Substrate** (`kind: '2d'`) — cracks grow and branch at right angles into an organic network, each washing a soft watercolour cell beside it.
   - **Sand Stroke** (`kind: '2d'`) — grainy sand-painter strokes lay drifting bands of stratified colour.
   - **Squiral** (`kind: '2d'`) — worms wind themselves into tight square spirals that flood the screen with interlocking right-angled coils.
+  - **Turmite** (`kind: '2d'`) — a generalized Langton's ant; ants turn by the colour beneath them, leaving emergent highways, spirals, and fractal growth (port of xscreensaver `ant`).
 
 ## Run it
 

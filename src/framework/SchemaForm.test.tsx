@@ -57,6 +57,17 @@ describe('SchemaForm', () => {
     expect(screen.getByText('Only B')).toBeInTheDocument()
   })
 
+  it("renders nothing for a ui:'hidden' field (URL-encoded but not a control)", () => {
+    const hidSchema = z.object({
+      visible: z.number().default(3).meta({ ui: 'number', label: 'Visible' }),
+      rule: z.enum(['RL', 'LLRR']).default('RL').meta({ ui: 'hidden', label: 'Rule' }),
+    })
+    render(<SchemaForm schema={hidSchema} value={hidSchema.parse({})} onChange={() => {}} />)
+    expect(screen.getByText('Visible')).toBeInTheDocument()
+    // the hidden field contributes no control and no label, and does not throw
+    expect(screen.queryByText('Rule')).not.toBeInTheDocument()
+  })
+
   it('groups fields into collapsible subpanels by section', () => {
     const secSchema = z.object({
       a: z.number().default(1).meta({ ui: 'number', label: 'Field A', section: 'Alpha' }),

@@ -26,4 +26,13 @@ describe('fields', () => {
     const bad = z.object({ x: z.number().default(0) })
     expect(() => fields(bad)).toThrow(/missing .meta/)
   })
+
+  it("accepts ui:'hidden' (URL-encoded, non-rendered field)", () => {
+    const s = z.object({
+      rule: z.enum(['RL', 'LLRR']).default('RL').meta({ ui: 'hidden', label: 'Rule' }),
+    })
+    const f = fields(s)
+    expect(f[0][2].ui).toBe('hidden')
+    expect(f[0][2].label).toBe('Rule')
+  })
 })

@@ -61,6 +61,7 @@ export function SchemaForm({
   // — switch the controlling field and it returns.
   const renderField = ([key, field, meta]: [string, ZodType, FieldMeta]): ReactNode => {
     if (meta.showWhen && value[meta.showWhen.field] !== meta.showWhen.equals) return null
+    if (meta.ui === 'hidden') return null // schema-only field (URL-encoded), no control
     if (meta.ui === 'group') {
       return (
         <Group key={key} label={meta.label}>
