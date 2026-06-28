@@ -87,7 +87,7 @@ See [`VISION.md`](VISION.md) for the north-star and [`docs/superpowers/specs/`](
 
 ## Credits / Inspiration
 
-Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
+Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_ and _[Substrate](http://www.complexification.net/gallery/machines/substrate/)_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
 
 ## License
 
