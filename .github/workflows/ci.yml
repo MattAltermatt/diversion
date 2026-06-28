@@ -1,0 +1,32 @@
+name: CI
+
+# Gate pull requests on lint + test + typecheck/build so broken code can't be
+# merged. Pushes to main are gated by deploy.yml (which runs the same steps
+# before deploying), so this workflow deliberately skips push to avoid
+# duplicate runs.
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Read-only: this job only lints/tests/builds; it never deploys or writes.
+permissions:
+  contents: read
+
+# Cancel superseded runs when a PR branch is pushed repeatedly.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
