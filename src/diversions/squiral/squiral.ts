@@ -47,8 +47,12 @@ export interface SquiralState {
   stepAcc: number
   dirty: DirtyCell[]         // cells filled this frame (renderer drains)
   expired: DirtyCell[]       // cells cleared this frame → repaint bg (renderer drains)
+  appearing: BloomCell[]     // cells fading in (renderer ages + redraws; #zen leading-edge)
   needsClear: boolean        // repaint whole bg next frame (after resize)
 }
+
+/** A cell mid fade-in: redrawn each frame as its colour lerps bg→target. */
+export interface BloomCell { col: number; row: number; c: RGBA; age: number }
 
 /** Toroidal cell index. */
 export function idx(st: SquiralState, col: number, row: number): number {
@@ -57,11 +61,17 @@ export function idx(st: SquiralState, col: number, row: number): number {
   return r * st.cols + c
 }
 
-/** Are both cells one and two steps ahead along heading `d` empty? */
+/** Is the cell at (col,row) an obstacle? A filled cell always blocks; in 'walls'
+ *  edge mode an out-of-bounds cell also blocks, so a worm turns to follow the
+ *  screen edge instead of wrapping. In 'wrap' mode coordinates wrap toroidally. */
+function blocked(st: SquiralState, col: number, row: number): boolean {
+  if (st.cfg.edges === 'walls' && (col < 0 || col >= st.cols || row < 0 || row >= st.rows)) return true
+  return st.fill[idx(st, col, row)] === 1
+}
+
+/** Are both cells one and two steps ahead along heading `d` clear? */
 function clearAhead(st: SquiralState, w: Worm, d: number): boolean {
-  const c1 = idx(st, w.col + DH[d], w.row + DV[d])
-  const c2 = idx(st, w.col + 2 * DH[d], w.row + 2 * DV[d])
-  return st.fill[c1] === 0 && st.fill[c2] === 0
+  return !blocked(st, w.col + DH[d], w.row + DV[d]) && !blocked(st, w.col + 2 * DH[d], w.row + 2 * DV[d])
 }
 
 /** Mark a cell filled; track coverage + FIFO order. */
@@ -102,22 +112,36 @@ export function spawnWorm(st: SquiralState, w: Worm): void {
   w.colorStep = st.cfg.cycle ? (0.004 + st.rng() * 0.012) : 0
 }
 
-/** Faithful do_worm: prefer same-sense turn → straight → other turn; else respawn. */
+/** Fill `dist` cells ahead along heading `d` and move the worm there. */
+function advance(st: SquiralState, w: Worm, d: number, dist: number): void {
+  const c = getWormColor(st, w)
+  for (let k = 1; k <= dist; k++) fillCell(st, w.col + k * DH[d], w.row + k * DV[d], c)
+  w.col = (((w.col + dist * DH[d]) % st.cols) + st.cols) % st.cols
+  w.row = (((w.row + dist * DV[d]) % st.rows) + st.rows) % st.rows
+  w.dir = d
+  if (w.colorStep !== 0) { w.colorPos = (w.colorPos + w.colorStep) % 1 }
+}
+
+/** Is the single cell one step ahead along heading `d` clear (and in-bounds in
+ *  'walls' mode)? */
+function openOne(st: SquiralState, w: Worm, d: number): boolean {
+  return !blocked(st, w.col + DH[d], w.row + DV[d])
+}
+
+/** do_worm: prefer same-sense turn → straight → other turn, taking a full 2-cell
+ *  spiral stride when two cells are clear. If boxed for a stride but a SINGLE
+ *  neighbour is open (e.g. the 1-cell gap between spiral arms, or a wall on one
+ *  side), squeeze a one-cell step into it — turning left/right rather than dying.
+ *  Only respawn when walled in on every side. */
 export function stepWorm(st: SquiralState, w: Worm): void {
   if (st.rng() < st.cfg.disorder) w.type = st.rng() < st.cfg.handedness ? 1 : 0
   const CCW = (w.dir + 3) % 4, CW = (w.dir + 1) % 4, STR = w.dir
   const order = w.type === 0 ? [CCW, STR, CW] : [CW, STR, CCW]
   for (const d of order) {
-    if (clearAhead(st, w, d)) {
-      const c = getWormColor(st, w)
-      fillCell(st, w.col + DH[d], w.row + DV[d], c)
-      fillCell(st, w.col + 2 * DH[d], w.row + 2 * DV[d], c)
-      w.col = (((w.col + 2 * DH[d]) % st.cols) + st.cols) % st.cols
-      w.row = (((w.row + 2 * DV[d]) % st.rows) + st.rows) % st.rows
-      w.dir = d
-      if (w.colorStep !== 0) { w.colorPos = (w.colorPos + w.colorStep) % 1 }
-      return
-    }
+    if (clearAhead(st, w, d)) { advance(st, w, d, 2); return }
+  }
+  for (const d of order) {
+    if (openOne(st, w, d)) { advance(st, w, d, 1); return }
   }
   spawnWorm(st, w)
 }
@@ -141,7 +165,7 @@ export function createSquiralState(cfg: SquiralConfig, w: number, h: number): Sq
     rng: mulberry32(cycleSeed(cfg.seed, 0)),
     cycle: 0,
     phase: 'spiraling', fadeElapsed: 0, fadeAlpha: 0, wipeRow: 0,
-    stepAcc: 0, dirty: [], expired: [], needsClear: false,
+    stepAcc: 0, dirty: [], expired: [], appearing: [], needsClear: false,
   }
   st.worms = Array.from({ length: cfg.count }, () => {
     const wm: Worm = { col: 0, row: 0, type: 0, dir: 0, fixed: st.palette[0], colorPos: 0, colorStep: 0 }
@@ -166,6 +190,7 @@ function clearCell(st: SquiralState, i: number): void {
 /** Reset to a fresh grid for a new cycle (fade/wipe end). */
 function reseed(st: SquiralState): void {
   st.fill.fill(0); st.filledOrder.length = 0; st.coverage = 0
+  st.appearing.length = 0 // drop in-flight blooms; the field is repainted bg
   st.cycle++
   st.rng = mulberry32(cycleSeed(st.cfg.seed, st.cycle))
   for (const w of st.worms) spawnWorm(st, w)
@@ -235,5 +260,5 @@ export function resizeSquiralState(st: SquiralState, size: Size): void {
   st.worms = fresh.worms; st.palette = fresh.palette; st.bg = fresh.bg
   st.rng = fresh.rng; st.cycle = 0
   st.phase = 'spiraling'; st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0
-  st.stepAcc = 0; st.dirty = []; st.expired = []; st.needsClear = true
+  st.stepAcc = 0; st.dirty = []; st.expired = []; st.appearing = []; st.needsClear = true
 }

@@ -5,11 +5,14 @@ export interface SquiralPreset { name: string; patch: Partial<SquiralConfig> }
 // All four share one key-set (count/disorder/handedness/speed/cellSize) so the
 // Motion group stays a clean independent axis — see matchPresets' equal-key-set
 // assumption in framework/presets.ts.
+// Zen-leaning: calm worm counts + low speeds within the dampened ranges
+// (count ≤ 60, speed ≤ 120). The default config is even calmer (3 worms,
+// speed 10); these presets offer fuller / livelier variety on demand.
 export const motionPresets: SquiralPreset[] = [
-  { name: 'Classic', patch: { count: 120, disorder: 0.005, handedness: 0.5, speed: 120, cellSize: 4 } },
-  { name: 'Orderly', patch: { count: 80, disorder: 0, handedness: 0, speed: 100, cellSize: 4 } },
-  { name: 'Chaotic', patch: { count: 200, disorder: 0.03, handedness: 0.5, speed: 200, cellSize: 4 } },
-  { name: 'Sparse', patch: { count: 24, disorder: 0.003, handedness: 0.5, speed: 80, cellSize: 7 } },
+  { name: 'Zen', patch: { count: 3, disorder: 0, handedness: 0.5, speed: 10, cellSize: 4 } },
+  { name: 'Orderly', patch: { count: 12, disorder: 0, handedness: 0, speed: 18, cellSize: 4 } },
+  { name: 'Fuller', patch: { count: 40, disorder: 0.005, handedness: 0.5, speed: 40, cellSize: 4 } },
+  { name: 'Lively', patch: { count: 60, disorder: 0.03, handedness: 0.5, speed: 90, cellSize: 4 } },
 ]
 
 // All five share one key-set (background/cycle/cellStyle/color) so the Color
@@ -23,11 +26,13 @@ export const colorPresets: SquiralPreset[] = [
     color: { mode: 'palette', source: 'y',
       colors: ['#e0a458ff', '#c8762fff', '#7c3f1eff', '#9c5a3cff', '#b0402eff'],
       stops: ['#3a4a6bff', '#c8762fff', '#e0a458ff'] } } },
+  // Old-school Mariners — royal blue + gold (matches the Flow Field palette and
+  // the squiral default).
   { name: 'Mariners', patch: {
     background: '#0b1622', cycle: false, cellStyle: 'square',
     color: { mode: 'palette', source: 'y',
-      colors: ['#2e6f8eff', '#3a4a6bff', '#5fa8a0ff', '#cfe3dcff', '#274060ff'],
-      stops: ['#0b1622ff', '#2e6f8eff', '#cfe3dcff'] } } },
+      colors: ['#2a5cf0ff', '#4d9bffff', '#ffc22eff', '#ffe08aff'],
+      stops: ['#0b1622ff', '#2a5cf0ff', '#ffe08aff'] } } },
   { name: 'Mono Blueprint', patch: {
     background: '#0a1a2f', cycle: false, cellStyle: 'square',
     color: { mode: 'palette', source: 'y',

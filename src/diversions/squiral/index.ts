@@ -6,7 +6,12 @@ import {
   createSquiralState, stepSquiral, updateSquiralState, resizeSquiralState,
   parseHex6, type RGBA, type SquiralState,
 } from './squiral'
+import { mix, rgba } from '../../framework/color'
 import { motionPresets, colorPresets } from './presets'
+
+// A new cell fades in over this window instead of popping at full opacity, so
+// the leading edge of each worm reads as a gentle bloom (#zen).
+const BLOOM_MS = 220
 
 function css(c: RGBA, a = c.a): string {
   return `rgba(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)},${a})`
@@ -57,14 +62,36 @@ const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
     stepSquiral(state, dt)
     const cs = state.cfg.cellSize, gap = state.cfg.gap
     const bg = state.cfg.background
+    const bgRGBA = parseHex6(bg)
     if (state.phase === 'fading') {
-      ctx.fillStyle = css(parseHex6(bg), state.fadeAlpha)
+      ctx.fillStyle = css(bgRGBA, state.fadeAlpha)
       ctx.fillRect(0, 0, state.w, state.h)
     }
+    // recycled / wiped cells return to bg instantly
     for (const cell of state.expired) drawCell(ctx, cell.col, cell.row, bg, cs, gap, 'square')
-    for (const cell of state.dirty) drawCell(ctx, cell.col, cell.row, css(cell.c), cs, gap, state.cfg.cellStyle)
+    // A cell recycled this frame must cancel any in-flight bloom at that slot —
+    // otherwise the bloom keeps repainting a bright cell over the now-empty (bg)
+    // slot, and in rolling mode (no full clear) those strand as stuck specks.
+    const recycled = state.expired.length
+      ? new Set(state.expired.map((c) => c.row * state.cols + c.col))
+      : null
+    // newly-filled cells enter the bloom list instead of popping at full opacity
+    for (const cell of state.dirty) state.appearing.push({ col: cell.col, row: cell.row, c: cell.c, age: 0 })
     state.dirty.length = 0
     state.expired.length = 0
+    // age + redraw each blooming cell, lerping its colour bg→target (smoothstep);
+    // settled cells are drawn once at full colour and drop out of the list.
+    const style = state.cfg.cellStyle
+    let live = 0
+    for (const a of state.appearing) {
+      if (recycled?.has(a.row * state.cols + a.col)) continue // recycled → bloom canceled
+      a.age += dt
+      const t = Math.min(1, a.age / BLOOM_MS)
+      const s = t * t * (3 - 2 * t) // smoothstep ease
+      drawCell(ctx, a.col, a.row, rgba(mix(bgRGBA, a.c, s), 1), cs, gap, style)
+      if (a.age < BLOOM_MS) state.appearing[live++] = a // compact in place; keep the unsettled
+    }
+    state.appearing.length = live
   },
 
   resize(state, size) {

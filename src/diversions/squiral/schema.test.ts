@@ -4,8 +4,10 @@ import { squiralSchema } from './schema'
 describe('squiral schema', () => {
   it('parses with all defaults', () => {
     const cfg = squiralSchema.parse({})
-    expect(cfg.count).toBe(120)
-    expect(cfg.clearMode).toBe('fade')
+    expect(cfg.count).toBe(3) // zen default: a few calm worms
+    expect(cfg.speed).toBe(10)
+    expect(cfg.disorder).toBe(0)
+    expect(cfg.clearMode).toBe('rolling') // never clears → always-full, no sparse regrow
     expect(cfg.cellStyle).toBe('square')
     expect(cfg.color.mode).toBe('palette')
     expect(cfg.cycle).toBe(false)

@@ -1,19 +1,23 @@
 import { z } from 'zod'
 
 export const squiralSchema = z.object({
-  count: z.number().int().min(1).max(800).default(120)
-    .meta({ section: 'Worms', ui: 'slider', min: 1, max: 800, step: 1, label: 'Worms',
-            help: 'How many spiral-drawing worms crawl the grid at once. More fills the screen faster.' }),
-  speed: z.number().min(10).max(400).default(120)
-    .meta({ section: 'Worms', ui: 'slider', min: 10, max: 400, step: 5, label: 'Speed',
-            help: 'Worm steps per second. Higher = faster growth.' }),
-  disorder: z.number().min(0).max(0.05).default(0.005)
+  count: z.number().int().min(1).max(60).default(3)
+    .meta({ section: 'Worms', ui: 'slider', min: 1, max: 60, step: 1, label: 'Worms',
+            help: 'How many spiral-drawing worms crawl the grid at once. A few is calm and meditative; more fills faster.' }),
+  speed: z.number().min(1).max(120).default(10)
+    .meta({ section: 'Worms', ui: 'slider', min: 1, max: 120, step: 1, label: 'Speed',
+            help: 'Worm steps per second. Low and slow is the zen default; higher = faster growth.' }),
+  disorder: z.number().min(0).max(0.05).default(0)
     .meta({ section: 'Motion', ui: 'slider', min: 0, max: 0.05, step: 0.001, label: 'Disorder',
             help: 'Chance per step a worm randomly flips its winding direction. 0 = pristine spirals.' }),
   handedness: z.number().min(0).max(1).default(0.5)
     .meta({ section: 'Motion', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Handedness',
             help: 'Bias between left- and right-winding worms. 0 = all one way, 1 = all the other, 0.5 = mixed.' }),
-  clearMode: z.enum(['fade', 'wipe', 'rolling']).default('fade')
+  edges: z.enum(['wrap', 'walls']).default('wrap')
+    .meta({ section: 'Motion', ui: 'segmented', options: ['wrap', 'walls'], label: 'Edges',
+            help: 'Wrap: a worm crossing a screen edge reappears on the opposite side. '
+                + 'Walls: a worm treats the edge like a wall and turns to follow it.' }),
+  clearMode: z.enum(['fade', 'wipe', 'rolling']).default('rolling')
     .meta({ section: 'Lifecycle', ui: 'segmented', options: ['fade', 'wipe', 'rolling'], label: 'Clear mode',
             help: 'What happens when the grid fills: fade out and regrow, sweep from the edges, or continuously '
                 + 'recycle the oldest cells so it never fully clears.' }),
@@ -36,7 +40,7 @@ export const squiralSchema = z.object({
   cycle: z.boolean().default(false)
     .meta({ section: 'Color', ui: 'toggle', label: 'Cycle colors',
             help: 'Advance each worm’s color as it winds, turning a coil into a shifting ribbon of hue.' }),
-  background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#11131a')
+  background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0b1622')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The ground color, painted once and faded back to between cycles.' }),
   color: z.object({
@@ -44,7 +48,7 @@ export const squiralSchema = z.object({
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
               help: 'Palette: each worm picks one color. Gradient: color sampled by position (or cycled).' }),
     colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
-      .default(['#e0a458ff', '#c8762fff', '#7c3f1eff', '#3a4a6bff', '#9c5a3cff', '#b0402eff'])
+      .default(['#2a5cf0ff', '#4d9bffff', '#ffc22eff', '#ffe08aff'])
       .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'palette' },
               help: 'Each worm picks one of these (or cycles through them when Cycle colors is on).' }),
@@ -53,15 +57,15 @@ export const squiralSchema = z.object({
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'What maps onto the gradient: a cell’s y (top→bottom) or x (left→right).' }),
     stops: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(8)
-      .default(['#3a4a6bff', '#c8762fff', '#e0a458ff'])
+      .default(['#0b1622ff', '#2a5cf0ff', '#ffe08aff'])
       .meta({ ui: 'colorList', label: 'Gradient stops', min: 2, max: 8,
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'Evenly spaced and sampled along the source (or cycled when Cycle colors is on).' }),
   }).default({
     mode: 'palette',
-    colors: ['#e0a458ff', '#c8762fff', '#7c3f1eff', '#3a4a6bff', '#9c5a3cff', '#b0402eff'],
+    colors: ['#2a5cf0ff', '#4d9bffff', '#ffc22eff', '#ffe08aff'],
     source: 'y',
-    stops: ['#3a4a6bff', '#c8762fff', '#e0a458ff'],
+    stops: ['#0b1622ff', '#2a5cf0ff', '#ffe08aff'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(7411)
     .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',

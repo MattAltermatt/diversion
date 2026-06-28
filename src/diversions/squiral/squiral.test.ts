@@ -69,9 +69,72 @@ describe('color', () => {
   })
 })
 
+describe('wall turning (#zen)', () => {
+  it('squeezes a single-cell turn into an open neighbour instead of respawning', () => {
+    const st = createSquiralState(squiralSchema.parse({ count: 1, disorder: 0 }), 200, 200)
+    const w = st.worms[0]
+    w.col = 10; w.row = 10; w.dir = 0; w.type = 0 // heading up; order [left, up, right]
+    // Block every 2-cell stride (fail clearAhead in all dirs)…
+    st.fill[idx(st, 10, 8)] = 1  // up   2-ahead
+    st.fill[idx(st, 8, 10)] = 1  // left 2-ahead
+    st.fill[idx(st, 12, 10)] = 1 // right 2-ahead
+    // …and block the left/right single-cell openings, leaving only 'up' one cell open.
+    st.fill[idx(st, 9, 10)] = 1  // left 1-ahead
+    st.fill[idx(st, 11, 10)] = 1 // right 1-ahead
+    stepWorm(st, w)
+    // It steps one cell up into the gap rather than dying/respawning elsewhere.
+    expect([w.col, w.row]).toEqual([10, 9])
+    expect(st.fill[idx(st, 10, 9)]).toBe(1)
+  })
+
+  it('only respawns when walled in on every open-able side', () => {
+    const st = createSquiralState(squiralSchema.parse({ count: 1, disorder: 0 }), 200, 200)
+    const w = st.worms[0]
+    w.col = 10; w.row = 10; w.dir = 0; w.type = 0
+    // Block both 1-ahead AND 2-ahead for left, up, right → no stride, no squeeze.
+    for (const [c, r] of [[10, 9], [10, 8], [9, 10], [8, 10], [11, 10], [12, 10]]) st.fill[idx(st, c, r)] = 1
+    stepWorm(st, w)
+    // Respawned somewhere fresh (not stuck at the walled-in 10,10).
+    expect([w.col, w.row]).not.toEqual([10, 10])
+  })
+})
+
+describe('edge mode', () => {
+  // worm at the left edge (col 0) heading left, with both perpendicular strides
+  // blocked so only the straight-into-the-edge move is left.
+  const setup = (edges: 'wrap' | 'walls') => {
+    const st = createSquiralState(squiralSchema.parse({ count: 1, disorder: 0, edges }), 200, 200)
+    const w = st.worms[0]
+    w.col = 0; w.row = 10; w.dir = 3; w.type = 0
+    for (const r of [11, 12, 9, 8]) st.fill[idx(st, 0, r)] = 1 // block up/down strides
+    return { st, w }
+  }
+
+  it('wrap mode carries a worm across the edge to the opposite side', () => {
+    const { st, w } = setup('wrap')
+    stepWorm(st, w)
+    expect(st.fill[idx(st, st.cols - 1, 10)]).toBe(1) // filled the wrapped (right-edge) cell
+  })
+
+  it('walls mode treats the edge as a wall — no wrap across the boundary', () => {
+    const { st, w } = setup('walls')
+    stepWorm(st, w)
+    expect(st.fill[idx(st, st.cols - 1, 10)]).toBe(0) // never crossed the edge
+  })
+
+  it('walls mode keeps every worm in-bounds over a long run', () => {
+    const st = createSquiralState(squiralSchema.parse({ count: 8, disorder: 0.01, edges: 'walls' }), 160, 120)
+    for (let i = 0; i < 3000; i++) stepSquiral(st, 16)
+    for (const w of st.worms) {
+      expect(w.col).toBeGreaterThanOrEqual(0); expect(w.col).toBeLessThan(st.cols)
+      expect(w.row).toBeGreaterThanOrEqual(0); expect(w.row).toBeLessThan(st.rows)
+    }
+  })
+})
+
 describe('lifecycle', () => {
   it('fade mode enters fading at the fill threshold and regrows', () => {
-    const st = createSquiralState(squiralSchema.parse({ clearMode: 'fade', fillThreshold: 20, count: 30, speed: 400 }), 160, 120)
+    const st = createSquiralState(squiralSchema.parse({ clearMode: 'fade', fillThreshold: 20, count: 30, speed: 120 }), 160, 120)
     let guard = 0
     while (st.phase === 'spiraling' && guard++ < 5000) stepSquiral(st, 16)
     expect(st.phase).toBe('fading')
@@ -81,7 +144,7 @@ describe('lifecycle', () => {
   })
 
   it('rolling mode holds coverage near the threshold without a hard phase change', () => {
-    const st = createSquiralState(squiralSchema.parse({ clearMode: 'rolling', fillThreshold: 50, count: 40, speed: 400 }), 160, 120)
+    const st = createSquiralState(squiralSchema.parse({ clearMode: 'rolling', fillThreshold: 50, count: 40, speed: 120 }), 160, 120)
     const cap = Math.floor(0.5 * st.fill.length)
     for (let i = 0; i < 4000; i++) stepSquiral(st, 16)
     expect(st.phase).toBe('spiraling')
@@ -90,7 +153,7 @@ describe('lifecycle', () => {
 
   it('update returns false for structural changes, true for live ones', () => {
     const st = createSquiralState(squiralSchema.parse({}), 160, 120)
-    expect(updateSquiralState(st, squiralSchema.parse({ count: 200 }), { width: 160, height: 120 })).toBe(false)
+    expect(updateSquiralState(st, squiralSchema.parse({ count: 60 }), { width: 160, height: 120 })).toBe(false)
     expect(updateSquiralState(st, squiralSchema.parse({ disorder: 0.02 }), { width: 160, height: 120 })).toBe(true)
     expect(st.cfg.disorder).toBe(0.02)
   })
