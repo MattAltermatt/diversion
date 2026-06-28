@@ -130,6 +130,7 @@ export interface Crack {
   x: number; y: number      // float head position (CSS px)
   angle: number             // heading, radians
   gain: number              // sand-painter gain, random-walks in ±SAND_MAXG
+  curvature: number         // heading rotation per step (rad); 0 = straight
   color: RGBA               // wash colour for this crack's current life
   alive: boolean
   rng: () => number         // this crack's own seeded stream
@@ -140,6 +141,7 @@ export interface SubstrateState {
   buf: Uint8ClampedArray<ArrayBuffer> // RGBA, w·h·4, CSS px — never cleared during growth
   grid: Int16Array                    // w·h occupancy (quantized angle | EMPTY)
   cracks: Crack[]
+  marked: number[]                     // grid indices of inked cells — the only places a relocating crack may spawn
   palette: RGBA[]
   crackC: RGBA                         // crack ink colour
   bg: RGBA                             // background colour
@@ -175,6 +177,18 @@ function cycleSeed(seed: number, cycle: number): number {
   return (seed + cycle * 0x85ebca6b) >>> 0
 }
 
+/** Per-crack curvature (rad/step) from its own RNG: 0 for a straight crack
+ *  (probability straightPct/100), else ±STEP/radius with radius uniform across
+ *  the [minRadius,maxRadius] band (order-insensitive) and a random direction. */
+export function rollCurvature(cfg: SubstrateConfig, rng: () => number): number {
+  if (rng() < cfg.straightPct / 100) return 0
+  const lo = Math.min(cfg.minRadius, cfg.maxRadius)
+  const hi = Math.max(cfg.minRadius, cfg.maxRadius)
+  const radius = lo + rng() * (hi - lo)
+  const dir = rng() < 0.5 ? 1 : -1
+  return (dir * STEP) / Math.max(1, radius)
+}
+
 /** Seed `initialCracks` cracks at random positions/headings for cycle `cycle`. */
 function seedCracks(cfg: SubstrateConfig, palette: RGBA[], w: number, h: number, cycle: number): Crack[] {
   const base = cycleSeed(cfg.seed, cycle)
@@ -185,7 +199,8 @@ function seedCracks(cfg: SubstrateConfig, palette: RGBA[], w: number, h: number,
     const angle = rng() * Math.PI * 2
     const gain = 0.01 + rng() * 0.09
     const color = pickColor(cfg, palette, x, y, w, h, rng)
-    return { x, y, angle, gain, color, alive: true, rng }
+    const curvature = rollCurvature(cfg, rng)
+    return { x, y, angle, gain, curvature, color, alive: true, rng }
   })
 }
 
@@ -198,6 +213,7 @@ export function createSubstrateState(cfg: SubstrateConfig, w: number, h: number)
   return {
     cfg, buf, grid: makeGrid(W, H),
     cracks: seedCracks(cfg, palette, W, H, 0),
+    marked: [],
     palette, crackC: parseHex6(cfg.crackColor), bg,
     w: W, h: H,
     phase: 'growing', elapsed: 0, fadeElapsed: 0,
@@ -208,6 +224,7 @@ export function createSubstrateState(cfg: SubstrateConfig, w: number, h: number)
 /** Advance one crack one STEP: move, fuzz, (sand fill — Task 5), ink, collide. */
 export function advanceCrack(state: SubstrateState, cr: Crack): void {
   const { grid, buf, w, h, crackC } = state
+  cr.angle += cr.curvature // curve the heading (0 for straight cracks)
   cr.x += STEP * Math.cos(cr.angle)
   cr.y += STEP * Math.sin(cr.angle)
   const fx = cr.x + (cr.rng() * 2 - 1) * FUZZ
@@ -219,37 +236,33 @@ export function advanceCrack(state: SubstrateState, cr: Crack): void {
   const idx = iy * w + ix
   const deg = quantizeAngle(cr.angle)
   if (blocks(grid[idx], deg)) { cr.alive = false; return }
-  markCell(grid, idx, deg)
+  if (markCell(grid, idx, deg)) state.marked.push(idx) // track the new inked cell
 }
 
-const FIND_TRIES = 1000
-
-/** Reposition a stopped crack onto a random inked cell, heading ±90° (+ jitter)
- *  off that cell's crack. Fresh gain + colour; revives the crack. Falls back to a
- *  random seed if no inked cell is sampled within FIND_TRIES. */
+/** Reposition a stopped crack onto a random point on an EXISTING crack — a random
+ *  inked cell drawn from `state.marked` — heading ±90° (+ jitter) off that cell's
+ *  crack. Fresh gain + colour + curvature; revives the crack. A crack therefore
+ *  only ever spawns from an existing crack; the lone random-seed branch is the
+ *  degenerate pre-first-ink case (no cell inked yet), which the seed cracks make
+ *  unreachable in practice. */
 export function findStart(state: SubstrateState, cr: Crack): void {
-  const { grid, w, h, cfg, palette } = state
-  let found = false
-  for (let t = 0; t < FIND_TRIES && !found; t++) {
-    const px = Math.floor(cr.rng() * w)
-    const py = Math.floor(cr.rng() * h)
-    const cell = grid[py * w + px]
-    if (cell !== EMPTY) {
-      const base = (cell * Math.PI) / 180
-      const sign = cr.rng() < 0.5 ? 1 : -1
-      const jitter = (cr.rng() * 2 - 1) * (cfg.branchJitter * Math.PI / 180)
-      cr.x = px; cr.y = py
-      cr.angle = base + sign * (Math.PI / 2) + jitter
-      found = true
-    }
-  }
-  if (!found) {
+  const { grid, w, h, cfg, palette, marked } = state
+  if (marked.length > 0) {
+    const idx = marked[Math.floor(cr.rng() * marked.length)]
+    const px = idx % w, py = Math.floor(idx / w)
+    const base = (grid[idx] * Math.PI) / 180
+    const sign = cr.rng() < 0.5 ? 1 : -1
+    const jitter = (cr.rng() * 2 - 1) * (cfg.branchJitter * Math.PI / 180)
+    cr.x = px; cr.y = py
+    cr.angle = base + sign * (Math.PI / 2) + jitter
+  } else {
     cr.x = cr.rng() * w
     cr.y = cr.rng() * h
     cr.angle = cr.rng() * Math.PI * 2
   }
   cr.gain = 0.01 + cr.rng() * 0.09
   cr.color = pickColor(cfg, palette, cr.x, cr.y, w, h, cr.rng)
+  cr.curvature = rollCurvature(cfg, cr.rng)
   cr.alive = true
 }
 
@@ -257,7 +270,7 @@ export function findStart(state: SubstrateState, cr: Crack): void {
 export function makeCrack(state: SubstrateState): Crack {
   const base = cycleSeed(state.cfg.seed, state.cycle)
   const cr: Crack = {
-    x: 0, y: 0, angle: 0, gain: 0.05,
+    x: 0, y: 0, angle: 0, gain: 0.05, curvature: 0,
     color: state.palette[0], alive: false,
     rng: mulberry32(seedFor(base, state.cracks.length + 1)),
   }
@@ -325,6 +338,7 @@ function fadeStep(state: SubstrateState, dt: number): void {
 function reseed(state: SubstrateState): void {
   fillRGBA(state.buf, state.bg)
   state.grid.fill(EMPTY)
+  state.marked.length = 0
   state.cycle += 1
   state.cracks = seedCracks(state.cfg, state.palette, state.w, state.h, state.cycle)
   state.phase = 'growing'
@@ -386,6 +400,7 @@ export function resizeSubstrateState(state: SubstrateState, size: Size): void {
   state.buf = fresh.buf
   state.grid = fresh.grid
   state.cracks = fresh.cracks
+  state.marked = fresh.marked
   state.palette = fresh.palette
   state.crackC = fresh.crackC
   state.bg = fresh.bg

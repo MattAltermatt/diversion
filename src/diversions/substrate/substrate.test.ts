@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseHex8, parseHex6, blendPixel, sampleGradientRGBA, grainAlpha,
-  quantizeAngle, angleDiff, mulberry32, seedFor, SAND_MAXG,
+  quantizeAngle, angleDiff, mulberry32, seedFor, SAND_MAXG, STEP,
   makeGrid, markCell, blocks, EMPTY,
   createSubstrateState, advanceCrack,
   findStart, makeCrack,
-  rayLength, regionFill,
+  rayLength, regionFill, rollCurvature,
   stepSubstrate,
   updateSubstrateState, resizeSubstrateState,
 } from './substrate'
@@ -156,8 +156,8 @@ describe('advanceCrack', () => {
 describe('findStart', () => {
   it('relocates onto an inked cell with a perpendicular-ish heading and revives', () => {
     const s = createSubstrateState(cfg({ initialCracks: 1, branchJitter: 0 }), 50, 50)
-    // ink a horizontal crack (angle 0°) along row 25
-    for (let x = 5; x < 45; x++) s.grid[25 * 50 + x] = 0
+    // ink a horizontal crack (angle 0°) along row 25 — and record it in `marked`
+    for (let x = 5; x < 45; x++) { const idx = 25 * 50 + x; s.grid[idx] = 0; s.marked.push(idx) }
     const c = s.cracks[0]
     c.alive = false
     findStart(s, c)
@@ -169,9 +169,22 @@ describe('findStart', () => {
     expect(Math.abs(Math.cos(c.angle))).toBeLessThan(0.2)
   })
 
-  it('falls back to a fresh random seed when nothing is inked', () => {
+  it('always spawns on an inked cell when any exist — never from empty space', () => {
+    const s = createSubstrateState(cfg({ initialCracks: 1, branchJitter: 0 }), 60, 60)
+    const inked = [25 * 60 + 10, 12 * 60 + 30, 40 * 60 + 50]
+    for (const idx of inked) { s.grid[idx] = 0; s.marked.push(idx) }
+    const c = s.cracks[0]
+    for (let i = 0; i < 80; i++) {
+      c.alive = false
+      findStart(s, c)
+      const landed = Math.floor(c.y) * 60 + Math.floor(c.x)
+      expect(inked).toContain(landed)
+    }
+  })
+
+  it('falls back to a fresh random seed only when nothing is inked yet (marked empty)', () => {
     const s = createSubstrateState(cfg({ initialCracks: 1 }), 30, 30)
-    s.grid.fill(-1) // truly empty
+    expect(s.marked).toHaveLength(0) // pre-first-ink degenerate case
     const c = s.cracks[0]; c.alive = false
     findStart(s, c)
     expect(c.alive).toBe(true)
@@ -182,10 +195,19 @@ describe('findStart', () => {
 describe('makeCrack', () => {
   it('produces a fresh, alive crack with its own stream', () => {
     const s = createSubstrateState(cfg({ initialCracks: 2 }), 40, 40)
-    for (let x = 0; x < 40; x++) s.grid[20 * 40 + x] = 0 // give findStart something to land on
+    for (let x = 0; x < 40; x++) { const idx = 20 * 40 + x; s.grid[idx] = 0; s.marked.push(idx) } // give findStart something to land on
     const c = makeCrack(s)
     expect(c.alive).toBe(true)
     expect(typeof c.rng).toBe('function')
+  })
+})
+
+describe('inked-cell tracking (spawn-from-existing invariant)', () => {
+  it('records inked cells in state.marked as the network grows, all non-empty', () => {
+    const s = createSubstrateState(cfg({ seed: 4, speed: 120 }), 120, 90)
+    for (let i = 0; i < 80; i++) stepSubstrate(s, 16)
+    expect(s.marked.length).toBeGreaterThan(0)
+    for (const idx of s.marked.slice(0, 40)) expect(s.grid[idx]).not.toBe(-1)
   })
 })
 
@@ -309,5 +331,72 @@ describe('resizeSubstrateState', () => {
     expect(s.buf.length).toBe(80 * 60 * 4)
     expect(s.grid.length).toBe(80 * 60)
     expect([s.buf[0], s.buf[1], s.buf[2], s.buf[3]]).toEqual([255, 255, 255, 255])
+  })
+})
+
+describe('rollCurvature', () => {
+  it('is always 0 at straightPct 100 and never 0 at straightPct 0', () => {
+    const rngA = mulberry32(1), rngB = mulberry32(2)
+    for (let i = 0; i < 60; i++) expect(rollCurvature(cfg({ straightPct: 100 }), rngA)).toBe(0)
+    for (let i = 0; i < 60; i++) expect(rollCurvature(cfg({ straightPct: 0 }), rngB)).not.toBe(0)
+  })
+
+  it('curved magnitude stays within [STEP/maxR, STEP/minR] and both signs occur', () => {
+    const c = cfg({ straightPct: 0, minRadius: 25, maxRadius: 400 })
+    const rng = mulberry32(3)
+    let pos = false, neg = false
+    for (let i = 0; i < 300; i++) {
+      const k = rollCurvature(c, rng)
+      const mag = Math.abs(k)
+      expect(mag).toBeGreaterThanOrEqual(STEP / 400 - 1e-9)
+      expect(mag).toBeLessThanOrEqual(STEP / 25 + 1e-9)
+      if (k > 0) pos = true
+      if (k < 0) neg = true
+    }
+    expect(pos && neg).toBe(true)
+  })
+
+  it('treats minRadius > maxRadius as an unordered range (no crash)', () => {
+    const c = cfg({ straightPct: 0, minRadius: 400, maxRadius: 25 })
+    const rng = mulberry32(5)
+    for (let i = 0; i < 100; i++) {
+      const mag = Math.abs(rollCurvature(c, rng))
+      expect(mag).toBeGreaterThanOrEqual(STEP / 400 - 1e-9)
+      expect(mag).toBeLessThanOrEqual(STEP / 25 + 1e-9)
+    }
+  })
+
+  it('is roughly half straight at straightPct 50', () => {
+    const c = cfg({ straightPct: 50 })
+    const rng = mulberry32(7)
+    let straight = 0
+    const N = 2000
+    for (let i = 0; i < N; i++) if (rollCurvature(c, rng) === 0) straight++
+    expect(straight / N).toBeGreaterThan(0.4)
+    expect(straight / N).toBeLessThan(0.6)
+  })
+})
+
+describe('advanceCrack curvature', () => {
+  it('rotates the heading by curvature each step; 0 holds the heading', () => {
+    const s = createSubstrateState(cfg({ straightPct: 100 }), 200, 200)
+    const c = s.cracks[0]
+    c.x = 100; c.y = 100; c.angle = 0; c.curvature = 0; c.alive = true
+    advanceCrack(s, c)
+    expect(c.angle).toBe(0)                     // straight: heading unchanged
+    c.x = 100; c.y = 100; c.angle = 0; c.curvature = 0.01; c.alive = true
+    advanceCrack(s, c)
+    expect(c.angle).toBeCloseTo(0.01)           // curved: heading bent by curvature
+  })
+})
+
+describe('seeded cracks carry a curvature', () => {
+  it('assigns curvature 0 to every crack when straightPct is 100', () => {
+    const s = createSubstrateState(cfg({ straightPct: 100, initialCracks: 6 }), 100, 100)
+    for (const c of s.cracks) expect(c.curvature).toBe(0)
+  })
+  it('assigns nonzero curvature to every crack when straightPct is 0', () => {
+    const s = createSubstrateState(cfg({ straightPct: 0, initialCracks: 6 }), 100, 100)
+    for (const c of s.cracks) expect(c.curvature).not.toBe(0)
   })
 })

@@ -15,6 +15,18 @@ export const substrateSchema = z.object({
   branchJitter: z.number().min(0).max(8).default(2)
     .meta({ section: 'Growth', ui: 'slider', min: 0, max: 8, step: 0.5, label: 'Branch jitter',
             help: 'Random angle wobble (degrees) added to the ±90° right-angle branch when a crack relocates.' }),
+  straightPct: z.number().int().min(0).max(100).default(80)
+    .meta({ section: 'Growth', ui: 'slider', min: 0, max: 100, step: 1, label: 'Straight %',
+            help: 'Share of cracks that grow straight; the rest curve along an arc. '
+                + '100 = all straight (classic Substrate), 0 = all curved.' }),
+  minRadius: z.number().int().min(10).max(400).default(25)
+    .meta({ section: 'Growth', ui: 'slider', min: 10, max: 400, step: 5, label: 'Min curve radius',
+            help: 'Tightest arc radius (px) a curved crack can take. Small = tight curls that loop into '
+                + 'their own trail and stop.' }),
+  maxRadius: z.number().int().min(20).max(800).default(400)
+    .meta({ section: 'Growth', ui: 'slider', min: 20, max: 800, step: 5, label: 'Max curve radius',
+            help: 'Loosest arc radius (px) a curved crack can take. Large = gentle, barely-there bends. '
+                + '(If min exceeds max they are simply used as an unordered range.)' }),
   drawTime: z.number().min(1).default(5)
     .meta({ section: 'Lifecycle', ui: 'number', step: 1, label: 'Draw time (minutes)',
             help: 'Minutes a network grows before it fades and a fresh one begins. Any number — '
