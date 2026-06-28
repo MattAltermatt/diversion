@@ -35,3 +35,4 @@ pnpm-debug.log*
 .gw-*.png
 .verify*.png
 .truchet-demo.png
+screenshots/
