@@ -78,6 +78,82 @@ describe('AnimationHost WebGL host (#8)', () => {
   })
 })
 
+describe('AnimationHost WebGL context loss → pause source (#124)', () => {
+  it('stays paused while the context is lost even when another pause source toggles', () => {
+    const calls: string[] = []
+    // A webgl diversion that records frames (makeWebglDiv's frame is a no-op).
+    const div: Diversion = {
+      id: 'glframes',
+      title: '',
+      description: '',
+      kind: 'webgl',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({}),
+      frame: () => {
+        calls.push('frame')
+      },
+    }
+    const { container } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    flushRaf()
+    const baseline = calls.filter((c) => c === 'frame').length
+    const canvas = container.querySelector('canvas')!
+
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+    flushRaf()
+    flushRaf()
+    expect(calls.filter((c) => c === 'frame').length).toBe(baseline) // frozen on loss
+
+    // A visibilitychange recomputes pause from the OTHER sources (all clear) — the
+    // `lost` flag must keep the loop paused, NOT let frame() run on a dead context.
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    flushRaf()
+    expect(calls.filter((c) => c === 'frame').length).toBe(baseline) // still frozen
+
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    flushRaf()
+    expect(calls.filter((c) => c === 'frame').length).toBeGreaterThan(baseline) // resumed
+  })
+
+  it('tears down before re-running setup on restore (teardown-before-setup invariant)', () => {
+    const calls: string[] = []
+    const div: Diversion = {
+      id: 'glteardown',
+      title: '',
+      description: '',
+      kind: 'webgl',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        calls.push('setup')
+        return {}
+      },
+      frame: () => {},
+      teardown: () => {
+        calls.push('teardown')
+      },
+    }
+    const { container } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    expect(calls).toEqual(['setup'])
+    container.querySelector('canvas')!.dispatchEvent(new Event('webglcontextrestored'))
+    expect(calls).toEqual(['setup', 'teardown', 'setup'])
+  })
+})
+
+describe('AnimationHost canvas remount on kind change (#124)', () => {
+  it('mounts a FRESH canvas when the diversion kind flips 2d↔webgl', () => {
+    // getContext() permanently locks a canvas to one context type, so reusing the
+    // node across a 2d↔webgl switch returns null + blanks. key={kind} must remount.
+    const { container, rerender } = render(
+      <AnimationHost diversion={makeDiv([], true)} config={{ v: 0 }} />,
+    )
+    const first = container.querySelector('canvas')
+    expect(first).not.toBeNull()
+    rerender(<AnimationHost diversion={makeWebglDiv([])} config={{ v: 0 }} />)
+    const second = container.querySelector('canvas')
+    expect(second).not.toBeNull()
+    expect(second).not.toBe(first) // keyed by kind → React replaced the DOM node
+  })
+})
+
 describe('AnimationHost lifecycle', () => {
   it('calls setup once on mount, update (not setup) on config change', () => {
     const calls: string[] = []

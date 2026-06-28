@@ -61,15 +61,26 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLSh
 
 export function initGL(gl: WebGL2RenderingContext): PlasmaGL {
   const vs = compile(gl, gl.VERTEX_SHADER, VERT_SRC)
-  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC)
+  // Delete-before-throw on every error path so NO GL object leaks: if the fs
+  // fails to compile, the already-created vertex shader must be freed; if the
+  // program fails to link, the program itself must be freed.
+  let fs: WebGLShader
+  try {
+    fs = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC)
+  } catch (e) {
+    gl.deleteShader(vs)
+    throw e
+  }
   const program = gl.createProgram()!
   gl.attachShader(program, vs)
   gl.attachShader(program, fs)
   gl.linkProgram(program)
-  gl.deleteShader(vs)
+  gl.deleteShader(vs) // flagged for deletion; freed once detached from the program
   gl.deleteShader(fs)
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(`Plasma program link failed: ${gl.getProgramInfoLog(program)}`)
+    const log = gl.getProgramInfoLog(program)
+    gl.deleteProgram(program)
+    throw new Error(`Plasma program link failed: ${log}`)
   }
   const vao = gl.createVertexArray()!
   const name = (n: string) => gl.getUniformLocation(program, n)
@@ -87,6 +98,10 @@ export function initGL(gl: WebGL2RenderingContext): PlasmaGL {
 export function render(
   gl: WebGL2RenderingContext, s: PlasmaGL, cfg: PlasmaConfig, phase: number,
 ): void {
+  // No gl.clear(): correctness relies on the fullscreen triangle (gl.TRIANGLES,
+  // 0, 3) covering EVERY pixel with an opaque fragColor (alpha = 1.0) each frame,
+  // so there is nothing stale to clear. A future GL diversion that draws sparse
+  // geometry, blends, or leaves any pixel untouched MUST add a gl.clear here.
   gl.useProgram(s.program)
   gl.bindVertexArray(s.vao)
   gl.uniform2f(s.locs.res, gl.drawingBufferWidth, gl.drawingBufferHeight)

@@ -591,6 +591,19 @@ input[type='color'] {
   width: 100%;
   height: 100%;
 }
+/* Inline fallback when a diversion fails to start (DiversionErrorBoundary, #124).
+   Fills the host box so a failed tile reads as "not running", not a blank gap. */
+.diversion-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted, #8a98a0);
+  background: rgba(8, 16, 18, 0.6);
+}
 .anim-bar {
   position: absolute;
   top: 12px;

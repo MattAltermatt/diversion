@@ -5,6 +5,7 @@ import { SchemaForm } from '../framework/SchemaForm'
 import { PresetPicker } from '../framework/PresetPicker'
 import { Subpanel } from '../framework/controls/Subpanel'
 import { AnimationHost } from '../framework/AnimationHost'
+import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { encodeConfig, decodeConfig } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
 
@@ -65,7 +66,9 @@ export function ConfigScreen() {
         <Link className="animate-pill" to={playHref}>
           animate →
         </Link>
-        <AnimationHost diversion={diversion} config={config} />
+        <DiversionErrorBoundary>
+          <AnimationHost diversion={diversion} config={config} />
+        </DiversionErrorBoundary>
       </main>
     </div>
   )

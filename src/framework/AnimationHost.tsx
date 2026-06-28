@@ -24,10 +24,17 @@ export function AnimationHost({
     hidden: false,
     reduced: false,
     offscreen: false,
+    lost: false,
   })
   const [paused, setPaused] = useState(false)
   const [reducedActive, setReducedActive] = useState(false)
   const [fps, setFps] = useState(0)
+  // setup() can throw (e.g. WebGL shader compile/link failure on a given GPU).
+  // We catch at every setup() call site to avoid leaking half-initialized
+  // resources, then re-throw during render via this setter so the surrounding
+  // DiversionErrorBoundary shows an inline fallback for THIS tile — instead of
+  // an unhandled effect throw white-screening the whole gallery (#124).
+  const [, setSetupError] = useState<unknown>()
 
   // Single source of truth for the loop's pause state: paused if ANY source is.
   const syncPaused = () => loopRef.current?.setPaused(shouldPause(pauseRef.current))
@@ -68,7 +75,15 @@ export function AnimationHost({
     }
 
     const size = sizeOf()
-    const state = diversion.setup(ctx, config, size)
+    let state: unknown
+    try {
+      state = diversion.setup(ctx, config, size)
+    } catch (e) {
+      setSetupError(() => {
+        throw e
+      })
+      return
+    }
     const run = { ctx, state, size }
     runRef.current = run
     lastConfigRef.current = config
@@ -108,6 +123,9 @@ export function AnimationHost({
     // reduced starts false so the FIRST frame runs even under reduced-motion;
     // the gate engages above once it has painted.
     pauseRef.current.hidden = document.hidden
+    // Fresh run owns a fresh context — clear any `lost` flag a prior diversion on
+    // this host left set (a real loss will re-fire 'webglcontextlost').
+    pauseRef.current.lost = false
     syncPaused()
     loop.start()
 
@@ -150,11 +168,29 @@ export function AnimationHost({
     // GL allocation, so re-running it (with the latest config) is the recovery path.
     const onLost = (e: Event) => {
       e.preventDefault() // required, or 'webglcontextrestored' never fires
-      loop.setPaused(true)
+      // Model loss as a pause SOURCE, not a direct setPaused(true): a later
+      // syncPaused() (visibility/manual/reduced/offscreen change) would otherwise
+      // recompute pause from the other sources and resume frame() on a still-lost
+      // context. The `lost` flag holds the loop paused until 'restored' clears it.
+      pauseRef.current.lost = true
+      syncPaused()
     }
     const onRestored = () => {
+      // teardown-before-setup, matching the invariant the rest of the host upholds:
+      // free any CPU-side state the diversion stashed before rebuilding, so a
+      // restore doesn't leak it. (The GL resources are already gone with the
+      // context; this frees the diversion's own bookkeeping.)
+      diversion.teardown?.(run.state)
       run.size = sizeOf()
-      run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
+      try {
+        run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
+      } catch (e) {
+        setSetupError(() => {
+          throw e
+        })
+        return // stay paused (lost flag still set) — the rebuild failed
+      }
+      pauseRef.current.lost = false
       syncPaused()
     }
     if (diversion.kind === 'webgl') {
@@ -188,7 +224,13 @@ export function AnimationHost({
     const handled = diversion.update?.(run.state, config, run.size)
     if (!handled) {
       diversion.teardown?.(run.state)
-      run.state = diversion.setup(run.ctx, config, run.size)
+      try {
+        run.state = diversion.setup(run.ctx, config, run.size)
+      } catch (e) {
+        setSetupError(() => {
+          throw e
+        })
+      }
     }
   }, [diversion, config])
 
@@ -225,7 +267,10 @@ export function AnimationHost({
 
   return (
     <div ref={wrapRef} className="anim-host">
-      <canvas ref={canvasRef} className="anim-canvas" />
+      {/* key on kind: getContext() permanently locks a canvas to one context
+          type, so a 2d↔webgl switch on a REUSED canvas returns null + blanks.
+          Keying by kind makes React mount a fresh canvas when the kind changes. */}
+      <canvas key={diversion.kind} ref={canvasRef} className="anim-canvas" />
       {showChrome && (
         <div className="anim-bar">
           <span className="fps">{fps} fps</span>

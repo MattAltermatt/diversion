@@ -40,9 +40,15 @@ const metaballs = defineDiversion<typeof metaballsSchema, MetaballsState, 'webgl
   },
 
   update(state, cfg) {
-    // Only blobCount/seed change the seeded blob *set* → fall back to full setup.
+    // blobCount/seed change the seeded blob *set* — but the GL program does NOT
+    // depend on blob count (u_count is read live each frame, the uniform array is
+    // fixed at MAX_BLOBS), so reseed the CPU blob set in place instead of falling
+    // back to a full teardown + initGL (which would needlessly rebuild + flicker
+    // the shader). Reseeding here also re-derives each blob's radius from cfg.
     if (cfg.blobCount !== state.cfg.blobCount || cfg.seed !== state.cfg.seed) {
-      return false
+      state.blobs = seedBlobs(cfg, state.aspect)
+      state.cfg = cfg
+      return true
     }
     // Radius bounds re-tune live from each blob's seeded fraction (no reseed).
     if (cfg.radiusMin !== state.cfg.radiusMin || cfg.radiusMax !== state.cfg.radiusMax) {

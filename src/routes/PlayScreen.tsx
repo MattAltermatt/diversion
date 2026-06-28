@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useLocation, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
+import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { decodeConfig } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
 
@@ -51,7 +52,9 @@ export function PlayScreen() {
         </Link>
         <CopyLinkButton href={`/d/${diversion.id}/play${search}`} className="play-copy" />
       </div>
-      <AnimationHost diversion={diversion} config={config} fullscreenable />
+      <DiversionErrorBoundary>
+        <AnimationHost diversion={diversion} config={config} fullscreenable />
+      </DiversionErrorBoundary>
     </div>
   )
 }
