@@ -7,11 +7,14 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Four diversions:**
+- **Seven diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
   - **Metaballs** (`kind: 'webgl'`) — gooey lava-lamp blobs that rise, merge, and split; a CPU thermal-oscillator sim feeds a fragment-shader field sum.
+  - **Substrate** (`kind: '2d'`) — cracks grow and branch at right angles into an organic network, each washing a soft watercolour cell beside it.
+  - **Sand Stroke** (`kind: '2d'`) — grainy sand-painter strokes lay drifting bands of stratified colour.
+  - **Squiral** (`kind: '2d'`) — worms wind themselves into tight square spirals that flood the screen with interlocking right-angled coils.
 
 ## Run it
 
@@ -88,6 +91,8 @@ See [`VISION.md`](VISION.md) for the north-star and [`docs/superpowers/specs/`](
 ## Credits / Inspiration
 
 Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_ and _[Substrate](http://www.complexification.net/gallery/machines/substrate/)_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
+
+Others reimplement classic [**xscreensaver**](https://www.jwz.org/xscreensaver/) hacks (© Jamie Zawinski and the original hack authors) — e.g. _Squiral_, after the `squiral` hack by **Jeff Epler** (1999). Again clean-room reimplementations of the mechanics, with the look upgraded to fit this gallery — not ports of the C source.
 
 ## License
 
