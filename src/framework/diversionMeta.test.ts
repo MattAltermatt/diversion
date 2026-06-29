@@ -74,10 +74,13 @@ describe('diversion meta sweep — every registered diversion (#127)', () => {
         expect(sibling, `${f.path} showWhen → missing sibling ${siblingPath}`).toBeDefined()
         expect(nodeType(sibling!.node), `${siblingPath} must be an enum`).toBe('enum')
         const opts: string[] = sibling!.node.options ?? []
-        expect(
-          opts.includes(meta.showWhen.equals),
-          `${f.path} showWhen.equals="${meta.showWhen.equals}" not in ${JSON.stringify(opts)}`,
-        ).toBe(true)
+        const wanted = Array.isArray(meta.showWhen.equals) ? meta.showWhen.equals : [meta.showWhen.equals]
+        for (const w of wanted) {
+          expect(
+            opts.includes(w),
+            `${f.path} showWhen.equals="${w}" not in ${JSON.stringify(opts)}`,
+          ).toBe(true)
+        }
       }
     })
   }

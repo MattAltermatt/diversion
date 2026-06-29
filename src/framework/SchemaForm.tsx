@@ -60,7 +60,12 @@ export function SchemaForm({
   // gradient controls appear only in gradient mode); the data stays discoverable
   // — switch the controlling field and it returns.
   const renderField = ([key, field, meta]: [string, ZodType, FieldMeta]): ReactNode => {
-    if (meta.showWhen && value[meta.showWhen.field] !== meta.showWhen.equals) return null
+    if (meta.showWhen) {
+      const cur = value[meta.showWhen.field]
+      const eq = meta.showWhen.equals
+      const shown = Array.isArray(eq) ? eq.includes(cur) : cur === eq
+      if (!shown) return null
+    }
     if (meta.ui === 'hidden') return null // schema-only field (URL-encoded), no control
     if (meta.ui === 'group') {
       return (

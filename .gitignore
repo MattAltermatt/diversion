@@ -36,3 +36,4 @@ pnpm-debug.log*
 .verify*.png
 .truchet-demo.png
 screenshots/
+.halo-verify/

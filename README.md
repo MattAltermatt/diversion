@@ -16,6 +16,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Sand Stroke** (`kind: '2d'`) — grainy sand-painter strokes lay drifting bands of stratified colour.
   - **Squiral** (`kind: '2d'`) — worms wind themselves into tight square spirals that flood the screen with interlocking right-angled coils.
   - **Turmite** (`kind: '2d'`) — a generalized Langton's ant; ants turn by the colour beneath them, leaving emergent highways, spirals, and fractal growth (port of xscreensaver `ant`).
+  - **Moire** (`kind: '2d'`) — concentric rings expand from drifting centers and interfere into shifting moire fields. Three styles: **Glow** (luminous additive rings), **Op-Art** (filled-disc XOR parity — the centers' rings merge into one bold 2-colour interference field), **Moire** (thin duotone rings that cancel where they cross).
 
 ## Run it
 
