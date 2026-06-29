@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Ten diversions:**
+- **Eleven diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -18,6 +18,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Turmite** (`kind: '2d'`) — a generalized Langton's ant; ants turn by the colour beneath them, leaving emergent highways, spirals, and fractal growth (port of xscreensaver `ant`).
   - **Moire** (`kind: '2d'`) — concentric rings expand from drifting centers and interfere into shifting moire fields. Three styles: **Glow** (luminous additive rings), **Op-Art** (filled-disc XOR parity — the centers' rings merge into one bold 2-colour interference field), **Moire** (thin duotone rings that cancel where they cross).
   - **Logarithmic Circles** (`kind: 'webgl'`) — an endless, self-similar zoom through log-spaced rings of black-and-white circles; faithful op-art with a gallery color mode (port of xscreensaver `logarithmiccircles`).
+  - **Strange Attractors** (`kind: '2d'`) — a long chaotic orbit of a Clifford or de Jong map painted as accumulated point-density; gossamer filamentary clouds that morph forever under always-on drift, the canvas itself the density accumulator.
 
 ## Run it
 
