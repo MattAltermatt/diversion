@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Thirteen diversions:**
+- **Fourteen diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -21,6 +21,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Strange Attractors** (`kind: '2d'`) — a long chaotic orbit of a Clifford or de Jong map painted as accumulated point-density; gossamer filamentary clouds that morph forever under always-on drift, the canvas itself the density accumulator.
   - **Demon** (`kind: '2d'`) — a cyclic cellular automaton on square, hexagon, or triangle grids; each cell is eaten by the next colour in a ring and rotating spiral "demons" self-organize out of pure noise (port of xscreensaver `demon`, after David Griffeath's cyclic CA).
   - **Physarum** (`kind: 'webgl'`) — a million slime-mold agents sense and follow a pheromone trail they themselves deposit; the field diffuses and decays into a constantly-rewiring transport network. All-GPU (agents in a float texture, trail in a ping-pong FBO); three morphologies — **Networks**, **Coral**, **Veins** (after Jones 2010 / Sage Jenson).
+  - **Gray-Scott** (`kind: 'webgl'`) — two chemicals diffuse and react in ping-ponged float textures, growing coral, mitosis, maze, spots, and worm Turing patterns that never settle; all-GPU reaction-diffusion with the **feed**/**kill** knobs behind a named-pattern picker (after Pearson's classification of the Gray-Scott model).
 
 ## Run it
 
