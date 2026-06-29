@@ -176,7 +176,7 @@ drift clock + render loop — all pure-testable.
   brighter haze with no luminous filaments and washed-out radial color. Needs its
   own aesthetic pass — likely a different brightness model (per-pixel density
   normalization, or a thinner contour/edge-density render) — to earn gallery grade.
-  Tracked as a fast-follow issue.
+  Tracked as fast-follow **#132**.
 - **Local-density coloring** — color dense filaments differently from the wispy halo via a
   density accumulation grid (biggest available visual upgrade; whole new subsystem).
 - **3D ODE attractors** (Lorenz / Aizawa / Thomas) with projected moving particles —
