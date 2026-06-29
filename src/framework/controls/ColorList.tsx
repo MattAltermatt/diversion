@@ -3,9 +3,17 @@ import type { FieldMeta } from '../fieldMeta'
 
 const HEX6 = /^#[0-9a-fA-F]{6}$/
 
-/** "#rrggbbaa" -> { rgb: "#rrggbb", alpha: 0..100 } */
-export function splitColor(hex8: string): { rgb: string; alpha: number } {
-  return { rgb: hex8.slice(0, 7), alpha: Math.round((parseInt(hex8.slice(7, 9), 16) / 255) * 100) }
+/** Split a stop into rgb + alpha percent. "#rrggbbaa" carries an alpha byte;
+ *  a 6-digit "#rrggbb" is alpha-less by design (e.g. an opaque density LUT whose
+ *  field never uses alpha) — it reports `hasAlpha: false` so the row hides its
+ *  alpha slider and edits stay 6-hex (matching the field's own regex). */
+export function splitColor(hex: string): { rgb: string; alpha: number; hasAlpha: boolean } {
+  const hasAlpha = hex.length >= 9
+  return {
+    rgb: hex.slice(0, 7),
+    alpha: hasAlpha ? Math.round((parseInt(hex.slice(7, 9), 16) / 255) * 100) : 100,
+    hasAlpha,
+  }
 }
 
 /** ("#rrggbb", 0..100) -> "#rrggbbaa" */
@@ -17,33 +25,33 @@ export function joinColor(rgb: string, alphaPct: number): string {
 }
 
 function ColorRow({
-  hex8,
+  hex,
   canRemove,
   onChange,
   onRemove,
 }: {
-  hex8: string
+  hex: string
   canRemove: boolean
   onChange: (next: string) => void
   onRemove: () => void
 }) {
-  const { rgb, alpha } = splitColor(hex8)
+  const { rgb, alpha, hasAlpha } = splitColor(hex)
   // local text state so typing a partial hex isn't clobbered by the controlled value
   const [text, setText] = useState(rgb)
   useEffect(() => setText(rgb), [rgb])
 
+  // RGBA fields round-trip through the alpha byte; alpha-less (6-hex) fields emit
+  // the bare "#rrggbb" so the value still satisfies the field's HEX6 regex.
+  const emit = (nextRgb: string) => onChange(hasAlpha ? joinColor(nextRgb, alpha) : nextRgb)
+
   const commitText = (t: string) => {
     setText(t)
-    if (HEX6.test(t)) onChange(joinColor(t, alpha))
+    if (HEX6.test(t)) emit(t)
   }
 
   return (
     <div className="crow">
-      <input
-        type="color"
-        value={rgb}
-        onChange={(e) => onChange(joinColor(e.target.value, alpha))}
-      />
+      <input type="color" value={rgb} onChange={(e) => emit(e.target.value)} />
       <input className="hex" value={text} onChange={(e) => commitText(e.target.value)} />
       <button
         className="rm"
@@ -54,17 +62,19 @@ function ColorRow({
       >
         ✕
       </button>
-      <div className="arow">
-        <span className="alab">α</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={alpha}
-          onChange={(e) => onChange(joinColor(rgb, Number(e.target.value)))}
-        />
-        <span className="aval">{alpha}%</span>
-      </div>
+      {hasAlpha && (
+        <div className="arow">
+          <span className="alab">α</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={alpha}
+            onChange={(e) => onChange(joinColor(rgb, Number(e.target.value)))}
+          />
+          <span className="aval">{alpha}%</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -94,7 +104,10 @@ export function ColorList({
 
   const addColor = () => {
     idsRef.current = [...idsRef.current, nextId.current++]
-    onChange([...value, '#7df5cf1a'])
+    // Match the field's hex format: an alpha-less (6-hex) palette gets an opaque
+    // "#rrggbb"; everything else (the common 8-hex RGBA case) gets "#rrggbbaa".
+    const rgbOnly = value.length > 0 && value[0].length < 9
+    onChange([...value, rgbOnly ? '#7df5cf' : '#7df5cf1a'])
   }
   const removeAt = (i: number) => {
     idsRef.current = idsRef.current.filter((_, j) => j !== i)
@@ -111,10 +124,10 @@ export function ColorList({
       </div>
       {meta.help && <div className="ctl-help">{meta.help}</div>}
       <div className="clist">
-        {value.map((hex8, i) => (
+        {value.map((hex, i) => (
           <ColorRow
             key={idsRef.current[i]}
-            hex8={hex8}
+            hex={hex}
             canRemove={value.length > min}
             onChange={(next) => onChange(value.map((c, j) => (j === i ? next : c)))}
             onRemove={() => removeAt(i)}

@@ -7,10 +7,16 @@ import type { FieldMeta } from '../fieldMeta'
 const meta: FieldMeta = { ui: 'colorList', label: 'Colors', min: 1, max: 8 }
 
 describe('splitColor / joinColor', () => {
-  it('splits #rrggbbaa into rgb + alpha percent', () => {
-    expect(splitColor('#1e63ff1f')).toEqual({ rgb: '#1e63ff', alpha: 12 })
-    expect(splitColor('#ffffffff')).toEqual({ rgb: '#ffffff', alpha: 100 })
-    expect(splitColor('#00000000')).toEqual({ rgb: '#000000', alpha: 0 })
+  it('splits #rrggbbaa into rgb + alpha percent (hasAlpha)', () => {
+    expect(splitColor('#1e63ff1f')).toEqual({ rgb: '#1e63ff', alpha: 12, hasAlpha: true })
+    expect(splitColor('#ffffffff')).toEqual({ rgb: '#ffffff', alpha: 100, hasAlpha: true })
+    expect(splitColor('#00000000')).toEqual({ rgb: '#000000', alpha: 0, hasAlpha: true })
+  })
+  it('treats a 6-hex #rrggbb as alpha-less (opaque, hasAlpha false — no NaN)', () => {
+    // Regression: a 6-hex stop used to read alpha from non-existent chars 7-8,
+    // yielding NaN%. It is now reported opaque with no alpha dimension.
+    expect(splitColor('#020814')).toEqual({ rgb: '#020814', alpha: 100, hasAlpha: false })
+    expect(splitColor('#1bd6ff')).toEqual({ rgb: '#1bd6ff', alpha: 100, hasAlpha: false })
   })
   it('joins rgb + alpha percent back into #rrggbbaa', () => {
     expect(joinColor('#1e63ff', 12)).toBe('#1e63ff1f')
@@ -75,5 +81,25 @@ describe('ColorList', () => {
     const hex = screen.getByRole('textbox') // the editable hex field (single row)
     fireEvent.change(hex, { target: { value: '#ff0000' } })
     expect(onChange).toHaveBeenCalledWith(['#ff00001f']) // alpha 0x1f preserved
+  })
+
+  // ── Alpha-less (6-hex) palettes — e.g. physarum's opaque density ramp ──
+  it('renders no alpha slider for a 6-hex (alpha-less) palette', () => {
+    render(<ColorList value={['#020814', '#1bd6ff']} onChange={vi.fn()} meta={meta} />)
+    expect(screen.queryAllByRole('slider')).toHaveLength(0) // no NaN% alpha row
+  })
+
+  it('appends a 6-hex color when adding to a 6-hex field', () => {
+    const onChange = vi.fn()
+    render(<ColorList value={['#020814']} onChange={onChange} meta={meta} />)
+    fireEvent.click(screen.getByRole('button', { name: /add color/i }))
+    expect(onChange).toHaveBeenCalledWith(['#020814', '#7df5cf']) // 6-hex, not #7df5cf1a
+  })
+
+  it('emits a bare 6-hex when a valid hex is typed into a 6-hex field', () => {
+    const onChange = vi.fn()
+    render(<ColorList value={['#020814']} onChange={onChange} meta={meta} />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '#ff0000' } })
+    expect(onChange).toHaveBeenCalledWith(['#ff0000']) // no alpha byte appended
   })
 })
