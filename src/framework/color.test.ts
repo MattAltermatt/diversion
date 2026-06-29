@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseHex8, parseHex6, hexToRgb, mix, rgba } from './color'
+import { parseHex8, parseHex6, hexToRgb, mix, rgba, hslToRgb } from './color'
 
 describe('parseHex8', () => {
   it('parses #rrggbbaa to 0-255 channels with alpha in 0..1', () => {
@@ -56,5 +56,20 @@ describe('rgba', () => {
 
   it('passes through a pre-formatted alpha string', () => {
     expect(rgba({ r: 118, g: 118, b: 118 }, (0.3).toFixed(3))).toBe('rgba(118,118,118,0.300)')
+  })
+})
+
+describe('hslToRgb', () => {
+  it('maps primary hues', () => {
+    expect(hslToRgb(0, 100, 50)).toEqual({ r: 255, g: 0, b: 0 })
+    expect(hslToRgb(120, 100, 50)).toEqual({ r: 0, g: 255, b: 0 })
+    expect(hslToRgb(240, 100, 50)).toEqual({ r: 0, g: 0, b: 255 })
+  })
+  it('greyscale when saturation 0', () => {
+    expect(hslToRgb(123, 0, 50)).toEqual({ r: 128, g: 128, b: 128 })
+  })
+  it('wraps hue past 360 and below 0', () => {
+    expect(hslToRgb(360, 100, 50)).toEqual(hslToRgb(0, 100, 50))
+    expect(hslToRgb(-120, 100, 50)).toEqual(hslToRgb(240, 100, 50))
   })
 })

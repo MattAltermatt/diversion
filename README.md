@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Eleven diversions:**
+- **Twelve diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -19,6 +19,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Moire** (`kind: '2d'`) — concentric rings expand from drifting centers and interfere into shifting moire fields. Three styles: **Glow** (luminous additive rings), **Op-Art** (filled-disc XOR parity — the centers' rings merge into one bold 2-colour interference field), **Moire** (thin duotone rings that cancel where they cross).
   - **Logarithmic Circles** (`kind: 'webgl'`) — an endless, self-similar zoom through log-spaced rings of black-and-white circles; faithful op-art with a gallery color mode (port of xscreensaver `logarithmiccircles`).
   - **Strange Attractors** (`kind: '2d'`) — a long chaotic orbit of a Clifford or de Jong map painted as accumulated point-density; gossamer filamentary clouds that morph forever under always-on drift, the canvas itself the density accumulator.
+  - **Demon** (`kind: '2d'`) — a cyclic cellular automaton on square, hexagon, or triangle grids; each cell is eaten by the next colour in a ring and rotating spiral "demons" self-organize out of pure noise (port of xscreensaver `demon`, after David Griffeath's cyclic CA).
 
 ## Run it
 
@@ -96,7 +97,7 @@ See [`VISION.md`](VISION.md) for the north-star and [`docs/superpowers/specs/`](
 
 Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_ and _[Substrate](http://www.complexification.net/gallery/machines/substrate/)_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
 
-Others reimplement classic [**xscreensaver**](https://www.jwz.org/xscreensaver/) hacks (© Jamie Zawinski and the original hack authors) — e.g. _Squiral_, after the `squiral` hack by **Jeff Epler** (1999). Again clean-room reimplementations of the mechanics, with the look upgraded to fit this gallery — not ports of the C source. _Logarithmic Circles_ ports the `logarithmiccircles` hack, whose shader is **"B/W logarithmic circles II"** by **mrange** ([Shadertoy `mljcWR`](https://www.shadertoy.com/view/mljcWR), released **CC0**).
+Others reimplement classic [**xscreensaver**](https://www.jwz.org/xscreensaver/) hacks (© Jamie Zawinski and the original hack authors) — e.g. _Squiral_, after the `squiral` hack by **Jeff Epler** (1999). Again clean-room reimplementations of the mechanics, with the look upgraded to fit this gallery — not ports of the C source. _Demon_ reimplements the `demon` hack — **David Griffeath's cyclic cellular automaton** — on three grids with a gallery hue-ring. _Logarithmic Circles_ ports the `logarithmiccircles` hack, whose shader is **"B/W logarithmic circles II"** by **mrange** ([Shadertoy `mljcWR`](https://www.shadertoy.com/view/mljcWR), released **CC0**).
 
 ## License
 
