@@ -9,8 +9,9 @@ describe('physarum presets', () => {
       expect(() => physarumSchema.parse({ ...base, ...p.patch })).not.toThrow()
     }
   })
-  it('ships Networks/Coral/Veins and Bioluminescence/Ember/Mono', () => {
+  it('ships the Networks/Coral/Veins and six color presets', () => {
     expect(behaviorPresets.map((p) => p.name)).toEqual(['Networks', 'Coral', 'Veins'])
-    expect(colorPresets.map((p) => p.name)).toEqual(['Bioluminescence', 'Ember', 'Mono'])
+    expect(colorPresets.map((p) => p.name)).toEqual(
+      ['Bioluminescence', 'Ember', 'Mono', 'Spore', 'Orchid', 'Aurora', 'Magma'])
   })
 })

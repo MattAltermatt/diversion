@@ -20,8 +20,11 @@ export const physarumSchema = z.object({
   depositAmount: z.number().min(0.1).max(5).default(1)
     .meta({ section: 'Behavior', ui: 'slider', min: 0.1, max: 5, step: 0.1, label: 'Deposit',
             help: 'Trail laid by each agent per step. Higher = bolder, brighter networks.' }),
-  decay: z.number().min(0).max(0.3).default(0.1)
-    .meta({ section: 'Behavior', ui: 'slider', min: 0, max: 0.3, step: 0.005, label: 'Decay',
+  // Min is a small positive floor, not 0: the diffuse box-blur conserves energy, so
+  // ×(1−decay) is the field's only sink. At decay 0 the half-float trail grows
+  // unbounded to the R16F ceiling and saturates to flat white over a long run.
+  decay: z.number().min(0.005).max(0.3).default(0.1)
+    .meta({ section: 'Behavior', ui: 'slider', min: 0.005, max: 0.3, step: 0.005, label: 'Decay',
             help: 'Fraction of the trail field lost each step. Higher = faster-fading, '
                 + 'more restless networks; lower = persistent, slowly-built structure.' }),
   diffuse: z.number().min(0).max(1).default(1)
@@ -34,9 +37,12 @@ export const physarumSchema = z.object({
             label: 'Agents',
             help: 'Number of slime agents. More = denser, more intricate networks. '
                 + 'Changing this restarts the simulation.' }),
-  speed: z.number().int().min(1).max(3).default(1)
-    .meta({ section: 'Simulation', ui: 'slider', min: 1, max: 3, step: 1, label: 'Speed',
-            help: 'Simulation steps per frame. Higher evolves the network faster.' }),
+  speed: z.number().min(0.1).max(3).default(0.5)
+    .meta({ section: 'Simulation', ui: 'slider', min: 0.1, max: 3, step: 0.05, label: 'Speed',
+            help: 'How fast the network evolves, in simulation steps per frame. '
+                + 'Below 1 runs a step every few frames for a calm, slow drift '
+                + '(0.1 ≈ a step every 10 frames); above 1 runs several steps per '
+                + 'frame for faster growth.' }),
   seed: z.number().int().default(7)
     .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed',
             help: 'Any integer. The same seed always starts agents the same way. '

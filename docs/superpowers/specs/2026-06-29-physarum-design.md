@@ -48,7 +48,12 @@ trail  : R16F      scalar density         sized to backing store         LINEAR
 - `trail` is a single-channel half-float density field, ping-ponged. R16F linear
   filtering is core in WebGL2, so sensor taps and the display pass sample it smoothly.
 
-### Per-frame passes (repeated `speed` steps per frame)
+### Per-frame passes (`speed` steps per frame, fractional)
+
+`speed` is a fractional steps-per-frame rate: an accumulator carries the
+remainder across frames, so a value below 1 runs a step every few frames (0.1 ≈
+a step every 10 frames) for calm, slow evolution, and a value above 1 runs
+several steps per frame. The display pass always runs once per frame.
 
 ```text
 1. move           bind agents-dst FBO; render fullscreen over agents-src.
@@ -140,20 +145,21 @@ Behavior
   sensorDist     texels  slider  1 … 30     default 9      how far ahead the sensors taste
   turnSpeed      deg     slider  5 … 90     default 22     how sharply an agent steers toward food
   depositAmount  —       slider  0.1 … 5    default 1      trail laid per agent per step
-  decay          —       slider  0 … 0.3    default 0.10   fraction of trail lost per step
+  decay          —       slider  0.005 … 0.3 default 0.10  fraction of trail lost per step (floor > 0)
   diffuse        —       slider  0 … 1      default 1      blend toward the 3×3-blurred field (spread)
 
 Simulation
   agents         count   slider  1e4 … 1e6  default 1e6    number of agents (structural — re-setup)
-  speed          steps   slider  1 … 3      default 1      sim steps per frame (faster evolution)
+  speed          steps   slider  0.1 … 3    default 0.5    sim steps per frame; <1 = calm slow drift
   seed           int     number  —          default 7      same seed → same start (structural)
 
 Color  (group)
   stops          hex[]   colorList 2 … 8    default Bioluminescence ramp   density → color ramp
 ```
 
-`agents` rounds internally to the agent-texture's pow2 capacity; the displayed value is
-the requested count.
+The agent texture is sized to the next pow²≥`agents`, but the deposit pass draws
+exactly `agents` GL_POINTS, so the slider drives the real agent count continuously
+(surplus texels move but never deposit, so they have no effect on the field).
 
 ## Presets (two independent axes)
 
@@ -172,9 +178,14 @@ diffuse` (agents/speed/seed stay user-controlled):
 
 - **Bioluminescence** (default) — deep-blue → cyan → white.
 - **Ember** — near-black → red → gold.
-- **Mono** — near-black → single hue → white.
+- **Mono** — near-black → grey → white.
+- **Spore** — green phosphor / bioluminescent fungus.
+- **Orchid** — violet → magenta → pale rose; jewel-toned.
+- **Aurora** — borealis: blue-black → teal → green → mint (multi-hue cool).
+- **Magma** — two-temperature lava: black → deep violet → orange → warm cream.
 
-Exact preset numbers are finalized during Chrome verify alongside the defaults.
+Each ramp climbs monotonically in perceptual lightness so density reads as
+brightness, with the strongest chroma in the middle stops.
 
 ## Testing
 

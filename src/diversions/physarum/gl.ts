@@ -60,6 +60,10 @@ void main() {
     pos = vec2(hash(gl_FragCoord.xy + vec2(u_frame, 31.0)),
                hash(gl_FragCoord.xy + vec2(u_frame, 53.0)));
   }
+  // Wrap heading to [0, 2π): it only ever feeds cos/sin (periodic), but an
+  // unbounded accumulator coarsens float32 steering resolution over multi-day
+  // unattended runs — same reason u_frame is wrapped.
+  heading = mod(heading, 6.2831853);
   fragColor = vec4(pos, heading, prog);
 }`
 
@@ -197,6 +201,7 @@ export type PhysarumGL = {
   trailH: number
   cur: { agent: number; trail: number }  // which ping-pong index is current
   frame: number                          // monotonic step counter (stochastic-turn seed)
+  stepAcc: number                        // fractional steps-per-frame accumulator (speed < 1)
   locs: Record<string, Record<string, WebGLUniformLocation | null>>
 }
 
@@ -245,7 +250,7 @@ export function initGL(
   return {
     moveProg, depositProg, diffuseProg, displayProg, vao,
     agentTex, agentFbo, trailTex, trailFbo, lutTex,
-    agentDim, trailW, trailH, cur: { agent: 0, trail: 0 }, frame: 0, locs,
+    agentDim, trailW, trailH, cur: { agent: 0, trail: 0 }, frame: 0, stepAcc: 0, locs,
   }
 }
 
@@ -305,7 +310,12 @@ export function step(gl: WebGL2RenderingContext, res: PhysarumGL, cfg: PhysarumC
   gl.uniform1f(res.locs.deposit.u_agentDim, res.agentDim)
   gl.uniform1f(res.locs.deposit.u_deposit, cfg.depositAmount)
   gl.bindVertexArray(res.vao)
-  gl.drawArrays(gl.POINTS, 0, res.agentDim * res.agentDim)
+  // Draw exactly cfg.agents points, not the full agentDim² texel capacity: the
+  // deposit vertex shader maps gl_VertexID 0..N-1 onto the first N agent texels,
+  // so this makes the Agents slider drive the real agent count continuously
+  // (capacity is the next pow²≥count, so cfg.agents ≤ agentDim² always). Surplus
+  // texels still move in the MOVE pass but, never deposited, have no field effect.
+  gl.drawArrays(gl.POINTS, 0, cfg.agents)
   gl.disable(gl.BLEND)
 
   // 3. DIFFUSE+DECAY: blur the trail into the other buffer.
@@ -321,10 +331,17 @@ export function step(gl: WebGL2RenderingContext, res: PhysarumGL, cfg: PhysarumC
   res.cur.trail = td
 }
 
-/** Run `steps` sim steps then the display pass. Caller has set the viewport. */
+/** Advance the sim by `rate` steps-per-frame, then run the display pass. The
+ *  caller has set the viewport. `rate` may be fractional: it accumulates so a
+ *  rate below 1 runs a step only every few frames (calm, slow evolution) while
+ *  a rate above 1 runs several steps per frame. The remainder carries forward,
+ *  so the long-run step rate is exact regardless of frame timing. */
 export function render(
-  gl: WebGL2RenderingContext, res: PhysarumGL, cfg: PhysarumConfig, steps: number,
+  gl: WebGL2RenderingContext, res: PhysarumGL, cfg: PhysarumConfig, rate: number,
 ): void {
+  res.stepAcc += rate
+  const steps = Math.floor(res.stepAcc)
+  res.stepAcc -= steps
   for (let i = 0; i < steps; i++) step(gl, res, cfg)
   // DISPLAY to the default framebuffer. The sim steps left the viewport at the
   // agent/trail size, so restore it to the full screen before the screen blit.
