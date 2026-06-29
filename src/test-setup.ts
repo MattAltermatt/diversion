@@ -119,6 +119,55 @@ export function makeGLContext(): MockGLContext {
     VERTEX_SHADER: 0x8b31,
     FRAGMENT_SHADER: 0x8b30,
     TRIANGLES: 0x0004,
+    POINTS: 0x0000,
+    // texture / framebuffer / blend enums — any distinct numbers work (the mock
+    // never inspects them; texImage2D etc. are no-op recorders). Present so a
+    // float-FBO ping-pong setup() (physarum) runs end-to-end without a GPU.
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    CLAMP_TO_EDGE: 0x812f,
+    NEAREST: 0x2600,
+    LINEAR: 0x2601,
+    RGBA: 0x1908,
+    RED: 0x1903,
+    RGBA8: 0x8058,
+    RGBA32F: 0x8814,
+    R16F: 0x822d,
+    FLOAT: 0x1406,
+    HALF_FLOAT: 0x140b,
+    UNSIGNED_BYTE: 0x1401,
+    FRAMEBUFFER: 0x8d40,
+    COLOR_ATTACHMENT0: 0x8ce0,
+    COLOR_BUFFER_BIT: 0x4000,
+    TEXTURE0: 0x84c0,
+    TEXTURE1: 0x84c1,
+    BLEND: 0x0be2,
+    ONE: 1,
+    getExtension: (..._a: unknown[]) => ({ __mock: 'ext' }),
+    createTexture: (..._a: unknown[]) => {
+      calls.push('createTexture')
+      return handle('texture')
+    },
+    bindTexture: rec('bindTexture'),
+    texImage2D: rec('texImage2D'),
+    texParameteri: rec('texParameteri'),
+    deleteTexture: rec('deleteTexture'),
+    activeTexture: rec('activeTexture'),
+    createFramebuffer: (..._a: unknown[]) => {
+      calls.push('createFramebuffer')
+      return handle('fbo')
+    },
+    bindFramebuffer: rec('bindFramebuffer'),
+    framebufferTexture2D: rec('framebufferTexture2D'),
+    deleteFramebuffer: rec('deleteFramebuffer'),
+    clearColor: rec('clearColor'),
+    clear: rec('clear'),
+    enable: rec('enable'),
+    disable: rec('disable'),
+    blendFunc: rec('blendFunc'),
     // shader / program lifecycle
     createShader: (..._a: unknown[]) => {
       calls.push('createShader')
