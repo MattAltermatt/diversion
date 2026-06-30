@@ -161,6 +161,25 @@ button {
   border-radius: 6px;
   padding: 6px 10px;
 }
+/* Restart the preview from frame zero with the current settings — stacked just
+   under the animate pill (top-left), clear of the fps/pause badges top-right. */
+.reset-pill {
+  position: absolute;
+  top: 50px;
+  left: 16px;
+  z-index: 2;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--accent);
+  background: rgba(8, 16, 18, 0.6);
+  border: 1px solid #2a3a40;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.reset-pill:hover {
+  border-color: var(--accent);
+}
 
 /* ── Preset picker ────────────────────────────────────────────────────────── */
 /* Sits above the form: pick a vibe, then fine-tune below. Separated from the

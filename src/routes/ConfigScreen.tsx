@@ -20,6 +20,10 @@ export function ConfigScreen() {
   const [config, setConfig] = useState(() =>
     diversion ? decodeConfig(diversion.schema, new URLSearchParams(location.search)) : null,
   )
+  // Bumping this remounts AnimationHost (via its key) → a clean teardown + fresh
+  // setup() with the current config, so the animation restarts from frame zero
+  // (re-seeded maze, regrown slime) without reloading the page or losing edits.
+  const [resetCount, setResetCount] = useState(0)
 
   // Back/forward changes the URL but not our edit buffer — re-decode on POP only.
   // Our own form writes use navigate(replace) (navType !== 'POP'), so no loop.
@@ -66,8 +70,16 @@ export function ConfigScreen() {
         <Link className="animate-pill" to={playHref}>
           animate →
         </Link>
+        <button
+          type="button"
+          className="reset-pill"
+          onClick={() => setResetCount((c) => c + 1)}
+          title="Restart the animation from the beginning with the current settings"
+        >
+          ↺ reset
+        </button>
         <DiversionErrorBoundary>
-          <AnimationHost diversion={diversion} config={config} />
+          <AnimationHost key={`${diversion.id}-${resetCount}`} diversion={diversion} config={config} />
         </DiversionErrorBoundary>
       </main>
     </div>
