@@ -33,6 +33,17 @@ export function simGrid(scale: number): number {
 export const STATE_CHANNELS = 12
 export const UPDATE_PROBABILITY = 0.5
 
+/**
+ * Per-step seed for the stochastic fire-rate mask, a PURE function of the genesis seed + step
+ * index. hexells used `Math.random()*1000` per step, but this repo's share-link keystone requires
+ * a run to be reproducible (same seed → same texture), so we derive it deterministically and keep
+ * it in ~[0,1000) (the range the hash was tuned for). Same seed reproduces; a rolled seed varies.
+ */
+export function stepSeed(seed: number, i: number): number {
+  const h = Math.imul((seed >>> 0) ^ Math.imul(i + 1, 0x9e3779b9), 0x85ebca6b) >>> 0
+  return (h % 100000) / 100
+}
+
 // mulberry32 — deterministic PRNG so a seed reproduces the same genesis.
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -52,8 +63,9 @@ export function seedStateBytes(dims: TensorDims): Uint8Array {
 }
 
 /** Seed the alignment field with random unit directions (hexells' disturb()). Stored in the RG
- *  channels of group 0 with packScaleZero [2, 127/255]; this steers the perception sobels and is
- *  what gives each reload its genesis variety. */
+ *  channels of group 0 with packScaleZero [2, 127/255]; this steers the perception sobels. (The
+ *  dominant genesis variety comes from the seed-driven fire-rate mask — see stepSeed; the align
+ *  field is a second-order steering influence.) */
 export function seedAlignBytes(n: number, dims: TensorDims, seed: number): Uint8Array {
   const buf = new Uint8Array(dims.texW * dims.texH * 4).fill(127)
   const rnd = mulberry32(seed || 1)
@@ -404,8 +416,14 @@ export function initGL(gl: WebGL2RenderingContext, n: number, seed: number, mode
   // async: fetch models.json (code-split), decode weight PNGs, then mark ready.
   void loadLayers().then(async (layers) => {
     if (gl_.disposed) return // navigated away before models.json resolved
-    const weightTex = await Promise.all(layers.map((l) => loadWeightTexture(gl, l)))
-    if (gl_.disposed) { for (const t of weightTex) gl.deleteTexture(t); return } // torn down mid-decode
+    // allSettled (not all) so a partial decode failure can't orphan the sibling texture.
+    const settled = await Promise.allSettled(layers.map((l) => loadWeightTexture(gl, l)))
+    const weightTex = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+    if (gl_.disposed || weightTex.length !== layers.length) {
+      for (const t of weightTex) gl.deleteTexture(t) // torn down mid-decode, or a layer failed → free + bail
+      if (weightTex.length !== layers.length) throw new Error('neural-ca: a weight layer failed to decode')
+      return
+    }
     gl_.layers = layers
     gl_.weightTex = weightTex
     // size hidden/delta/state quantization from the real layers

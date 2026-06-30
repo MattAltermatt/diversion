@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tensorDims, simGrid, GRID_MIN, GRID_MAX } from './gl'
+import { tensorDims, simGrid, stepSeed, GRID_MIN, GRID_MAX } from './gl'
 
 describe('neural-ca tensorDims (channel tiling)', () => {
   it('tiles the 12-channel state into a 2×2 grid of depth4=3 groups', () => {
@@ -32,6 +32,32 @@ describe('neural-ca tensorDims (channel tiling)', () => {
     for (const depth of [1, 4, 5, 12, 16, 48, 96, 100]) {
       const d = tensorDims(32, 32, depth)
       expect(d.gridW * d.gridH).toBeGreaterThanOrEqual(d.depth4)
+    }
+  })
+})
+
+describe('neural-ca stepSeed (deterministic per-step seed — share-link keystone)', () => {
+  it('is a pure function of (seed, step)', () => {
+    expect(stepSeed(42, 7)).toBe(stepSeed(42, 7))
+    expect(stepSeed(123, 0)).toBe(stepSeed(123, 0))
+  })
+
+  it('produces a reproducible sequence for the same seed but a different one for another seed', () => {
+    const seq = (s: number) => Array.from({ length: 16 }, (_, i) => stepSeed(s, i))
+    expect(seq(42)).toEqual(seq(42)) // same seed → identical run (restarts identically)
+    expect(seq(42)).not.toEqual(seq(43)) // different seed → different genesis
+  })
+
+  it('varies well across steps for a fixed seed (not constant)', () => {
+    const seq = Array.from({ length: 24 }, (_, i) => stepSeed(42, i))
+    expect(new Set(seq).size).toBeGreaterThan(18)
+  })
+
+  it('stays in [0, 1000) — the range the fire-rate hash was tuned for', () => {
+    for (let i = 0; i < 200; i++) {
+      const s = stepSeed(i * 2654435761, i)
+      expect(s).toBeGreaterThanOrEqual(0)
+      expect(s).toBeLessThan(1000)
     }
   })
 })

@@ -1,13 +1,14 @@
 import { defineDiversion, type PresetGroup, type Size } from '../../framework/types'
 import { neuralCaSchema, type NeuralCaConfig } from './schema'
 import { texturePresets } from './presets'
-import { initGL, step, render, disposeGL, simGrid, type NeuralCaGL } from './gl'
+import { initGL, step, render, disposeGL, simGrid, stepSeed, type NeuralCaGL } from './gl'
 
 type NeuralCaState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
   res: NeuralCaGL
   cfg: NeuralCaConfig
   acc: number // fractional sim-step accumulator (speed = steps per frame)
+  stepIdx: number // deterministic step counter → per-step seed is a pure fn of (cfg.seed, stepIdx)
 }
 
 // The "Texture" dropdown — one option per curated trained texture (drives the hidden `pattern`).
@@ -26,7 +27,7 @@ const neuralCa = defineDiversion<typeof neuralCaSchema, NeuralCaState, 'webgl'>(
 
   setup(gl, cfg, _size: Size) {
     const n = simGrid(cfg.scale)
-    return { gl, res: initGL(gl, n, cfg.seed | 0, cfg.pattern), cfg, acc: 0 }
+    return { gl, res: initGL(gl, n, cfg.seed | 0, cfg.pattern), cfg, acc: 0, stepIdx: 0 }
   },
 
   frame(state, gl, _t, _dt) {
@@ -34,7 +35,9 @@ const neuralCa = defineDiversion<typeof neuralCaSchema, NeuralCaState, 'webgl'>(
     state.acc += Math.max(0, state.cfg.speed)
     let budget = 8 // cap steps/frame so a long stall can't freeze the tab
     while (state.acc >= 1 && budget-- > 0) {
-      step(gl, state.res, Math.random() * 1000)
+      // deterministic per-step seed → same cfg.seed reproduces the run (share-link keystone)
+      step(gl, state.res, stepSeed(state.cfg.seed, state.stepIdx))
+      state.stepIdx = (state.stepIdx + 1) % 1_000_000
       state.acc -= 1
     }
     if (state.acc > 1) state.acc = 1
