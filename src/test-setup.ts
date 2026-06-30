@@ -59,6 +59,12 @@ export function make2DContext(): Mock2DContext {
     bezierCurveTo: rec('bezierCurveTo'),
     fill: rec('fill'),
     stroke: rec('stroke'),
+    fillText: rec('fillText'),
+    strokeText: rec('strokeText'),
+    measureText: (..._a: unknown[]) => {
+      calls.push('measureText')
+      return { width: 0 }
+    },
     fillRect: rec('fillRect'),
     strokeRect: rec('strokeRect'),
     clearRect: rec('clearRect'),
