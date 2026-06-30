@@ -11,6 +11,7 @@ function fakeCtx(): CanvasRenderingContext2D {
   return {
     createLinearGradient: () => ({ addColorStop: noop }),
     fillRect: noop,
+    strokeRect: noop,
     beginPath: noop,
     moveTo: noop,
     lineTo: noop,
@@ -76,4 +77,30 @@ describe('boxcar2d diversion', () => {
     },
     30000,
   )
+
+  it(
+    'time mode: a car reaching the goal is recorded as a finisher (fitness > goalDistance)',
+    () => {
+      // Gentle track + a short goal so a car finishes quickly.
+      const tcfg = boxcar2dSchema.parse({ mode: 'time', goalDistance: 60, timeCap: 30, roughness: 0.1, population: 6, speed: 8 })
+      const s = diversion.setup(fakeCtx(), tcfg, SIZE)
+      let guard = 0
+      let sawFinisher = false
+      while (guard++ < 200000 && !sawFinisher) {
+        diversion.frame(s, fakeCtx(), guard * 16, 16)
+        if (s.scored.some((sc) => sc.fitness > tcfg.goalDistance)) sawFinisher = true
+      }
+      diversion.teardown?.(s)
+      expect(sawFinisher).toBe(true)
+    },
+    30000,
+  )
+
+  it('rubble density > 0 spawns reset-per-car blocks without throwing', () => {
+    const rcfg = boxcar2dSchema.parse({ rubbleDensity: 4, population: 4 })
+    const s = diversion.setup(fakeCtx(), rcfg, SIZE)
+    for (let i = 0; i < 300; i++) diversion.frame(s, fakeCtx(), i * 16, 16)
+    expect(s.rubbleBlocks.size).toBeGreaterThan(0)
+    diversion.teardown?.(s)
+  })
 })

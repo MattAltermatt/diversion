@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { makeTerrain, terrainPoints } from './terrain'
+import { makeTerrain, terrainPoints, TERRAIN_TYPES } from './terrain'
 
 describe('makeTerrain', () => {
   it('is a deterministic pure height function of x', () => {
@@ -26,6 +26,35 @@ describe('makeTerrain', () => {
       ruggedMax = Math.max(ruggedMax, Math.abs(rugged(x)))
     }
     expect(ruggedMax).toBeGreaterThan(gentleMax)
+  })
+})
+
+describe('terrain types', () => {
+  it('exposes the four types', () => {
+    expect([...TERRAIN_TYPES]).toEqual(['rolling', 'dunes', 'plateaus', 'ridges'])
+  })
+  it('defaults to rolling = the legacy formula (determinism preserved)', () => {
+    const legacy = makeTerrain(9, 0.7)
+    const rolling = makeTerrain(9, 0.7, 'rolling')
+    for (const x of [0, 5, 12.3, 50, 137.7, 1000]) expect(rolling(x)).toBe(legacy(x))
+  })
+  it('each type is deterministic and finite over a long sweep', () => {
+    for (const t of TERRAIN_TYPES) {
+      const a = makeTerrain(5, 0.8, t)
+      const b = makeTerrain(5, 0.8, t)
+      for (let x = 0; x < 500; x += 11) {
+        expect(a(x)).toBe(b(x))
+        expect(Number.isFinite(a(x))).toBe(true)
+      }
+      expect(Math.abs(a(0))).toBeLessThan(1e-9) // flat launch ramp preserved for all types
+    }
+  })
+  it('types produce distinct silhouettes', () => {
+    const xs = Array.from({ length: 60 }, (_, i) => 20 + i * 6)
+    const sig = (t: (typeof TERRAIN_TYPES)[number]) =>
+      xs.map((x) => makeTerrain(5, 0.8, t)(x).toFixed(2)).join(',')
+    const sigs = new Set(TERRAIN_TYPES.map(sig))
+    expect(sigs.size).toBe(TERRAIN_TYPES.length)
   })
 })
 

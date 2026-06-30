@@ -51,3 +51,16 @@ describe('Slider editable readout', () => {
     expect(onChange).toHaveBeenLastCalledWith(5)
   })
 })
+
+describe('Slider maxLabel', () => {
+  const infMeta = { ui: 'slider' as const, label: 'Track lifespan', min: 1, max: 50, step: 1, maxLabel: '∞' }
+  it('shows the maxLabel at max instead of the number', () => {
+    render(<Slider value={50} onChange={() => {}} meta={infMeta} />)
+    expect(screen.getByText('∞')).toBeInTheDocument()
+  })
+  it('shows the number below max', () => {
+    render(<Slider value={20} onChange={() => {}} meta={infMeta} />)
+    expect(screen.queryByText('∞')).not.toBeInTheDocument()
+    expect(screen.getByRole('spinbutton')).toHaveValue(20)
+  })
+})

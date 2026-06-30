@@ -8,11 +8,19 @@ export const boxcar2dPresets: PresetGroup<BoxCar2DConfig>[] = [
     options: Object.entries(PALETTES).map(([name, color]) => ({ name, patch: { color } })),
   },
   {
-    label: 'Terrain feel',
+    label: 'Terrain',
     options: [
-      { name: 'Gentle', patch: { roughness: 0.25 } },
-      { name: 'Rolling', patch: { roughness: 0.5 } },
-      { name: 'Rugged', patch: { roughness: 0.95 } },
+      { name: 'Rolling', patch: { terrainType: 'rolling' } },
+      { name: 'Dunes', patch: { terrainType: 'dunes' } },
+      { name: 'Plateaus', patch: { terrainType: 'plateaus' } },
+      { name: 'Ridges', patch: { terrainType: 'ridges' } },
+    ],
+  },
+  {
+    label: 'Objective',
+    options: [
+      { name: 'Distance', patch: { mode: 'distance' } },
+      { name: 'Race', patch: { mode: 'time' } },
     ],
   },
 ]

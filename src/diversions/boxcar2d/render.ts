@@ -62,23 +62,82 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   ctx.fillStyle = s.cfg.color.terrain
   ctx.fill()
 
-  // record flag at the best distance reached so far (pole uses contrasting ink)
-  const flagX = sx(s.spawnX + s.bestDistMeters)
-  ctx.strokeStyle = ink
-  ctx.globalAlpha = 0.5
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(flagX, 0)
-  ctx.lineTo(flagX, height)
-  ctx.stroke()
-  ctx.globalAlpha = 1
-  ctx.fillStyle = '#ff5d5d'
-  ctx.beginPath()
-  ctx.moveTo(flagX, 18)
-  ctx.lineTo(flagX + 15, 24)
-  ctx.lineTo(flagX, 30)
-  ctx.closePath()
-  ctx.fill()
+  // distance markers — vertical gridlines every 25 m measured from the start, with
+  // every 100 m emphasised, and a sideways meter label attached to each line.
+  const MARK_STEP = 25
+  const firstMark = Math.max(0, Math.ceil((leftW - s.spawnX) / MARK_STEP) * MARK_STEP)
+  for (let meters = firstMark; s.spawnX + meters <= rightW; meters += MARK_STEP) {
+    const px = sx(s.spawnX + meters)
+    const hundred = meters % 100 === 0
+    ctx.strokeStyle = hundred ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.12)'
+    ctx.lineWidth = hundred ? 2.5 : 1
+    ctx.beginPath()
+    ctx.moveTo(px, 0)
+    ctx.lineTo(px, height)
+    ctx.stroke()
+    // sideways label (rotated), riding alongside the line
+    ctx.save()
+    ctx.translate(px, height * 0.5)
+    ctx.rotate(-Math.PI / 2)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillStyle = hundred ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)'
+    ctx.font = hundred ? 'bold 16px system-ui, sans-serif' : '12px system-ui, sans-serif'
+    ctx.fillText(`${meters} m`, 0, -6)
+    ctx.restore()
+  }
+
+  if (s.cfg.mode === 'distance') {
+    // record flag at the best distance reached so far (pole uses contrasting ink)
+    const flagX = sx(s.spawnX + s.bestDistMeters)
+    ctx.strokeStyle = ink
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(flagX, 0)
+    ctx.lineTo(flagX, height)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    ctx.fillStyle = '#ff5d5d'
+    ctx.beginPath()
+    ctx.moveTo(flagX, 18)
+    ctx.lineTo(flagX + 15, 24)
+    ctx.lineTo(flagX, 30)
+    ctx.closePath()
+    ctx.fill()
+  } else {
+    // time mode: checkered finish line at the goal
+    const fx = sx(s.spawnX + s.cfg.goalDistance)
+    ctx.strokeStyle = ink
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(fx, 0)
+    ctx.lineTo(fx, height)
+    ctx.stroke()
+    const sq = 10
+    for (let r = 0; r * sq < height; r++) {
+      for (let c = 0; c < 2; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#f5f7fa' : '#11161f'
+        ctx.fillRect(fx + c * sq, r * sq, sq, sq)
+      }
+    }
+  }
+
+  // rubble obstacle blocks — translucent fill + outline, in a contrasting accent
+  for (const b of s.rubbleBlocks.values()) {
+    const bp = getBodyPosition(b.body)
+    const ba = getBodyAngle(b.body)
+    const half = (b.size / 2) * m2px
+    ctx.save()
+    ctx.translate(sx(bp.x), sy(bp.y))
+    ctx.rotate(-ba)
+    ctx.fillStyle = 'rgba(231,111,81,0.22)'
+    ctx.fillRect(-half, -half, half * 2, half * 2)
+    ctx.strokeStyle = '#e76f51'
+    ctx.lineWidth = 2
+    ctx.strokeRect(-half, -half, half * 2, half * 2)
+    ctx.restore()
+  }
 
   // current car — wireframe: translucent fill + centre spokes + outline
   const car = s.current
@@ -152,13 +211,20 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
 
   // HUD — backing plate guarantees legibility over any sky/terrain underneath
   if (s.cfg.showHud) {
-    const dist = Math.max(0, cp.x - s.spawnX)
-    const text = `Gen ${s.generation}   Car ${s.carIndex + 1}/${s.cfg.population}   Dist ${dist.toFixed(1)}m   Best ${s.bestDistMeters.toFixed(1)}m`
+    const text =
+      s.cfg.mode === 'time'
+        ? `Gen ${s.generation}   Car ${s.carIndex + 1}/${s.cfg.population}   Time ${(s.stepsThisCar / 60).toFixed(1)}s   Best ${Number.isFinite(s.bestTimeSec) ? s.bestTimeSec.toFixed(1) + 's' : '—'}   Goal ${s.cfg.goalDistance}m`
+        : `Gen ${s.generation}   Car ${s.carIndex + 1}/${s.cfg.population}   Dist ${Math.max(0, cp.x - s.spawnX).toFixed(1)}m   Best ${s.bestDistMeters.toFixed(1)}m`
     ctx.font = '14px system-ui, sans-serif'
     ctx.textBaseline = 'top'
+    // centred along the top so the plate clears the config / copy-link chrome (top-left)
+    const plateW = 420
+    const plateX = Math.max(8, (width - plateW) / 2)
     ctx.fillStyle = 'rgba(0,0,0,0.45)'
-    ctx.fillRect(8, 8, 360, 26)
+    ctx.fillRect(plateX, 8, plateW, 26)
     ctx.fillStyle = 'rgba(255,255,255,0.95)'
-    ctx.fillText(text, 16, 15)
+    ctx.textAlign = 'center'
+    ctx.fillText(text, plateX + plateW / 2, 15)
+    ctx.textAlign = 'left'
   }
 }

@@ -12,6 +12,7 @@ export interface FieldMeta {
   min?: number // required for ui:'slider'
   max?: number // required for ui:'slider'
   step?: number
+  maxLabel?: string // ui:'slider' — when value is at max, show this text instead of the number (e.g. "∞")
   options?: string[] // for ui:'segmented' (mirrors enum values)
   showWhen?: { field: string; equals: string | string[] } // render only when a sibling field === this value (or is one of the listed values)
   section?: string // groups the field under a collapsible subpanel in the config form
