@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Fifteen diversions:**
+- **Sixteen diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -23,6 +23,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Physarum** (`kind: 'webgl'`) — a million slime-mold agents sense and follow a pheromone trail they themselves deposit; the field diffuses and decays into a constantly-rewiring transport network. All-GPU (agents in a float texture, trail in a ping-pong FBO); three morphologies — **Networks**, **Coral**, **Veins** (after Jones 2010 / Sage Jenson).
   - **Gray-Scott** (`kind: 'webgl'`) — two chemicals diffuse and react in ping-ponged float textures, growing coral, mitosis, maze, spots, and worm Turing patterns that never settle; all-GPU reaction-diffusion with the **feed**/**kill** knobs behind a named-pattern picker (after Pearson's classification of the Gray-Scott model).
   - **Labyrinth** (`kind: 'webgl'`) — a slime-mold colony solves a maze: born gradually from the start corner, it buds forward at its own leading edge, climbs a faint chemical gradient toward the exit, and lights the shortest path before a fresh maze regenerates. All-GPU on the Physarum FBO host with maze gen + BFS solve on the CPU; **Behavior** presets (Veins/Tendrils/Seeker/Drift) and a **Goal pull** knob tune explore-vs-beeline (after Nakagaki 2000 / Adamatzky's chemo-attractant one-pass solver).
+  - **Neural CA** (`kind: 'webgl'`) — a *learned* cellular automaton: every cell runs a tiny pretrained neural net over its hex neighbourhood, growing an endless, churning abstract texture from a seed. All-GPU inference (channel-tiled uint8 tensors, hex perception → two dense layers → stochastic update) with pretrained weights for **eleven** textures behind a picker (after Mordvintsev & Niklasson, _Self-Organising Textures_ / Hexells).
 
 ## Run it
 
@@ -101,6 +102,8 @@ See [`VISION.md`](VISION.md) for the north-star and [`docs/superpowers/specs/`](
 Some diversions reimplement algorithms pioneered by **Jared Tarbell** ([complexification.net](http://www.complexification.net/)) — e.g. _Sand Stroke_ and _[Substrate](http://www.complexification.net/gallery/machines/substrate/)_. These are independent clean-room reimplementations of the published algorithms, written from scratch in TypeScript — not ports of his source. Original work © Jared Tarbell.
 
 Others reimplement classic [**xscreensaver**](https://www.jwz.org/xscreensaver/) hacks (© Jamie Zawinski and the original hack authors) — e.g. _Squiral_, after the `squiral` hack by **Jeff Epler** (1999). Again clean-room reimplementations of the mechanics, with the look upgraded to fit this gallery — not ports of the C source. _Demon_ reimplements the `demon` hack — **David Griffeath's cyclic cellular automaton** — on three grids with a gallery hue-ring. _Logarithmic Circles_ ports the `logarithmiccircles` hack, whose shader is **"B/W logarithmic circles II"** by **mrange** ([Shadertoy `mljcWR`](https://www.shadertoy.com/view/mljcWR), released **CC0**).
+
+_Neural CA_ runs the pretrained **Self-Organising Textures** neural cellular automata of **Alexander Mordvintsev & Eyvind Niklasson** ([Distill, 2021](https://distill.pub/selforg/2021/textures/)). Its weights (`models.json`) and the reference update math derive from the authors' open-source [**Hexells**](https://github.com/znah/hexells) project, used under the **Apache License 2.0** (see `src/diversions/neural-ca/HEXELLS-LICENSE.txt`); the WebGL2 engine is a clean-room TypeScript reimplementation of that pipeline.
 
 ## License
 
