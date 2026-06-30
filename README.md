@@ -7,7 +7,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Seventeen diversions:**
+- **Eighteen diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
@@ -25,6 +25,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Labyrinth** (`kind: 'webgl'`) — a slime-mold colony solves a maze: born gradually from the start corner, it buds forward at its own leading edge, climbs a faint chemical gradient toward the exit, and lights the shortest path before a fresh maze regenerates. All-GPU on the Physarum FBO host with maze gen + BFS solve on the CPU; **Behavior** presets (Veins/Tendrils/Seeker/Drift) and a **Goal pull** knob tune explore-vs-beeline (after Nakagaki 2000 / Adamatzky's chemo-attractant one-pass solver).
   - **Neural CA** (`kind: 'webgl'`) — a *learned* cellular automaton: every cell runs a tiny pretrained neural net over its hex neighbourhood, growing an endless, churning abstract texture from a seed. All-GPU inference (channel-tiled uint8 tensors, hex perception → two dense layers → stochastic update) with pretrained weights for **eleven** textures behind a picker (after Mordvintsev & Niklasson, _Self-Organising Textures_ / Hexells).
   - **Lenia** (`kind: 'webgl'`) — a *continuous* Game of Life: a single scalar field, seeded with smooth noise, is convolved each step with a ring kernel and squeezed through a bell-shaped growth function, condensing a primordial soup of glowing cells that swim, merge, and dissolve forever. All-GPU (RGBA32F ping-pong field, precomputed radial-kernel LUT); **Coral/Cells/Veins/Rings** pattern presets over a thin **μ/σ** growth band (after Bert Chan's _Lenia_).
+  - **Langton's Loops** (`kind: '2d'`) — Christopher Langton's self-reproducing cellular automaton: a looped organism circulates an instruction tape, extends a construction arm, and buds off copies that colonise the plane into a coral of loops; when growth stalls it holds, fades, and reseeds. 8-state / von-Neumann / rotate4 (the canonical 219-rule table), with a sheath + signal-hue-ring palette and aged-coral dimming (port of xscreensaver `loop` by David Bagley, after Langton 1984).
 
 ## Run it
 
