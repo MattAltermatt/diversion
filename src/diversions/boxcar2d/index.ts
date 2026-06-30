@@ -10,12 +10,11 @@ import {
   destroyBody,
   stepWorld,
   buildTerrainBody,
-  getBodyPosition,
   createPolygonBody,
   type WorldId,
   type BodyId,
 } from './physics'
-import { buildCar, type CarBodies } from './car'
+import { buildCar, carCentroid, type CarBodies } from './car'
 import { breedGeneration, type Scored } from './ga'
 import { randomGenome, DEFAULT_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
@@ -37,6 +36,11 @@ const SPAWN_Y = 3 // meters above the start
 const WINDOW_BEHIND = 40
 const WINDOW_AHEAD = 220
 const REBUILD_MARGIN = 60
+// Start-of-run grace: for the first GRACE_STEPS the car is immune to the progress
+// cull, so it can drop from spawn, settle, and launch before "stuck" detection
+// kicks in (light truss cars need a beat to orient). Per car (stepsThisCar resets
+// on spawn). Goal-reach + time cap still apply during grace.
+const GRACE_STEPS = 10 * 60 // 10 s at 60 Hz
 // Track lifespan slider at its max = never regenerate (one track, mastered forever).
 // Derived from the schema so it can never drift from the slider's actual max.
 const TRACK_LIFESPAN_MAX = readMeta(boxcar2dSchema.shape.trackLifespan)!.max!
@@ -47,6 +51,10 @@ const RUBBLE_GROUP = 0
 const RUBBLE_AHEAD = 70
 const RUBBLE_BEHIND = 20
 const MAX_RUBBLE_BLOCKS = 90
+// Rubble-free launch zone: no blocks for the first RUBBLE_START_GAP meters past
+// spawn, so cars get a clean run to build speed (and evolution a foothold) before
+// the obstacle field begins.
+const RUBBLE_START_GAP = 100
 
 export interface BoxCarState {
   cfg: BoxCar2DConfig
@@ -111,7 +119,7 @@ function resetRubble(state: BoxCarState): void {
   for (const b of state.rubbleBlocks.values()) destroyBody(b.body)
   state.rubbleBlocks.clear()
   state.rubbleNextSlot = state.rubbleLayout
-    ? state.rubbleLayout.firstSlotAtOrAfter(state.spawnX)
+    ? state.rubbleLayout.firstSlotAtOrAfter(state.spawnX + RUBBLE_START_GAP)
     : 0
 }
 
@@ -152,10 +160,7 @@ function spawnCar(state: BoxCarState): void {
   // each solo run starts at spawn → re-centre the endless terrain there
   rebuildTerrain(state, state.spawnX)
   const g = state.population[state.carIndex]
-  const bodies = buildCar(state.world, g, { x: state.spawnX, y: state.spawnY }, {
-    speed: state.cfg.motorSpeed,
-    torque: state.cfg.motorTorque,
-  })
+  const bodies = buildCar(state.world, g, { x: state.spawnX, y: state.spawnY })
   state.current = { genome: g, ...bodies }
   state.maxXThisCar = state.spawnX
   state.windowStartX = state.spawnX
@@ -188,7 +193,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
   }
 
   // free the finished car's bodies (the long-running leak guard)
-  destroyBody(state.current.chassis)
+  for (const nd of state.current.nodes) destroyBody(nd.body)
   for (const w of state.current.wheels) destroyBody(w.body)
 
   state.carIndex++
@@ -221,7 +226,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
 function stepCar(state: BoxCarState): void {
   stepWorld(state.world, 1)
   state.stepsThisCar++
-  const x = getBodyPosition(state.current.chassis).x
+  const x = carCentroid(state.current).x
   if (x > state.maxXThisCar) state.maxXThisCar = x // furthest reached (fitness + flag)
 
   // Time mode: finish at the goal, or cull at the time cap.
@@ -239,14 +244,22 @@ function stepCar(state: BoxCarState): void {
   // Progress-rate cull (both modes): every `progressWindow` seconds, the car must
   // have gained at least `minProgress` m of new distance since the window opened,
   // else it's culled (moving-but-not-advancing counts as stuck).
-  state.windowSteps++
-  if (state.windowSteps >= state.cfg.progressWindow * 60) {
-    if (state.maxXThisCar - state.windowStartX < state.cfg.minProgress) {
-      endCurrentCar(state, false)
-      return
-    }
+  if (state.stepsThisCar <= GRACE_STEPS) {
+    // grace period: immune to the progress cull. Keep the window anchored to the
+    // car's current furthest point so the first real window measures progress only
+    // AFTER the car has settled and launched (not from the spawn-drop position).
     state.windowStartX = state.maxXThisCar
     state.windowSteps = 0
+  } else {
+    state.windowSteps++
+    if (state.windowSteps >= state.cfg.progressWindow * 60) {
+      if (state.maxXThisCar - state.windowStartX < state.cfg.minProgress) {
+        endCurrentCar(state, false)
+        return
+      }
+      state.windowStartX = state.maxXThisCar
+      state.windowSteps = 0
+    }
   }
 
   // extend the endless terrain + rubble ahead of the car before it reaches the edge
@@ -307,7 +320,7 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
     // the car stays pinned and the world scrolls). Vertically, hold the horizon
     // STILL and only pan when the car leaves a ±band, so the hills don't heave on
     // every bump while the car can never climb/drop off-screen.
-    const cp = getBodyPosition(state.current.chassis)
+    const cp = carCentroid(state.current)
     state.camMX = cp.x
     const BAND = 2 // meters
     if (cp.y > state.camMY + BAND) state.camMY = cp.y - BAND
@@ -336,7 +349,7 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
     ) {
       return false
     }
-    // cosmetic + speed + motor → live-apply (motor takes effect on the next car)
+    // cosmetic + speed → live-apply
     state.cfg = config
     state.size = size
     return true

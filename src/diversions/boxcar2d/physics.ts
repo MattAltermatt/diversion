@@ -22,6 +22,7 @@ import {
   CreatePolygon,
   CreateCircle,
   CreateWheelJoint,
+  CreateDistanceJoint,
   WorldStep,
   SetWorldScale,
   b2DefaultWorldDef,
@@ -143,6 +144,11 @@ export interface WheelJointOpts {
   enableMotor: boolean
   motorSpeed: number
   maxMotorTorque: number
+  /** Suspension travel limits (meters along the axis). Omit → unlimited travel.
+   *  Bounding this stops a wheel sliding off its anchor when the anchor body
+   *  spins (truss nodes are free-spinning circles, unlike a big rigid chassis). */
+  lowerTranslation?: number
+  upperTranslation?: number
 }
 
 /** Motorized wheel joint = the canonical BoxCar2D wheel (drive + suspension). */
@@ -157,9 +163,41 @@ export function createWheelJoint(worldId: WorldId, opts: WheelJointOpts): JointI
     enableSpring: opts.enableSpring,
     hertz: opts.hertz,
     dampingRatio: opts.dampingRatio,
+    enableLimit: opts.lowerTranslation !== undefined || opts.upperTranslation !== undefined,
+    lowerTranslation: opts.lowerTranslation,
+    upperTranslation: opts.upperTranslation,
     enableMotor: opts.enableMotor,
     motorSpeed: opts.motorSpeed,
     maxMotorTorque: opts.maxMotorTorque,
+    collideConnected: false,
+  })
+  return result.jointId
+}
+
+export interface DistanceJointOpts {
+  bodyA: BodyId
+  bodyB: BodyId
+  /** Rest length in meters (set to the bodies' current separation at build). */
+  length: number
+  /** Spring frequency (Hz). High ≈ rigid bar; low ≈ floppy spring. */
+  hertz: number
+  dampingRatio: number
+}
+
+/** Spring distance joint between two node bodies = one truss member. Anchored at
+ *  each body's center (node circles are centered on the node), so `length` is the
+ *  node-to-node rest distance. A "rigid bar" is simply a very high `hertz`. */
+export function createDistanceJoint(worldId: WorldId, opts: DistanceJointOpts): JointId {
+  const result = CreateDistanceJoint({
+    worldId,
+    bodyIdA: opts.bodyA,
+    bodyIdB: opts.bodyB,
+    anchorA: new b2Vec2(0, 0),
+    anchorB: new b2Vec2(0, 0),
+    length: opts.length,
+    enableSpring: true,
+    hertz: opts.hertz,
+    dampingRatio: opts.dampingRatio,
     collideConnected: false,
   })
   return result.jointId

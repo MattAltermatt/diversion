@@ -27,7 +27,7 @@ export const boxcar2dSchema = z.object({
     .meta({ section: 'Evolution', ui: 'slider', min: 5, max: 600, step: 5, label: 'Time limit (s)',
             help: 'Time mode: a car that hasn’t reached the goal within this many seconds is culled. Default 180 (3 min), up to 600 (10 min) — generous so steadily-driving cars aren’t cut off.',
             showWhen: { field: 'mode', equals: 'time' } }),
-  roughness: z.number().min(0.1).max(1.2).default(0.5)
+  roughness: z.number().min(0.1).max(1.2).default(0.4)
     .meta({ section: 'Track', ui: 'slider', min: 0.1, max: 1.2, step: 0.05, label: 'Roughness',
             help: 'Hilliness of the terrain. Gentle rolling slopes to rugged climbs. Higher = cars hit walls sooner, so generations turn over faster; very low = good cars can cruise a long way before being culled.' }),
   terrainType: z.enum(TERRAIN_TYPES).default('dunes')
@@ -35,7 +35,7 @@ export const boxcar2dSchema = z.object({
             help: 'Shape of the hills: rolling, big dunes, stepped plateaus, or sharp ridges.' }),
   rubbleDensity: z.number().min(0).max(8).default(1)
     .meta({ section: 'Track', ui: 'slider', min: 0, max: 8, step: 1, label: 'Rubble',
-            help: 'Loose blocks per ~10 m that slow the car. 0 = none. The layout resets for every car — fair for all.' }),
+            help: 'Loose blocks per ~10 m that slow the car, starting ~100 m past the launch (the first stretch is always clear). 0 = none. The layout resets for every car — fair for all.' }),
   minProgress: z.number().min(0.2).max(10).default(2)
     .meta({ section: 'Evolution', ui: 'slider', min: 0.2, max: 10, step: 0.1, label: 'Min progress (m)',
             help: 'A car is culled if it fails to gain this much new distance within the progress window — catches cars that are moving but effectively stuck (spinning, backflipping, creeping).' }),
@@ -48,12 +48,6 @@ export const boxcar2dSchema = z.object({
   showHud: z.boolean().default(true)
     .meta({ section: 'Display', ui: 'toggle', label: 'Show HUD',
             help: 'Generation, car number, and live progress (distance or time).' }),
-  motorTorque: z.number().min(5).max(120).default(40)
-    .meta({ section: 'Tuning', ui: 'slider', min: 5, max: 120, step: 1, label: 'Motor torque',
-            help: 'Drive strength of the wheels. Too low and cars sit still; too high and they backflip.' }),
-  motorSpeed: z.number().min(2).max(30).default(12)
-    .meta({ section: 'Tuning', ui: 'slider', min: 2, max: 30, step: 1, label: 'Motor speed',
-            help: 'Target wheel spin rate (rad/s).' }),
   color: z.object({
     chassis: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffb703').meta({ ui: 'color', label: 'Chassis' }),
     wheel: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffffff').meta({ ui: 'color', label: 'Wheel' }),

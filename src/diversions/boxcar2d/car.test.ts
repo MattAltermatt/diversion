@@ -1,16 +1,67 @@
 import { describe, it, expect } from 'vitest'
-import { simulateCar, chassisVertices } from './car'
-import { randomGenome, N_VERTICES } from './genome'
+import { simulateCar, buildCar, carCentroid } from './car'
+import { randomGenome } from './genome'
 import { makeTerrain, terrainPoints } from './terrain'
+import { createWorld, destroyWorld, buildTerrainBody, stepWorld, getBodyPosition } from './physics'
 import { mulberry32 } from '../../framework/rng'
+import { triangulateEdges } from './triangulate'
 
 const TERRAIN = terrainPoints(makeTerrain(1, 0.5), 0, 300, 1.5)
-const CFG = { gravity: -10, maxSteps: 1200, stallSteps: 180, progressEps: 0.1,
-              motorSpeed: 12, motorTorque: 40, spawnX: 2, spawnY: 3 }
+const CFG = { gravity: -10, maxSteps: 1200, stallSteps: 180, progressEps: 0.1, spawnX: 2, spawnY: 3 }
 
-describe('chassisVertices', () => {
-  it('returns 8 vertices', () => {
-    expect(chassisVertices(randomGenome(mulberry32(1)))).toHaveLength(N_VERTICES)
+describe('buildCar', () => {
+  it('creates one body per active node, one member per Delaunay edge, one body per active wheel', () => {
+    const g = randomGenome(mulberry32(7))
+    const world = createWorld(-10)
+    buildTerrainBody(world, TERRAIN)
+    const car = buildCar(world, g, { x: 2, y: 3 })
+
+    const activeNodes = g.nodes.filter(n => n.present).length
+    const activeWheels = g.wheels.filter(w => w.present).length
+    const localPts = g.nodes.filter(n => n.present).map(n => ({ x: n.x, y: n.y }))
+
+    expect(car.nodes).toHaveLength(activeNodes)
+    expect(car.members).toHaveLength(triangulateEdges(localPts).length)
+    expect(car.wheels).toHaveLength(activeWheels)
+    destroyWorld(world)
+  })
+})
+
+describe('carCentroid', () => {
+  it('returns the mean of the node positions', () => {
+    const g = randomGenome(mulberry32(3))
+    const world = createWorld(-10)
+    buildTerrainBody(world, TERRAIN)
+    const car = buildCar(world, g, { x: 2, y: 3 })
+    const c = carCentroid(car)
+    expect(Number.isFinite(c.x)).toBe(true)
+    expect(Number.isFinite(c.y)).toBe(true)
+    destroyWorld(world)
+  })
+})
+
+describe('wheel attachment', () => {
+  it('wheels stay attached to the truss after a long run (no fling-off)', () => {
+    // Regression: an unbounded wheel-joint axis let wheels slide off their
+    // free-spinning node anchors and shoot away. Travel is now capped, so each
+    // wheel must stay within ~WHEEL_TRAVEL of its mount node for the whole run.
+    for (const seed of [1, 7, 13, 21]) {
+      const g = randomGenome(mulberry32(seed))
+      const world = createWorld(-10)
+      buildTerrainBody(world, TERRAIN)
+      const car = buildCar(world, g, { x: 2, y: 3 })
+      for (let i = 0; i < 800; i++) stepWorld(world, 1)
+      for (const w of car.wheels) {
+        const wp = getBodyPosition(w.body)
+        let nearest = Infinity
+        for (const nd of car.nodes) {
+          const np = getBodyPosition(nd.body)
+          nearest = Math.min(nearest, Math.hypot(wp.x - np.x, wp.y - np.y))
+        }
+        expect(nearest).toBeLessThan(0.12) // ≤ WHEEL_TRAVEL (0.06) + slack
+      }
+      destroyWorld(world)
+    }
   })
 })
 

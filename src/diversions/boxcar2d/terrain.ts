@@ -25,8 +25,11 @@ export function makeTerrain(
   const noise = makeNoise3D(seed)
   const n = (x: number, f: number) => noise(x * f, 0, 0) // value noise in [-1,1]
   return (x: number) => {
-    // flat launch ramp for the first ~9 m so every car starts on level ground
-    const ramp = Math.min(1, Math.max(0, (x - 1) / 8))
+    // flat launch runway, then a gradual ramp to full terrain height. Long enough
+    // that a car builds speed on level ground (and clears the ~25 m start zone)
+    // before meeting real hills — otherwise a valley right at spawn stalls light
+    // cars before evolution gets going.
+    const ramp = Math.min(1, Math.max(0, (x - 10) / 16))
     let h: number
     switch (type) {
       case 'dunes': {

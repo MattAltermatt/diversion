@@ -8,6 +8,7 @@
  * outline + centre spokes + translucent fill — so the structure of each car reads clearly.
  */
 import { getBodyPosition, getBodyAngle, SCALE } from './physics'
+import { carCentroid } from './car'
 import type { BoxCarState } from './index'
 
 const ZOOM = 2.2
@@ -19,6 +20,31 @@ function isLight(hex: string): boolean {
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
   return 0.299 * r + 0.587 * g + 0.114 * b > 140
+}
+
+const SPRING_THRESH = 0.55       // stiffness ≥ this draws as a straight bar
+const SPRING_COLOR = '#7fd1c4'   // accent for springy members (high contrast vs sky)
+
+/** Draw a coil between two canvas points — reads as a spring. */
+function drawSpring(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux
+  const coils = 6, amp = 5, inset = len * 0.18
+  const sx = x1 + ux * inset, sy = y1 + uy * inset
+  const ex = x2 - ux * inset, ey = y2 - uy * inset
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(sx, sy)
+  const seg = coils * 2
+  for (let i = 1; i < seg; i++) {
+    const t = i / seg
+    const cx = sx + (ex - sx) * t, cy = sy + (ey - sy) * t
+    const s = i % 2 ? 1 : -1
+    ctx.lineTo(cx + px * amp * s, cy + py * amp * s)
+  }
+  ctx.lineTo(ex, ey)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
@@ -139,47 +165,34 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     ctx.restore()
   }
 
-  // current car — wireframe: translucent fill + centre spokes + outline
+  // current car — skeletal truss: members (bars/springs) + nodes, drawn directly
+  // in world space (each member spans two live node bodies; no per-body transform).
   const car = s.current
-  const cp = getBodyPosition(car.chassis)
-  const ca = getBodyAngle(car.chassis)
-  ctx.save()
-  ctx.translate(sx(cp.x), sy(cp.y))
-  ctx.rotate(-ca) // Box2D CCW Y-up → canvas CW Y-down
-  // chassis outline path
-  ctx.beginPath()
-  for (let i = 0; i < car.verts.length; i++) {
-    const vx = car.verts[i].x * m2px
-    const vy = -car.verts[i].y * m2px
-    if (i === 0) ctx.moveTo(vx, vy)
-    else ctx.lineTo(vx, vy)
+  for (const mem of car.members) {
+    const pa = getBodyPosition(car.nodes[mem.a].body)
+    const pb = getBodyPosition(car.nodes[mem.b].body)
+    const x1 = sx(pa.x), y1 = sy(pa.y), x2 = sx(pb.x), y2 = sy(pb.y)
+    if (mem.stiffness >= SPRING_THRESH) {
+      ctx.strokeStyle = s.cfg.color.chassis
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+    } else {
+      ctx.strokeStyle = SPRING_COLOR
+      ctx.lineWidth = 2.4
+      drawSpring(ctx, x1, y1, x2, y2)
+    }
   }
-  ctx.closePath()
+  // nodes — small filled dots in the chassis colour
   ctx.fillStyle = s.cfg.color.chassis
-  ctx.globalAlpha = 0.16
-  ctx.fill()
-  ctx.globalAlpha = 1
-  // spokes from the body centre to each vertex (shows the structure)
-  ctx.strokeStyle = s.cfg.color.chassis
-  ctx.lineWidth = 1.5
-  for (let i = 0; i < car.verts.length; i++) {
+  for (const nd of car.nodes) {
+    const p = getBodyPosition(nd.body)
     ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(car.verts[i].x * m2px, -car.verts[i].y * m2px)
-    ctx.stroke()
+    ctx.arc(sx(p.x), sy(p.y), 3.5, 0, Math.PI * 2)
+    ctx.fill()
   }
-  // chassis outline
-  ctx.beginPath()
-  for (let i = 0; i < car.verts.length; i++) {
-    const vx = car.verts[i].x * m2px
-    const vy = -car.verts[i].y * m2px
-    if (i === 0) ctx.moveTo(vx, vy)
-    else ctx.lineTo(vx, vy)
-  }
-  ctx.closePath()
-  ctx.lineWidth = 2.5
-  ctx.stroke()
-  ctx.restore()
 
   // wheels — outline circle + translucent fill + hub spoke (rotation reads)
   for (const w of car.wheels) {
@@ -211,6 +224,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
 
   // HUD — backing plate guarantees legibility over any sky/terrain underneath
   if (s.cfg.showHud) {
+    const cp = carCentroid(car)
     const text =
       s.cfg.mode === 'time'
         ? `Gen ${s.generation}   Car ${s.carIndex + 1}/${s.cfg.population}   Time ${(s.stepsThisCar / 60).toFixed(1)}s   Best ${Number.isFinite(s.bestTimeSec) ? s.bestTimeSec.toFixed(1) + 's' : '—'}   Goal ${s.cfg.goalDistance}m`
