@@ -42,4 +42,38 @@ describe('createLoop', () => {
     expect(count).toBe(at) // frozen
     loop.stop()
   })
+
+  it('stops re-queuing rAF while paused, and resumes on unpause (#200)', () => {
+    const raf = globalThis.requestAnimationFrame as unknown as ReturnType<typeof vi.fn>
+    let count = 0
+    const loop = createLoop(() => {
+      count++
+    })
+    loop.start()
+    vi.advanceTimersByTime(48) // a few frames
+    loop.setPaused(true)
+    const rafCallsAfterPause = raf.mock.calls.length
+    vi.advanceTimersByTime(160) // paused: no new rAF should be scheduled
+    expect(raf.mock.calls.length).toBe(rafCallsAfterPause) // idle — page can sleep
+    loop.setPaused(false)
+    const at = count
+    vi.advanceTimersByTime(48)
+    expect(count).toBeGreaterThan(at) // ticking again
+    loop.stop()
+  })
+
+  it('accumulates t from clamped dt so a long stall does not teleport t (#200)', () => {
+    const frames: Array<{ t: number; dt: number }> = []
+    const loop = createLoop((t, dt) => frames.push({ t, dt }))
+    loop.start()
+    vi.advanceTimersByTime(48) // ~3 frames
+    // Simulate a 5s tab suspension: one giant gap between rAF callbacks.
+    vi.advanceTimersByTime(5000)
+    loop.stop()
+    // dt is always clamped to ≤50ms and t === running sum of those clamped dts,
+    // so t never absorbs the 5s away-duration.
+    for (const f of frames) expect(f.dt).toBeLessThanOrEqual(50)
+    const summed = frames.reduce((s, f) => s + f.dt, 0)
+    expect(frames[frames.length - 1].t).toBeCloseTo(summed, 5)
+  })
 })

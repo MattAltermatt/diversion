@@ -18,8 +18,8 @@ describe('advancePhase', () => {
 })
 
 describe('tintsToVec3', () => {
-  it('flattens up to 8 hex8 colours into a length-24 Float32Array (0..1)', () => {
-    const out = tintsToVec3(['#ff0000ff', '#00ff00ff'])
+  it('flattens up to 8 hex6 colours into a length-24 Float32Array (0..1)', () => {
+    const out = tintsToVec3(['#ff0000', '#00ff00'])
     expect(out.length).toBe(24)
     expect(out[0]).toBeCloseTo(1) // r of #ff0000
     expect(out[1]).toBeCloseTo(0)
@@ -29,8 +29,8 @@ describe('tintsToVec3', () => {
     // unused slots are zero
     expect(out[6]).toBe(0)
   })
-  it('ignores alpha and clamps the list to 8', () => {
-    const many = Array.from({ length: 12 }, () => '#808080ff')
+  it('clamps the list to 8 slots', () => {
+    const many = Array.from({ length: 12 }, () => '#808080')
     const out = tintsToVec3(many)
     expect(out.length).toBe(24) // only first 8 used
     expect(out[0]).toBeCloseTo(0.502, 2)

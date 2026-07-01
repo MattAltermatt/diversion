@@ -112,10 +112,11 @@ export function leafNameCollisions(schema: any): string[] {
   return [...counts.entries()].filter(([, n]) => n > 1).map(([leaf]) => leaf)
 }
 
-/** Dotted paths of array leaves whose elements are non-scalar (object / nested
- *  array) — these can't round-trip through the flat URL codec and make encode/
- *  decode throw. Empty array = every array leaf is scalar-element. CI guard,
- *  parallel to {@link leafNameCollisions}. #123 */
+/** Error message(s) for array leaves whose elements are non-scalar (object /
+ *  nested array) — these can't round-trip through the flat URL codec and make
+ *  encode/decode throw. Reports only the first offender (leafTypes throws on
+ *  the first bad leaf it walks into). Empty array = every array leaf is
+ *  scalar-element. CI guard, parallel to {@link leafNameCollisions}. #123 */
 export function nonScalarArrayLeaves(schema: any): string[] {
   const bad: string[] = []
   try {
@@ -241,13 +242,6 @@ export function applyFreshLoadRandomization<T extends ZodObject<any>>(
     if (!params.has(urlKey)) out[key] = Math.floor(rand() * 1e9) // absent → fresh; present → pinned
   }
   return out as ReturnType<T['parse']>
-}
-
-/** Does any top-level field opt into fresh-load randomization? When true, a bare
- *  load rolls a value not present in the (empty) URL, so the chrome must encode the
- *  active config to carry it; when false, a bare load stays a clean param-free URL. */
-export function hasFreshLoadRandomization(schema: ZodObject<any>): boolean {
-  return Object.values(schema.shape).some(f => readMeta(f as ZodType)?.randomizeOnFreshLoad)
 }
 
 export function decodeConfig<T extends ZodObject<any>>(

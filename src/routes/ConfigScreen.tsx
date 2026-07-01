@@ -85,8 +85,10 @@ export function ConfigScreen() {
         >
           ↺ reset
         </button>
-        <DiversionErrorBoundary>
-          <AnimationHost key={`${diversion.id}-${resetCount}`} diversion={diversion} config={config} />
+        {/* Key the BOUNDARY (not just the host) so ↺ reset remounts it fresh — a bumped
+            key on the child alone can't clear a boundary that already latched hasError. */}
+        <DiversionErrorBoundary key={`${diversion.id}-${resetCount}`}>
+          <AnimationHost diversion={diversion} config={config} />
         </DiversionErrorBoundary>
       </main>
     </div>

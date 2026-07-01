@@ -152,14 +152,15 @@ function makeTex(
   gl: WebGL2RenderingContext, w: number, h: number,
   internal: number, format: number, type: number,
   filter: number, data: ArrayBufferView | null,
+  wrap: number = gl.CLAMP_TO_EDGE,
 ): WebGLTexture {
   const t = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, t)
   gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap)
   return t
 }
 
@@ -225,10 +226,13 @@ export function initGL(
   ]
   const agentFbo: [WebGLFramebuffer, WebGLFramebuffer] = [fboFor(gl, agentTex[0]), fboFor(gl, agentTex[1])]
 
+  // REPEAT wrap: agent motion wraps on a torus (`pos = fract(pos + 1.0)`), so
+  // sensing and the diffuse blur must sample across the trail's edges too, or
+  // the field would falsely show a wall at the border the agents don't see.
   const { tw: trailW, th: trailH } = trailDims(w, h)
   const trailTex: [WebGLTexture, WebGLTexture] = [
-    makeTex(gl, trailW, trailH, gl.R16F, gl.RED, gl.HALF_FLOAT, gl.LINEAR, null),
-    makeTex(gl, trailW, trailH, gl.R16F, gl.RED, gl.HALF_FLOAT, gl.LINEAR, null),
+    makeTex(gl, trailW, trailH, gl.R16F, gl.RED, gl.HALF_FLOAT, gl.LINEAR, null, gl.REPEAT),
+    makeTex(gl, trailW, trailH, gl.R16F, gl.RED, gl.HALF_FLOAT, gl.LINEAR, null, gl.REPEAT),
   ]
   const trailFbo: [WebGLFramebuffer, WebGLFramebuffer] = [fboFor(gl, trailTex[0]), fboFor(gl, trailTex[1])]
   for (const fb of trailFbo) {

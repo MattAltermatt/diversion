@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 const hex6 = z.string().regex(/^#[0-9a-fA-F]{6}$/)
-const hex8 = z.string().regex(/^#[0-9a-fA-F]{8}$/)
 
 export const logCirclesSchema = z.object({
   ringGrowth: z.number().min(2).max(8).default(4.1)
@@ -36,11 +35,11 @@ export const logCirclesSchema = z.object({
     fg: hex6.default('#ffffff')
       .meta({ ui: 'color', label: 'Circle colour', showWhen: { field: 'mode', equals: 'mono' },
               help: 'The two-tone circle colour; circles flip between this and the background in a spiral.' }),
-    tints: z.array(hex8).min(1).max(8)
-      .default(['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff', '#ffd166ff'])
+    tints: z.array(hex6).min(1).max(8)
+      .default(['#37d6ff', '#8a7bff', '#ff5fa2', '#5effc4', '#ffd166'])
       .meta({ ui: 'colorList', label: 'Palette', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'color' },
-              help: 'Circles cycle these by ring and cell. (Alpha is ignored.)' }),
+              help: 'Circles cycle these by ring and cell.' }),
     scanlines: z.number().min(0).max(0.3).default(0.1)
       .meta({ ui: 'slider', min: 0, max: 0.3, step: 0.01, label: 'Scanlines',
               help: 'Faint horizontal line texture in the gaps. 0 = clean.' }),
@@ -49,7 +48,7 @@ export const logCirclesSchema = z.object({
               help: 'The small dot that pulses in the middle of each circle.' }),
   }).default({
     mode: 'mono', background: '#000000', fg: '#ffffff',
-    tints: ['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff', '#ffd166ff'],
+    tints: ['#37d6ff', '#8a7bff', '#ff5fa2', '#5effc4', '#ffd166'],
     scanlines: 0.1, centerDots: true,
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 })

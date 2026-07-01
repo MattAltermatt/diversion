@@ -1,7 +1,7 @@
 import type { PresetOption } from '../../framework/types'
 import type { LogCirclesConfig } from './schema'
 
-const PALETTE = ['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff', '#ffd166ff']
+const PALETTE = ['#37d6ff', '#8a7bff', '#ff5fa2', '#5effc4', '#ffd166']
 
 // Each Look option patches the whole `color` group (nested group → supplied
 // complete; the framework spreads it at the top level). All options share the
@@ -17,14 +17,14 @@ export const lookPresets: PresetOption<LogCirclesConfig>[] = [
     name: 'Neon',
     patch: {
       color: { mode: 'color', background: '#05060a', fg: '#ffffff',
-        tints: ['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff'], scanlines: 0.06, centerDots: true },
+        tints: ['#37d6ff', '#8a7bff', '#ff5fa2', '#5effc4'], scanlines: 0.06, centerDots: true },
     },
   },
   {
     name: 'Sunset',
     patch: {
       color: { mode: 'color', background: '#1a0a14', fg: '#ffffff',
-        tints: ['#ff7a59ff', '#ffb15eff', '#ffd166ff', '#ff5fa2ff'], scanlines: 0.08, centerDots: true },
+        tints: ['#ff7a59', '#ffb15e', '#ffd166', '#ff5fa2'], scanlines: 0.08, centerDots: true },
     },
   },
 ]

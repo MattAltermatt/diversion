@@ -67,8 +67,9 @@ describe('trailFadeAlpha', () => {
     const midStep = frames(51) - frames(50)
     expect(topStep).toBeCloseTo(midStep, 6)
   })
-  it('places the default (88) near the long end of the survival-frame range', () => {
-    expect(frames(88)).toBeCloseTo(1 + 0.88 * 49, 4) // ~44 frames
+  it('tracks the schema default (trailLength) in survival-frames', () => {
+    const def = flowFieldSchema.parse({}).trailLength
+    expect(frames(def)).toBeCloseTo(1 + (def / 100) * 49, 4)
   })
 })
 

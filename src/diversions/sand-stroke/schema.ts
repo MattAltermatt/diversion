@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+const DEFAULT_PALETTE_COLORS = ['#7c3f1eff', '#c8762fff', '#e0a458ff', '#9c5a3cff', '#3a4a6bff', '#b0402eff']
+const DEFAULT_GRADIENT_STOPS = ['#7c3f1eff', '#c8762fff', '#3a4a6bff']
+
 export const sandStrokeSchema = z.object({
   strokes: z.number().int().min(4).max(80).default(4)
     .meta({ section: 'Strokes', ui: 'slider', min: 4, max: 80, step: 1, label: 'Strokes',
@@ -28,7 +31,7 @@ export const sandStrokeSchema = z.object({
               help: 'Palette: each sweep picks one random colour. '
                   + 'Gradient: colour is sampled along a source (lane or progress).' }),
     colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
-      .default(['#7c3f1eff', '#c8762fff', '#e0a458ff', '#9c5a3cff', '#3a4a6bff', '#b0402eff'])
+      .default(DEFAULT_PALETTE_COLORS)
       .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'palette' },
               help: 'Each sweep picks one colour at random per pass. A colour’s alpha multiplies '
@@ -38,15 +41,15 @@ export const sandStrokeSchema = z.object({
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'What maps onto the gradient: y (a sweep’s lane height) or x (column progress L→R).' }),
     stops: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(8)
-      .default(['#7c3f1eff', '#c8762fff', '#3a4a6bff'])
+      .default(DEFAULT_GRADIENT_STOPS)
       .meta({ ui: 'colorList', label: 'Gradient stops', min: 2, max: 8,
               showWhen: { field: 'mode', equals: 'gradient' },
               help: 'Evenly spaced and sampled along the source; per-stop alpha multiplies grain build-up.' }),
   }).default({
     mode: 'palette',
-    colors: ['#7c3f1eff', '#c8762fff', '#e0a458ff', '#9c5a3cff', '#3a4a6bff', '#b0402eff'],
+    colors: DEFAULT_PALETTE_COLORS,
     source: 'y',
-    stops: ['#7c3f1eff', '#c8762fff', '#3a4a6bff'],
+    stops: DEFAULT_GRADIENT_STOPS,
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   colorDrift: z.number().int().min(0).max(100).default(21)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 100, step: 1, label: 'Color drift',

@@ -33,8 +33,9 @@ const moire = defineDiversion<typeof moireSchema, MoireState, '2d'>({
     drawMoire(state, ctx)
   },
 
-  resize(state, size) {
+  resize(state, size, ctx) {
     resizeMoireState(state, size.width, size.height)
+    drawMoire(state, ctx)
   },
 
   update(state, config, size) {

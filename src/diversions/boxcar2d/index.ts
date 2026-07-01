@@ -332,8 +332,12 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
     return state
   },
 
-  frame(state, ctx, _t, _dt) {
-    const steps = Math.max(1, state.cfg.speed)
+  frame(state, ctx, _t, dt) {
+    // dt===0 is the framework's paused/reduced-motion static-repaint tick (a
+    // resize or live config edit while frozen) — it must redraw, not advance the
+    // physics sim. Normal ticks always pass a nonzero dt, so they still run
+    // >=1 step.
+    const steps = dt === 0 ? 0 : Math.max(1, state.cfg.speed)
     for (let i = 0; i < steps; i++) stepCar(state)
     // Flat 2D side view: lock the camera horizontally to the car (no smoothing —
     // the car stays pinned and the world scrolls). Vertically, hold the horizon

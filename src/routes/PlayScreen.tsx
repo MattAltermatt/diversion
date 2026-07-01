@@ -13,8 +13,8 @@ export function PlayScreen() {
 
   // Parse config ONCE from the URL; frozen for the session. Source the query
   // string from the router (useLocation) rather than window.location.search so
-  // it stays correct under a HashRouter (where the query lives inside the hash)
-  // and consistent with the rest of the router-driven app.
+  // it stays consistent with the rest of the browser-router-driven app (React
+  // Router's createBrowserRouter, with the query string as a normal `?...` suffix).
   const config = useMemo(
     () => {
       if (!diversion) return null

@@ -41,6 +41,11 @@ const turmite = defineDiversion<typeof turmiteSchema, TurmiteState, '2d'>({
       return false
     }
     // Visual-only: swap cfg + recompute fill styles.
+    // Background has no per-frame repaint of its own (only setup/resize/reseed
+    // fill it), so a live edit would otherwise sit dead until the next reseed —
+    // flag it for a one-off full repaint (bg fill + redraw grid) on the next
+    // advance() call, which also covers the paused dt=0 static-repaint case.
+    if (config.background !== prev.background) state.bgDirty = true
     state.cfg = config
     state.styles = config.palette.map((c) => hex8ToRgba(c))
     void size

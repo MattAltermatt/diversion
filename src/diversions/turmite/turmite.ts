@@ -41,6 +41,7 @@ export interface TurmiteState {
   fading: boolean       // mid-reseed crossfade
   fadeT: number         // crossfade progress 0..1
   generation: number    // reseed counter (folds into the seed)
+  bgDirty: boolean      // live Background edit pending a full repaint (see repaintBackground)
 }
 
 /** Build a fresh sim state: grid sized to the canvas, ants seeded from
@@ -68,6 +69,7 @@ export function createTurmiteState(
     painted: 0, carry: 0,
     styles: cfg.palette.map((c) => hex8ToRgba(c)),
     fading: false, fadeT: 0, generation,
+    bgDirty: false,
   }
 }
 
@@ -130,9 +132,30 @@ export function fillBackground(s: TurmiteState, ctx: CanvasRenderingContext2D, w
   ctx.fillRect(0, 0, w, h)
 }
 
+/** Repaint the background then redraw every currently-painted cell from
+ *  `grid`/`styles` — used when a live Background edit lands (see `bgDirty`),
+ *  so the new colour shows immediately without losing the accumulated
+ *  pattern (no reseed, no ant reshuffle). O(cols*rows), a one-off cost. */
+export function repaintBackground(s: TurmiteState, ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  fillBackground(s, ctx, w, h)
+  const { cols, rows, cell, grid, styles } = s
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const v = grid[y * cols + x]
+      if (v === 0) continue
+      ctx.fillStyle = styles[v % styles.length]
+      ctx.fillRect(x * cell, y * cell, cell, cell)
+    }
+  }
+}
+
 /** Per-frame driver. Runs steps (incremental cell paints) or, when reseeding,
  *  fades the canvas toward background then rebuilds a new generation. */
 export function advance(s: TurmiteState, ctx: CanvasRenderingContext2D, dt: number, w: number, h: number): void {
+  if (s.bgDirty) {
+    repaintBackground(s, ctx, w, h)
+    s.bgDirty = false
+  }
   if (s.fading) {
     // Calm crossfade: translucent background wash over the whole canvas.
     s.fadeT += FADE_RATE * (dt / 16.7)

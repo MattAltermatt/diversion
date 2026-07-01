@@ -31,6 +31,13 @@ const neuralCa = defineDiversion<typeof neuralCaSchema, NeuralCaState, 'webgl'>(
   },
 
   frame(state, gl, _t, _dt) {
+    // Weights load async; until ready, step() is a no-op. Gate the accumulator too, or
+    // stepIdx advances by a latency-dependent amount during load and the "same seed" grows
+    // a different texture on a cold vs warm load (breaks the copy-link-with-seed keystone).
+    if (!state.res.ready) {
+      render(gl, state.res)
+      return
+    }
     // speed = sim steps per frame; accumulate so fractional speeds churn smoothly.
     state.acc += Math.max(0, state.cfg.speed)
     let budget = 8 // cap steps/frame so a long stall can't freeze the tab

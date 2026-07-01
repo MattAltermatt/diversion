@@ -28,7 +28,7 @@ export const substrateSchema = z.object({
             help: 'Loosest arc radius (px) a curved crack can take. Large = gentle, barely-there bends. '
                 + '(If min exceeds max they are simply used as an unordered range.)' }),
   drawTime: z.number().min(1).default(5)
-    .meta({ section: 'Lifecycle', ui: 'number', step: 1, label: 'Draw time (minutes)',
+    .meta({ section: 'Lifecycle', ui: 'number', min: 1, step: 1, label: 'Draw time (minutes)',
             help: 'Minutes a network grows before it fades and a fresh one begins. Any number — '
                 + 'set it to 60 to let it "make a city" over an hour. A saturated canvas resets sooner.' }),
   fadeTime: z.number().min(1).max(6).default(3)

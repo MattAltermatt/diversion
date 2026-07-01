@@ -54,6 +54,30 @@ describe('diversion meta sweep — every registered diversion (#127)', () => {
       }
     })
 
+    it(`${d.id}: every bounded ui:'number' field surfaces its Zod bound to meta (#196)`, () => {
+      // NumberInput clamps to meta.min/max only. A ui:'number' field with a Zod bound
+      // but no matching meta bound can be driven schema-invalid from the form (e.g.
+      // substrate.drawTime → 0 broke the sim). Require the Zod bound be surfaced, and
+      // that the surfaced bound keeps clamped values inside the Zod range.
+      for (const f of fields) {
+        const meta = readMeta(f.field)
+        if (meta?.ui !== 'number') continue
+        const { min, max } = numberBounds(f.node)
+        // .int() injects the ±safe-integer range as sentinel bounds — those are not
+        // user-facing limits (seed fields are intentionally open-ended), so ignore them.
+        const realMin = min !== undefined && min > Number.MIN_SAFE_INTEGER ? min : undefined
+        const realMax = max !== undefined && max < Number.MAX_SAFE_INTEGER ? max : undefined
+        if (realMin !== undefined) {
+          expect(typeof meta.min, `${f.path} ui:'number' has Zod min ${realMin} but no meta.min`).toBe('number')
+          expect(meta.min!, `${f.path} meta.min < Zod min ${realMin}`).toBeGreaterThanOrEqual(realMin)
+        }
+        if (realMax !== undefined) {
+          expect(typeof meta.max, `${f.path} ui:'number' has Zod max ${realMax} but no meta.max`).toBe('number')
+          expect(meta.max!, `${f.path} meta.max > Zod max ${realMax}`).toBeLessThanOrEqual(realMax)
+        }
+      }
+    })
+
     it(`${d.id}: every segmented field's options mirror the Zod enum values`, () => {
       for (const f of fields) {
         const meta = readMeta(f.field)

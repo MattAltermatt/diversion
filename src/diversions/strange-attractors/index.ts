@@ -54,6 +54,12 @@ const strangeAttractors = defineDiversion<typeof strangeAttractorsSchema, Attrac
   schema: strangeAttractorsSchema,
 
   setup(ctx, config, size) {
+    // Reset context state before the fill — the previous frame's leftover
+    // globalCompositeOperation/globalAlpha (frame() leaves them on a blend mode
+    // + POINT_ALPHA) would otherwise stop the background fill from actually
+    // clearing the old point cloud when switching attractor/seed.
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
     ctx.fillStyle = config.background
     ctx.fillRect(0, 0, size.width, size.height)
     return makeState(config, size.width, size.height)

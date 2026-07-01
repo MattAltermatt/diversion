@@ -143,6 +143,26 @@ describe('lifecycle', () => {
     expect(st.coverage).toBeLessThan(st.fill.length)
   })
 
+  it('fade restarts from transparent on the second cycle (not a stale fadeAlpha≈1 hard-cut)', () => {
+    const st = createSquiralState(squiralSchema.parse({ clearMode: 'fade', fillThreshold: 20, count: 30, speed: 120 }), 160, 120)
+    // Cycle 1: spiral to threshold, then run the fade to completion (back to spiraling).
+    let guard = 0
+    while (st.phase === 'spiraling' && guard++ < 5000) stepSquiral(st, 16)
+    expect(st.phase).toBe('fading')
+    guard = 0
+    while (st.phase === 'fading' && guard++ < 600) stepSquiral(st, 16)
+    expect(st.phase).toBe('spiraling')
+    // Cycle 2: spiral back up to threshold again.
+    guard = 0
+    while (st.phase === 'spiraling' && guard++ < 5000) stepSquiral(st, 16)
+    expect(st.phase).toBe('fading')
+    // The very first fading-phase frame of cycle 2 must start from a fresh
+    // (near-zero) fadeAlpha, not the stale ~1 left over from cycle 1's last
+    // fade frame — otherwise the whole field blanks in a single frame instead
+    // of the configured fadeTime.
+    expect(st.fadeAlpha).toBeLessThan(0.2)
+  })
+
   it('rolling mode holds coverage near the threshold without a hard phase change', () => {
     const st = createSquiralState(squiralSchema.parse({ clearMode: 'rolling', fillThreshold: 50, count: 40, speed: 120 }), 160, 120)
     const cap = Math.floor(0.5 * st.fill.length)

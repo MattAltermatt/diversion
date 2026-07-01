@@ -1,4 +1,4 @@
-import { parseHex8, hexToRgb } from '../../framework/color'
+import { hexToRgb } from '../../framework/color'
 import type { LogCirclesConfig } from './schema'
 
 /** Max palette slots, matched by the `u_tints[8]` uniform in the shader. */
@@ -21,10 +21,10 @@ export function tintsToVec3(tints: string[]): Float32Array {
   const out = new Float32Array(MAX_TINTS * 3)
   const n = Math.min(tints.length, MAX_TINTS)
   for (let i = 0; i < n; i++) {
-    const c = parseHex8(tints[i])
-    out[i * 3] = c.r / 255
-    out[i * 3 + 1] = c.g / 255
-    out[i * 3 + 2] = c.b / 255
+    const [r, g, b] = hexToRgb(tints[i])
+    out[i * 3] = r
+    out[i * 3 + 1] = g
+    out[i * 3 + 2] = b
   }
   return out
 }

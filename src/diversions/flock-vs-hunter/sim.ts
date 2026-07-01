@@ -233,10 +233,14 @@ function endRound(s: Ecosystem): void {
   // immigration: overwrite the last-bred ~10% of slots with fresh random genomes
   // (rngEvo). Elites sit at the front of the bred pool, so they're never clobbered —
   // this refreshes diversity to keep an all-night run from converging and going static.
+  // Clamp the immigrant count to the non-elite tail: at small pool sizes (e.g. a
+  // single predator with predElites=1) an unclamped ~10% still rounds up to 1 and
+  // would overwrite slot 0 — the sole elite's evolved genome — with a fresh random
+  // one every immigration cycle.
   if (s.cfg.immigrateEvery > 0 && s.generation % s.cfg.immigrateEvery === 0) {
-    const fImm = Math.max(1, Math.floor(s.n * 0.1))
+    const fImm = Math.min(Math.max(1, Math.floor(s.n * 0.1)), Math.max(0, s.n - s.cfg.flockElites))
     for (let m = 0; m < fImm; m++) nextFlock[s.n - 1 - m] = rnd(FLOCK_SPEC, s.rngEvo)
-    const pImm = Math.max(1, Math.floor(s.pn * 0.1))
+    const pImm = Math.min(Math.max(1, Math.floor(s.pn * 0.1)), Math.max(0, s.pn - s.cfg.predElites))
     for (let m = 0; m < pImm; m++) nextPred[s.pn - 1 - m] = rnd(PRED_SPEC, s.rngEvo)
   }
   // install: survivors keep bodies; dead slots respawn at the flock centroid

@@ -6,6 +6,7 @@ export interface Center {
   y: number
   vx: number // drift velocity, px/s
   vy: number
+  angle: number // drift direction, radians — fixed at makeCenters, seed-stable
   tint: number // index into cfg.color.tints (glow mode)
   phase: number // total px the leading ring edge has travelled
 }
@@ -29,6 +30,7 @@ function makeCenters(cfg: MoireConfig, w: number, h: number): Center[] {
       y: rng() * h,
       vx: Math.cos(angle) * cfg.driftSpeed,
       vy: Math.sin(angle) * cfg.driftSpeed,
+      angle,
       tint: i,
       phase: rng() * cfg.ringSpacing, // stagger so centers don't pulse in lockstep
     })
@@ -244,6 +246,15 @@ export function drawMoire(state: MoireState, ctx: CanvasRenderingContext2D): voi
  *  false so the framework re-runs setup(); everything else applies in place. */
 export function updateMoireState(state: MoireState, cfg: MoireConfig, w: number, h: number): boolean {
   if (cfg.centers !== state.cfg.centers || cfg.seed !== state.cfg.seed) return false
+  if (cfg.driftSpeed !== state.cfg.driftSpeed) {
+    // Recompute drift velocity from the seed-stable angle so direction survives
+    // a live speed edit — including recovery from a previous speed of 0, where
+    // vx/vy alone would have lost the direction entirely.
+    for (const c of state.centers) {
+      c.vx = Math.cos(c.angle) * cfg.driftSpeed
+      c.vy = Math.sin(c.angle) * cfg.driftSpeed
+    }
+  }
   state.cfg = cfg
   state.w = w
   state.h = h

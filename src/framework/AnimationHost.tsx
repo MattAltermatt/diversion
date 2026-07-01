@@ -148,6 +148,10 @@ export function AnimationHost({
         try {
           run.state = diversion.setup(ctx, next, run.size)
         } catch (e) {
+          // Reseed setup() threw on already-torn-down state: stop the loop so frame()
+          // can't tick the freed state before the error boundary takes over (mirrors
+          // the [config] effect's re-setup catch).
+          loopRef.current?.stop()
           setSetupError(() => {
             throw e
           })

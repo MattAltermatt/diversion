@@ -34,6 +34,7 @@ export interface SquiralState {
   cols: number; rows: number
   fill: Uint8Array           // occupancy (0/1)
   filledOrder: number[]      // FIFO of filled indices (rolling recycle)
+  filledHead: number         // next unrecycled index into filledOrder (avoids O(n) shift)
   coverage: number
   worms: Worm[]
   palette: RGBA[]            // palette colours (cfg.color.colors)
@@ -158,7 +159,7 @@ export function createSquiralState(cfg: SquiralConfig, w: number, h: number): Sq
   const st: SquiralState = {
     cfg, w: W, h: H, cols, rows,
     fill: new Uint8Array(cols * rows),
-    filledOrder: [], coverage: 0,
+    filledOrder: [], filledHead: 0, coverage: 0,
     worms: [],
     palette: cfg.color.colors.map(parseHex8),
     bg: parseHex6(cfg.background),
@@ -189,13 +190,13 @@ function clearCell(st: SquiralState, i: number): void {
 
 /** Reset to a fresh grid for a new cycle (fade/wipe end). */
 function reseed(st: SquiralState): void {
-  st.fill.fill(0); st.filledOrder.length = 0; st.coverage = 0
+  st.fill.fill(0); st.filledOrder.length = 0; st.filledHead = 0; st.coverage = 0
   st.appearing.length = 0 // drop in-flight blooms; the field is repainted bg
   st.cycle++
   st.rng = mulberry32(cycleSeed(st.cfg.seed, st.cycle))
   for (const w of st.worms) spawnWorm(st, w)
   st.phase = 'spiraling'
-  st.fadeElapsed = 0; st.wipeRow = 0
+  st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0
   st.needsClear = true // renderer repaints bg over the faded/wiped field
 }
 
@@ -228,12 +229,23 @@ export function stepSquiral(st: SquiralState, dt: number): void {
 
   if (st.cfg.clearMode === 'rolling') {
     const cap = threshold(st)
-    while (st.coverage > cap && st.filledOrder.length > 0) {
-      clearCell(st, st.filledOrder.shift()!)
+    // Amortized-O(1) FIFO drain: advance a head index instead of Array.shift()
+    // (which is O(n) per call → O(n²)/frame on large grids). Order is
+    // preserved exactly; the consumed prefix is compacted away periodically
+    // rather than on every recycle, so the array doesn't grow unbounded.
+    while (st.coverage > cap && st.filledHead < st.filledOrder.length) {
+      clearCell(st, st.filledOrder[st.filledHead++])
+    }
+    if (st.filledHead > 1024 && st.filledHead * 2 > st.filledOrder.length) {
+      st.filledOrder = st.filledOrder.slice(st.filledHead)
+      st.filledHead = 0
     }
   } else if (st.coverage >= threshold(st)) {
     st.phase = st.cfg.clearMode === 'wipe' ? 'wiping' : 'fading'
-    st.fadeElapsed = 0; st.wipeRow = 0
+    // Reset fade progress on (re)entry — without this, cycle 2+ starts fading
+    // from the previous cycle's stale fadeAlpha≈1 and hard-cuts to bg in one
+    // frame instead of the configured fadeTime.
+    st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0
   }
 }
 
@@ -247,8 +259,19 @@ export function updateSquiralState(st: SquiralState, cfg: SquiralConfig, _size: 
     cfg.seed !== st.cfg.seed ||
     cfg.background !== st.cfg.background
   ) return false
+  const paletteChanged = JSON.stringify(cfg.color.colors) !== JSON.stringify(st.cfg.color.colors)
+  const cycleChanged = cfg.cycle !== st.cfg.cycle
   st.cfg = cfg
   st.palette = cfg.color.colors.map(parseHex8)
+  if (paletteChanged || cycleChanged) {
+    // Re-pick each worm's fixed palette colour and refresh its cycle step so a
+    // live palette/cycle edit reaches actively-drawing worms — otherwise worms
+    // keep their stale colour and toggling cycle does nothing until a reseed.
+    for (const w of st.worms) {
+      w.fixed = st.palette[Math.floor(st.rng() * st.palette.length)] ?? st.palette[0]
+      w.colorStep = cfg.cycle ? (0.004 + st.rng() * 0.012) : 0
+    }
+  }
   return true
 }
 
@@ -256,7 +279,7 @@ export function updateSquiralState(st: SquiralState, cfg: SquiralConfig, _size: 
 export function resizeSquiralState(st: SquiralState, size: Size): void {
   const fresh = createSquiralState(st.cfg, Math.max(1, size.width), Math.max(1, size.height))
   st.w = fresh.w; st.h = fresh.h; st.cols = fresh.cols; st.rows = fresh.rows
-  st.fill = fresh.fill; st.filledOrder = fresh.filledOrder; st.coverage = 0
+  st.fill = fresh.fill; st.filledOrder = fresh.filledOrder; st.filledHead = fresh.filledHead; st.coverage = 0
   st.worms = fresh.worms; st.palette = fresh.palette; st.bg = fresh.bg
   st.rng = fresh.rng; st.cycle = 0
   st.phase = 'spiraling'; st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0

@@ -169,6 +169,27 @@ describe('updateMoireState live vs structural', () => {
     const s = createMoireState(base, 800, 600)
     expect(updateMoireState(s, { ...base, seed: 99 }, 800, 600)).toBe(false)
   })
+
+  it('recomputes drift velocity live so Drift speed edits are not a no-op', () => {
+    const cfg = { ...base, driftSpeed: 10 }
+    const s = createMoireState(cfg, 800, 600)
+    updateMoireState(s, { ...cfg, driftSpeed: 50 }, 800, 600)
+    for (const c of s.centers) {
+      expect(Math.hypot(c.vx, c.vy)).toBeCloseTo(50, 5)
+    }
+  })
+
+  it('recovers drift direction when speed goes from 0 back up', () => {
+    const cfg = { ...base, driftSpeed: 0 }
+    const s = createMoireState(cfg, 800, 600)
+    const angles = s.centers.map((c) => c.angle)
+    updateMoireState(s, { ...cfg, driftSpeed: 30 }, 800, 600)
+    s.centers.forEach((c, i) => {
+      expect(Math.hypot(c.vx, c.vy)).toBeCloseTo(30, 5)
+      expect(c.vx).toBeCloseTo(Math.cos(angles[i]) * 30, 5)
+      expect(c.vy).toBeCloseTo(Math.sin(angles[i]) * 30, 5)
+    })
+  })
 })
 
 describe('resizeMoireState', () => {

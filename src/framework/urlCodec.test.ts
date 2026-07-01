@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization, hasFreshLoadRandomization } from './urlCodec'
+import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization } from './urlCodec'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -329,11 +329,5 @@ describe('applyFreshLoadRandomization', () => {
     expect(pinned.get('seed')).toBe('4242')
     // and it reproduces the exact seed on decode
     expect(decodeConfig(freshSchema, pinned).seed).toBe(4242)
-  })
-
-  it('hasFreshLoadRandomization detects the opt-in', () => {
-    expect(hasFreshLoadRandomization(freshSchema)).toBe(true)
-    const plain = z.object({ a: z.number().default(1).meta({ ui: 'number', label: 'A' }) })
-    expect(hasFreshLoadRandomization(plain)).toBe(false)
   })
 })

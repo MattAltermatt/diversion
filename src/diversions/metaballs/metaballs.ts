@@ -37,12 +37,19 @@ void main() {
     float r = u_blobs[i].z;
     field += (r * r) / max(dot(d, d), 1e-4);
   }
-  float iso  = smoothstep(u_threshold - u_edge, u_threshold + u_edge, field);
+  // Guard against edge==0 (slider min): smoothstep(edge0, edge1, x) is undefined
+  // behavior in GLSL when edge0 >= edge1, so floor u_edge at a tiny epsilon here
+  // rather than in the schema (the slider's 0 min is still valid UI).
+  float e    = max(u_edge, 1e-4);
+  float iso  = smoothstep(u_threshold - e, u_threshold + e, field);
   float core = smoothstep(u_threshold, u_threshold * 2.0, field);
   vec3 blob  = mix(u_colorA, u_colorB, core);
   vec3 col   = mix(u_bg, blob, iso);
-  // bounded sub-threshold glow halo
-  float halo = smoothstep(u_threshold - u_edge - 0.6, u_threshold - u_edge, field) * (1.0 - iso);
+  // bounded sub-threshold glow halo — clamp the band floor at 0 so a low
+  // threshold can't push it negative, which would leak the halo below field=0
+  // (i.e. into empty background far from any blob) and wash out contrast.
+  float haloFloor = max(u_threshold - e - 0.6, 0.0);
+  float halo = smoothstep(haloFloor, u_threshold - e, field) * (1.0 - iso);
   col += u_colorA * (u_glow * 0.6) * halo;
   fragColor = vec4(col, 1.0);
 }`
