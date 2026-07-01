@@ -14,8 +14,8 @@ export const particleLifeGpuSchema = z.object({
   count: z.number().int().min(500).max(25000).default(8000)
     .meta({ section: 'Life', ui: 'slider', min: 500, max: 25000, step: 500, label: 'Particles',
             help: 'How many particles fill the field. The GPU compute sim holds many thousands smoothly — far past the CPU version. Pair a high count with a bigger World size so the arena has room; 8000 stays buttery anywhere.' }),
-  colors: z.number().int().min(3).max(8).default(6)
-    .meta({ section: 'Life', ui: 'slider', min: 3, max: 8, step: 1, label: 'Species',
+  colors: z.number().int().min(3).max(12).default(6)
+    .meta({ section: 'Life', ui: 'slider', min: 3, max: 12, step: 1, label: 'Species',
             help: 'Number of distinct colors. Each species pair has its own attract/repel rule, so more species = a busier ecosystem of relationships.' }),
   worldSize: z.number().min(1).max(8).default(1)
     .meta({ section: 'Life', ui: 'slider', min: 1, max: 8, step: 0.5, label: 'World size',

@@ -18,6 +18,12 @@ describe('particle-life-gpu schema', () => {
     expect(() => particleLifeGpuSchema.parse({ count: 499 })).toThrow()
   })
 
+  it('allows up to 12 species (#219)', () => {
+    expect(() => particleLifeGpuSchema.parse({ colors: 12 })).not.toThrow()
+    expect(() => particleLifeGpuSchema.parse({ colors: 13 })).toThrow()
+    expect(() => particleLifeGpuSchema.parse({ colors: 2 })).toThrow()
+  })
+
   // Exemplifies the seed keystone (the contract #193 found missing across 16/19
   // diversions): the seed is randomizeOnFreshLoad, so a shared link is seedless
   // (new world every visit) and only an explicit ?seed / the 📌 pinned link carries it.

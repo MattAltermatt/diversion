@@ -6,8 +6,8 @@ export const particleLifeSchema = z.object({
   count: z.number().int().min(200).max(4000).default(1500)
     .meta({ section: 'Life', ui: 'slider', min: 200, max: 4000, step: 100, label: 'Particles',
             help: 'How many particles fill the field. 1500 stays smooth and reads as a living broth. More = denser, richer structures (and more CPU).' }),
-  colors: z.number().int().min(3).max(8).default(6)
-    .meta({ section: 'Life', ui: 'slider', min: 3, max: 8, step: 1, label: 'Species',
+  colors: z.number().int().min(3).max(12).default(6)
+    .meta({ section: 'Life', ui: 'slider', min: 3, max: 12, step: 1, label: 'Species',
             help: 'Number of distinct colors. Each species pair has its own attract/repel rule, so more species = a busier ecosystem of relationships.' }),
 
   rMax: z.number().min(30).max(160).default(80)

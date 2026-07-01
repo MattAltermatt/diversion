@@ -5,8 +5,6 @@
 // with demon #77.)
 import { mulberry32 } from '../../framework/rng'
 
-export const MAX_SPECIES = 8
-
 export type Symmetry = 'Asymmetric' | 'Symmetric'
 
 const clamp1 = (v: number) => (v < -1 ? -1 : v > 1 ? 1 : v)
