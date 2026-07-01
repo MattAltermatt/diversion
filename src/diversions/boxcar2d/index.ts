@@ -41,6 +41,19 @@ const REBUILD_MARGIN = 60
 // kicks in (light truss cars need a beat to orient). Per car (stepsThisCar resets
 // on spawn). Goal-reach + time cap still apply during grace.
 const GRACE_STEPS = 10 * 60 // 10 s at 60 Hz
+// Mutation annealing: the rate cools from the schema's `mutationRate` (now a gen-1
+// PEAK) toward a floor over ANNEAL_GENS generations. Wide early search keeps the
+// "flailing wrecks" opening vivid; a low late rate lets a good car fine-tune
+// instead of being shaken apart every generation (measured: a flat 0.21 made
+// 40/40 elite children worse). Exogenous + deterministic — no genome-shape cost.
+const ANNEAL_GENS = 8
+const MUTATION_FLOOR_FRAC = 0.25
+/** Mutation rate for a generation: gen-1 peak → floor (peak·FRAC) by ANNEAL_GENS. */
+export function annealedRate(peak: number, generation: number): number {
+  const floor = peak * MUTATION_FLOOR_FRAC
+  const t = Math.min(1, Math.max(0, (generation - 1) / ANNEAL_GENS))
+  return peak + (floor - peak) * t
+}
 // Track lifespan slider at its max = never regenerate (one track, mastered forever).
 // Derived from the schema so it can never drift from the slider's actual max.
 const TRACK_LIFESPAN_MAX = readMeta(boxcar2dSchema.shape.trackLifespan)!.max!
@@ -202,7 +215,13 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
     if (state.generation === 3) state.thirdGenFitness = state.scored.map((s) => s.fitness)
     state.population = breedGeneration(
       state.scored,
-      { eliteCount: state.cfg.eliteCount, mutationRate: state.cfg.mutationRate, ranges: DEFAULT_RANGES },
+      {
+        eliteCount: state.cfg.eliteCount,
+        // anneal: cfg.mutationRate is the gen-1 peak, cooling toward a floor as
+        // the population converges (state.generation = the gen that just bred).
+        mutationRate: annealedRate(state.cfg.mutationRate, state.generation),
+        ranges: DEFAULT_RANGES,
+      },
       state.rng,
     )
     state.generation++

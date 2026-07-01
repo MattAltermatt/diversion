@@ -6,7 +6,7 @@ import { PresetPicker } from '../framework/PresetPicker'
 import { Subpanel } from '../framework/controls/Subpanel'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
-import { encodeConfig, decodeConfig } from '../framework/urlCodec'
+import { encodeConfig, decodeConfig, applyFreshLoadRandomization } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
 
 export function ConfigScreen() {
@@ -17,9 +17,16 @@ export function ConfigScreen() {
   const diversion = getDiversion(slug!)
 
   // Initialise from the router URL (stable initializer); fall back to defaults.
-  const [config, setConfig] = useState(() =>
-    diversion ? decodeConfig(diversion.schema, new URLSearchParams(location.search)) : null,
-  )
+  const [config, setConfig] = useState(() => {
+    if (!diversion) return null
+    const params = new URLSearchParams(location.search)
+    const decoded = decodeConfig(diversion.schema, params)
+    // Bare load (no params) → roll a fresh seed so the config screen also opens on
+    // a new run (matching PlayScreen). Any edit then writes it to the URL.
+    return [...params].length === 0
+      ? applyFreshLoadRandomization(diversion.schema, decoded)
+      : decoded
+  })
   // Bumping this remounts AnimationHost (via its key) → a clean teardown + fresh
   // setup() with the current config, so the animation restarts from frame zero
   // (re-seeded maze, regrown slime) without reloading the page or losing edits.

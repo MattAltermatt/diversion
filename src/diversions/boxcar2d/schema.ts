@@ -10,7 +10,7 @@ export const boxcar2dSchema = z.object({
             help: 'Top cars copied unchanged into the next generation so the champion is never lost. Keep it well below Population — at or above it the whole generation is carried verbatim and evolution stalls.' }),
   mutationRate: z.number().min(0).max(1).default(0.21)
     .meta({ section: 'Evolution', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Mutation rate',
-            help: 'Chance each gene drifts when breeding. Low = slow steady improvement; high = wild, jittery search.' }),
+            help: 'Chance each gene drifts when breeding — at generation 1. The rate then cools over the next several generations so good cars stop being shaken apart and start fine-tuning. Low = calm; high = wild early search.' }),
   // Range goes to 51 so the slider's TOP is a distinct ∞ sentinel: 1–50 stay
   // finite ("regen every N gens", so 50 is still expressible), 51 = never regen.
   trackLifespan: z.number().int().min(1).max(51).default(51)
@@ -33,9 +33,9 @@ export const boxcar2dSchema = z.object({
   terrainType: z.enum(TERRAIN_TYPES).default('dunes')
     .meta({ section: 'Track', ui: 'segmented', options: [...TERRAIN_TYPES], label: 'Terrain',
             help: 'Shape of the hills: rolling, big dunes, stepped plateaus, or sharp ridges.' }),
-  rubbleDensity: z.number().min(0).max(8).default(1)
+  rubbleDensity: z.number().min(0).max(8).default(0)
     .meta({ section: 'Track', ui: 'slider', min: 0, max: 8, step: 1, label: 'Rubble',
-            help: 'Loose blocks per ~10 m that slow the car, starting ~100 m past the launch (the first stretch is always clear). 0 = none. The layout resets for every car — fair for all.' }),
+            help: 'Loose blocks per ~10 m that slow the car, starting ~100 m past the launch (the first stretch is always clear). 0 = none (default). The layout resets for every car — fair for all.' }),
   minProgress: z.number().min(0.2).max(10).default(2)
     .meta({ section: 'Evolution', ui: 'slider', min: 0.2, max: 10, step: 0.1, label: 'Min progress (m)',
             help: 'A car is culled if it fails to gain this much new distance within the progress window — catches cars that are moving but effectively stuck (spinning, backflipping, creeping).' }),
@@ -56,8 +56,8 @@ export const boxcar2dSchema = z.object({
   }).default({ chassis: '#ffb703', wheel: '#ffffff', terrain: '#2a3b2f', sky: '#0e1626' })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed regenerates the same track and the same evolutionary run.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same track and the same evolutionary run. A fresh visit (no share-link) rolls a new one, so every load is a different run.' }),
 })
 
 export type BoxCar2DConfig = z.infer<typeof boxcar2dSchema>

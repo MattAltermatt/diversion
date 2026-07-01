@@ -61,8 +61,30 @@ describe('pairIndex', () => {
   })
 })
 
+describe('randomGenome new physics genes', () => {
+  it('draws node radius/friction + wheel suspension in their anti-jitter-safe ranges', () => {
+    for (let s = 1; s <= 30; s++) {
+      const g = randomGenome(mulberry32(s))
+      for (const n of g.nodes) {
+        expect(n.radius).toBeGreaterThanOrEqual(DEFAULT_RANGES.nodeRadiusMin)
+        expect(n.radius).toBeLessThanOrEqual(DEFAULT_RANGES.nodeRadiusMax)
+        expect(n.friction).toBeGreaterThanOrEqual(DEFAULT_RANGES.nodeFrictionMin)
+        expect(n.friction).toBeLessThanOrEqual(DEFAULT_RANGES.nodeFrictionMax)
+      }
+      for (const w of g.wheels) {
+        expect(w.suspensionDamping).toBeGreaterThanOrEqual(DEFAULT_RANGES.suspDampingMin) // floor > bouncy 0.7
+        expect(w.suspensionDamping).toBeLessThanOrEqual(DEFAULT_RANGES.suspDampingMax)
+        expect(w.suspensionHertz).toBeGreaterThanOrEqual(DEFAULT_RANGES.suspHertzMin)
+        expect(w.suspensionHertz).toBeLessThanOrEqual(DEFAULT_RANGES.suspHertzMax)
+        expect(Math.abs(w.suspensionAxis)).toBeLessThanOrEqual(DEFAULT_RANGES.suspAxisMax)
+        expect(w.suspensionTravel).toBeGreaterThanOrEqual(DEFAULT_RANGES.suspTravelMin)
+      }
+    }
+  })
+})
+
 describe('crossover', () => {
-  it('every gene comes from a parent and the child is valid + deterministic', () => {
+  it('every pair gene comes from a parent and the child is valid + deterministic', () => {
     const a = randomGenome(mulberry32(1)), b = randomGenome(mulberry32(2))
     const child = crossover(a, b, mulberry32(3))
     child.pairs.forEach((p, i) =>
@@ -70,6 +92,30 @@ describe('crossover', () => {
     expect(countNodes(child)).toBeGreaterThanOrEqual(MIN_NODES)
     expect(countWheels(child)).toBeGreaterThanOrEqual(MIN_WHEELS)
     expect(crossover(a, b, mulberry32(3))).toEqual(crossover(a, b, mulberry32(3)))
+  })
+
+  it('inherits each node record coherently from ONE parent (no coordinate mixing)', () => {
+    const a = randomGenome(mulberry32(1)), b = randomGenome(mulberry32(2))
+    const child = crossover(a, b, mulberry32(3))
+    child.nodes.forEach((n, i) => {
+      const fromA = n.x === a.nodes[i].x && n.y === a.nodes[i].y &&
+        n.mass === a.nodes[i].mass && n.radius === a.nodes[i].radius && n.friction === a.nodes[i].friction
+      const fromB = n.x === b.nodes[i].x && n.y === b.nodes[i].y &&
+        n.mass === b.nodes[i].mass && n.radius === b.nodes[i].radius && n.friction === b.nodes[i].friction
+      expect(fromA || fromB).toBe(true) // a node is never a chimera of both parents
+    })
+  })
+
+  it('mounts each child wheel on an active node and keeps the suspension coherent', () => {
+    const a = randomGenome(mulberry32(4)), b = randomGenome(mulberry32(5))
+    const child = crossover(a, b, mulberry32(6))
+    for (const w of child.wheels) {
+      if (!w.present) continue
+      expect(child.nodes[w.node].present).toBe(true)
+      // a present wheel's suspension fields are all finite + in their safe band
+      expect(w.suspensionDamping).toBeGreaterThanOrEqual(DEFAULT_RANGES.suspDampingMin)
+      expect(Number.isFinite(w.suspensionAxis)).toBe(true)
+    }
   })
 })
 

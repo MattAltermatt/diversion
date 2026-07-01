@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import diversion from './index'
+import diversion, { annealedRate } from './index'
 import { boxcar2dSchema } from './schema'
 
 const SIZE = { width: 800, height: 600 }
@@ -31,6 +31,17 @@ function fakeCtx(): CanvasRenderingContext2D {
     textBaseline: 'top',
   } as unknown as CanvasRenderingContext2D
 }
+
+describe('annealedRate', () => {
+  it('cools from the gen-1 peak toward a lower floor', () => {
+    const peak = 0.21
+    expect(annealedRate(peak, 1)).toBeCloseTo(peak, 6)        // gen 1 = peak
+    expect(annealedRate(peak, 9)).toBeCloseTo(peak * 0.25, 6) // by gen 9 = floor (ANNEAL_GENS=8)
+    expect(annealedRate(peak, 5)).toBeLessThan(peak)          // monotonically cooling
+    expect(annealedRate(peak, 5)).toBeGreaterThan(peak * 0.25)
+    expect(annealedRate(peak, 20)).toBeCloseTo(peak * 0.25, 6) // clamps at the floor
+  })
+})
 
 describe('boxcar2d diversion', () => {
   it('has the required contract fields', () => {

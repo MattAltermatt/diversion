@@ -43,8 +43,10 @@ describe('carCentroid', () => {
 describe('wheel attachment', () => {
   it('wheels stay attached to the truss after a long run (no fling-off)', () => {
     // Regression: an unbounded wheel-joint axis let wheels slide off their
-    // free-spinning node anchors and shoot away. Travel is now capped, so each
-    // wheel must stay within ~WHEEL_TRAVEL of its mount node for the whole run.
+    // free-spinning node anchors and shoot away. Suspension travel is now a per-
+    // wheel gene capped at suspTravelMax (0.09 m), with stiffness/damping floors
+    // that keep the soft extreme from overshooting the joint limit — so each wheel
+    // must stay within ~0.12 m (max travel + solver slack) of its mount node.
     for (const seed of [1, 7, 13, 21]) {
       const g = randomGenome(mulberry32(seed))
       const world = createWorld(-10)

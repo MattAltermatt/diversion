@@ -1,4 +1,5 @@
-import type { ZodObject } from 'zod'
+import type { ZodObject, ZodType } from 'zod'
+import { readMeta } from './fieldMeta'
 
 type Json = Record<string, unknown>
 
@@ -197,6 +198,31 @@ export function encodeConfig<T extends ZodObject<any>>(
     sp.set(encode.get(path) ?? path, v) // full snapshot — every field, flat leaf name
   }
   return sp
+}
+
+/**
+ * On a bare page load (empty query string), replace each top-level field flagged
+ * `randomizeOnFreshLoad` with a fresh random integer, so every visit shows a
+ * different run. Share-links carry an explicit value for the field, so this only
+ * ever fires when there are NO params — saved links still reproduce exactly.
+ */
+export function applyFreshLoadRandomization<T extends ZodObject<any>>(
+  schema: T,
+  config: ReturnType<T['parse']>,
+  rand: () => number = Math.random,
+): ReturnType<T['parse']> {
+  const out: Json = { ...(config as Json) }
+  for (const [key, field] of Object.entries(schema.shape)) {
+    if (readMeta(field as ZodType)?.randomizeOnFreshLoad) out[key] = Math.floor(rand() * 1e9)
+  }
+  return out as ReturnType<T['parse']>
+}
+
+/** Does any top-level field opt into fresh-load randomization? When true, a bare
+ *  load rolls a value not present in the (empty) URL, so the chrome must encode the
+ *  active config to carry it; when false, a bare load stays a clean param-free URL. */
+export function hasFreshLoadRandomization(schema: ZodObject<any>): boolean {
+  return Object.values(schema.shape).some(f => readMeta(f as ZodType)?.randomizeOnFreshLoad)
 }
 
 export function decodeConfig<T extends ZodObject<any>>(

@@ -22,7 +22,14 @@ const NODE_PRESENT_P = 0.7
 const WHEEL_PRESENT_P = 0.55
 const POWERED_P = 0.7
 
-export interface NodeGene { present: boolean; x: number; y: number; mass: number }
+export interface NodeGene {
+  present: boolean
+  x: number
+  y: number
+  mass: number
+  radius: number // collision-disc size (m) — was the fixed NODE_RADIUS
+  friction: number // node-vs-terrain friction — was the fixed NODE_FRICTION
+}
 export interface PairGene { stiffness: number; damping: number } // both 0..1
 export interface WheelGene {
   present: boolean
@@ -33,6 +40,13 @@ export interface WheelGene {
   powered: boolean
   motorSpeed: number // forward drive speed (rad/s), always ≥ 0
   torque: number
+  // suspension — previously the fixed WHEEL_HERTZ/DAMPING/TRAVEL + vertical axis.
+  // Ranges stay inside the anti-jitter-safe band (see DEFAULT_RANGES) so widening
+  // these into genes can't reintroduce the wobble/bounce the constants killed.
+  suspensionHertz: number // spring stiffness (Hz)
+  suspensionDamping: number // damping ratio (≥ 0.85 = never bouncy)
+  suspensionAxis: number // rake angle (rad) off vertical; axis = (sin θ, cos θ)
+  suspensionTravel: number // axle travel cap (m)
 }
 export interface Genome { nodes: NodeGene[]; pairs: PairGene[]; wheels: WheelGene[] }
 
@@ -40,11 +54,19 @@ export interface GenomeRanges {
   nodeXMin: number; nodeXMax: number
   nodeYMin: number; nodeYMax: number
   nodeMassMin: number; nodeMassMax: number
+  nodeRadiusMin: number; nodeRadiusMax: number
+  nodeFrictionMin: number; nodeFrictionMax: number
   wheelRMin: number; wheelRMax: number
   gripMin: number; gripMax: number
   wheelMassMin: number; wheelMassMax: number
   motorSpeedMin: number; motorSpeedMax: number // forward only (≥ 0)
   torqueMin: number; torqueMax: number
+  // suspension — anti-jitter-safe bands (damping floor kept above the bouncy 0.7;
+  // hertz capped under the truss buzz limit; axis a visible ±30° rake; travel a few cm).
+  suspHertzMin: number; suspHertzMax: number
+  suspDampingMin: number; suspDampingMax: number
+  suspAxisMin: number; suspAxisMax: number // radians off vertical
+  suspTravelMin: number; suspTravelMax: number
 }
 
 // 🎚️ tunable defaults (meters / density / rad·s⁻¹). Wide ranges → varied, often
@@ -52,12 +74,25 @@ export interface GenomeRanges {
 export const DEFAULT_RANGES: GenomeRanges = {
   nodeXMin: -1.2, nodeXMax: 1.2,
   nodeYMin: -0.8, nodeYMax: 0.8,
-  nodeMassMin: 0.5, nodeMassMax: 3,
+  // node mass is DENSITY on a small (r≈0.1) disc, so the range must run high for a
+  // chassis to outweigh the (much larger-area) wheels — otherwise the wheel-joint
+  // motor's reaction just spins the light chassis instead of driving the wheels,
+  // and no car can climb (measured: light chassis 25 m vs heavy chassis 619 m).
+  nodeMassMin: 2, nodeMassMax: 40,
+  nodeRadiusMin: 0.06, nodeRadiusMax: 0.16, // < typical node spacing → Delaunay stays sane
+  nodeFrictionMin: 0.10, nodeFrictionMax: 1.00, // no resonance risk either end → fully open
   wheelRMin: 0.15, wheelRMax: 0.65,
   gripMin: 0.3, gripMax: 1.5,
-  wheelMassMin: 0.5, wheelMassMax: 2,
+  wheelMassMin: 0.3, wheelMassMax: 1.2, // lighter rims → the chassis can dominate the mass budget
   motorSpeedMin: 6, motorSpeedMax: 30,
   torqueMin: 50, torqueMax: 180,
+  // Stiffness/damping floors + a short travel ceiling keep the SOFT extreme from
+  // overshooting the (soft) joint limit under hard impacts — i.e. no wheel slides
+  // off its node anchor (the fling-off the original 4Hz/1.0/0.06 config prevented).
+  suspHertzMin: 3.5, suspHertzMax: 6, // sub-range of truss HERTZ; wheel buzz reads worse → narrow
+  suspDampingMin: 0.85, suspDampingMax: 1.00, // floor above the bouncy 0.7; ceiling = critically damped
+  suspAxisMin: -0.52, suspAxisMax: 0.52, // ±30° rake; beyond loses vertical compliance
+  suspTravelMin: 0.03, suspTravelMax: 0.09, // non-zero floor (else shock → buzz); short ceiling = stays attached
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -69,12 +104,22 @@ export function pairIndex(i: number, j: number): number {
   return i * MAX_NODES - (i * (i + 1)) / 2 + (j - i - 1)
 }
 
+// Informed-prior skews for the RANDOM genome only (mutation still roams the full
+// range, so "everything evolvable" holds). Birth cars start physically plausible —
+// a heavy chassis over light wheels — so most of gen 1 can actually drive/climb
+// instead of being motor-spun blobs. `skewHi`/`skewLo` bias a uniform draw toward
+// the top / bottom of a range without ever leaving it.
+const skewHi = (rng: () => number) => 0.5 + 0.5 * rng() // → upper half of the range
+const skewLo = (rng: () => number) => 0.5 * rng()       // → lower half of the range
+
 export function randomGenome(rng: () => number, r: GenomeRanges = DEFAULT_RANGES): Genome {
   const nodes: NodeGene[] = Array.from({ length: MAX_NODES }, () => ({
     present: rng() < NODE_PRESENT_P,
     x: lerp(r.nodeXMin, r.nodeXMax, rng()),
     y: lerp(r.nodeYMin, r.nodeYMax, rng()),
-    mass: lerp(r.nodeMassMin, r.nodeMassMax, rng()),
+    mass: lerp(r.nodeMassMin, r.nodeMassMax, skewHi(rng)), // heavy chassis (prior)
+    radius: lerp(r.nodeRadiusMin, r.nodeRadiusMax, rng()),
+    friction: lerp(r.nodeFrictionMin, r.nodeFrictionMax, rng()),
   }))
   const pairs: PairGene[] = Array.from({ length: N_PAIRS }, () => ({
     // skew stiffness toward 1 so MOST members are rigid bars and springs are a
@@ -87,10 +132,14 @@ export function randomGenome(rng: () => number, r: GenomeRanges = DEFAULT_RANGES
     node: Math.floor(rng() * MAX_NODES),
     radius: lerp(r.wheelRMin, r.wheelRMax, rng()),
     grip: lerp(r.gripMin, r.gripMax, rng()),
-    mass: lerp(r.wheelMassMin, r.wheelMassMax, rng()),
+    mass: lerp(r.wheelMassMin, r.wheelMassMax, skewLo(rng)), // light rims (prior)
     powered: rng() < POWERED_P,
     motorSpeed: lerp(r.motorSpeedMin, r.motorSpeedMax, rng()),
     torque: lerp(r.torqueMin, r.torqueMax, rng()),
+    suspensionHertz: lerp(r.suspHertzMin, r.suspHertzMax, rng()),
+    suspensionDamping: lerp(r.suspDampingMin, r.suspDampingMax, rng()),
+    suspensionAxis: lerp(r.suspAxisMin, r.suspAxisMax, rng()),
+    suspensionTravel: lerp(r.suspTravelMin, r.suspTravelMax, rng()),
   }))
   return repair({ nodes, pairs, wheels })
 }
@@ -127,28 +176,43 @@ export function repair(g: Genome): Genome {
   return g
 }
 
+/**
+ * Subassembly-aware crossover. The truss is brutally epistatic — toggling one
+ * node's `present` re-runs the Delaunay triangulation and rewires the whole
+ * structure — so the old uniform per-gene pick routinely shattered good cars
+ * (measured: 31/40 crossovers produced a child worse than BOTH parents). This
+ * inherits coherent UNITS instead: a node's whole record, a strut tied to an
+ * endpoint's source, and a wheel that travels with its mount node. Deterministic
+ * (fixed rng-call order) and repair-compatible.
+ */
 export function crossover(a: Genome, b: Genome, rng: () => number): Genome {
-  const pick = <T,>(x: T, y: T) => (rng() < 0.5 ? x : y)
-  const nodes = a.nodes.map((n, i) => ({
-    present: pick(n.present, b.nodes[i].present),
-    x: pick(n.x, b.nodes[i].x),
-    y: pick(n.y, b.nodes[i].y),
-    mass: pick(n.mass, b.nodes[i].mass),
-  }))
-  const pairs = a.pairs.map((p, i) => ({
-    stiffness: pick(p.stiffness, b.pairs[i].stiffness),
-    damping: pick(p.damping, b.pairs[i].damping),
-  }))
-  const wheels = a.wheels.map((w, i) => ({
-    present: pick(w.present, b.wheels[i].present),
-    node: pick(w.node, b.wheels[i].node),
-    radius: pick(w.radius, b.wheels[i].radius),
-    grip: pick(w.grip, b.wheels[i].grip),
-    mass: pick(w.mass, b.wheels[i].mass),
-    powered: pick(w.powered, b.wheels[i].powered),
-    motorSpeed: pick(w.motorSpeed, b.wheels[i].motorSpeed),
-    torque: pick(w.torque, b.wheels[i].torque),
-  }))
+  // Pass 1 — whole-NODE inheritance: each slot's entire record (incl. radius /
+  // friction) comes from ONE parent, never split.
+  const nodeFromA = a.nodes.map(() => rng() < 0.5)
+  const nodes = a.nodes.map((n, i) => ({ ...(nodeFromA[i] ? n : b.nodes[i]) }))
+  // Pass 2 — a strut (i,j) follows its LOWER-index endpoint's node source
+  // (reuses nodeFromA, no extra rng), keeping its tuning coherent with a node it joins.
+  const pairs = a.pairs.map(p => ({ ...p }))
+  for (let i = 0; i < MAX_NODES; i++)
+    for (let j = i + 1; j < MAX_NODES; j++) {
+      const src = nodeFromA[i] ? a : b
+      pairs[pairIndex(i, j)] = { ...src.pairs[pairIndex(i, j)] }
+    }
+  // Pass 3 — wheel SUBASSEMBLY: the wheel mounted on node i travels with node i's
+  // source parent, so a tuned mount (motor + grip + suspension) survives as one unit.
+  const wheels: WheelGene[] = []
+  for (let i = 0; i < MAX_NODES && wheels.length < MAX_WHEELS; i++) {
+    if (!nodes[i].present) continue
+    const src = nodeFromA[i] ? a : b
+    const w = src.wheels.find(w => w.present && w.node === i)
+    if (w) wheels.push({ ...w, node: i })
+  }
+  // Pass 4 — fill any remaining slots by a per-slot coin flip over the raw parent
+  // arrays (keeps wheel-count diversity; gives repair() raw material).
+  let j = 0
+  while (wheels.length < MAX_WHEELS) {
+    wheels.push({ ...(rng() < 0.5 ? a.wheels[j] : b.wheels[j]) }); j++
+  }
   return repair({ nodes, pairs, wheels })
 }
 
@@ -161,6 +225,8 @@ export function mutate(g: Genome, rate: number, rng: () => number, r: GenomeRang
     x: jit(n.x, r.nodeXMin, r.nodeXMax),
     y: jit(n.y, r.nodeYMin, r.nodeYMax),
     mass: jit(n.mass, r.nodeMassMin, r.nodeMassMax),
+    radius: jit(n.radius, r.nodeRadiusMin, r.nodeRadiusMax),
+    friction: jit(n.friction, r.nodeFrictionMin, r.nodeFrictionMax),
   }))
   const pairs = g.pairs.map(p => ({
     stiffness: jit(p.stiffness, 0, 1),
@@ -175,6 +241,10 @@ export function mutate(g: Genome, rate: number, rng: () => number, r: GenomeRang
     powered: flip(w.powered),
     motorSpeed: jit(w.motorSpeed, r.motorSpeedMin, r.motorSpeedMax),
     torque: jit(w.torque, r.torqueMin, r.torqueMax),
+    suspensionHertz: jit(w.suspensionHertz, r.suspHertzMin, r.suspHertzMax),
+    suspensionDamping: jit(w.suspensionDamping, r.suspDampingMin, r.suspDampingMax),
+    suspensionAxis: jit(w.suspensionAxis, r.suspAxisMin, r.suspAxisMax),
+    suspensionTravel: jit(w.suspensionTravel, r.suspTravelMin, r.suspTravelMax),
   }))
   return repair({ nodes, pairs, wheels })
 }

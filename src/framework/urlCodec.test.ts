@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions } from './urlCodec'
+import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization, hasFreshLoadRandomization } from './urlCodec'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -288,5 +288,27 @@ describe('decodeConfig — per-field graceful degradation', () => {
     const out = decodeConfig(pSchema, new URLSearchParams('label=ember&colors=bad,#00ff00ff'))
     expect(out.label).toBe('ember') // good field kept
     expect(out.palette.colors).toEqual(['#11223344']) // bad array → default
+  })
+})
+
+describe('applyFreshLoadRandomization', () => {
+  const freshSchema = z.object({
+    seed: z.number().int().default(42).meta({ ui: 'number', label: 'Seed', randomizeOnFreshLoad: true }),
+    count: z.number().int().default(7).meta({ ui: 'number', label: 'Count' }),
+  })
+
+  it('rolls flagged fields to a random integer, leaves unflagged ones', () => {
+    const base = freshSchema.parse({})
+    const rolled = applyFreshLoadRandomization(freshSchema, base, () => 0.5)
+    expect(rolled.seed).toBe(Math.floor(0.5 * 1e9)) // flagged → rolled from rand
+    expect(rolled.count).toBe(base.count) // unflagged → untouched
+    // a different rand stream yields a different seed (so refresh → new run)
+    expect(applyFreshLoadRandomization(freshSchema, base, () => 0.9).seed).not.toBe(rolled.seed)
+  })
+
+  it('hasFreshLoadRandomization detects the opt-in', () => {
+    expect(hasFreshLoadRandomization(freshSchema)).toBe(true)
+    const plain = z.object({ a: z.number().default(1).meta({ ui: 'number', label: 'A' }) })
+    expect(hasFreshLoadRandomization(plain)).toBe(false)
   })
 })

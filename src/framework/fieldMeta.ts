@@ -16,6 +16,7 @@ export interface FieldMeta {
   options?: string[] // for ui:'segmented' (mirrors enum values)
   showWhen?: { field: string; equals: string | string[] } // render only when a sibling field === this value (or is one of the listed values)
   section?: string // groups the field under a collapsible subpanel in the config form
+  randomizeOnFreshLoad?: boolean // numeric field rolled to a fresh random value on a bare load (empty query); share-links still pin it
 }
 
 /** Read a field's UI meta via Zod's public .meta(). Returns undefined if unset. */

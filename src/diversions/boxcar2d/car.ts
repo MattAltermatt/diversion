@@ -18,20 +18,14 @@ import { triangulateEdges } from './triangulate'
 
 export const CAR_GROUP = -1
 
-// 🎚️ mechanism constants (not user balance).
-const NODE_RADIUS = 0.10      // m — collision disc for every node
-const NODE_FRICTION = 0.5
+// 🎚️ mechanism constants (not user balance). Node size/friction and wheel
+// suspension (hertz/damping/axis/travel) are now per-car GENES (genome.ts) — only
+// the truss-member spring bounds stay fixed here (pinned to the 60Hz-substep buzz
+// limit, deliberately NOT widened).
 const HERTZ_MIN = 2          // stiffness 0 → soft spring (floor raised off 0.8 to curb bounce)
 const HERTZ_MAX = 10          // stiffness 1 → near-rigid bar (capped to curb 60Hz-step buzz)
 const DAMP_MIN = 0.3          // floor raised off 0.1 so even soft springs settle (no ring/jitter)
 const DAMP_MAX = 1.0
-const WHEEL_HERTZ = 4         // wheel suspension: soft enough to keep traction over
-const WHEEL_DAMPING = 1.0     // terrain (drivability), but critically damped so it
-                             // absorbs instead of bouncing/wobbling (was 0.7 = bouncy)
-// Suspension travel cap (m). The truss members already provide the springy give,
-// so the wheel only needs a few cm of axle travel. Bounding it stops a wheel
-// sliding off its free-spinning node anchor under a hard impulse.
-const WHEEL_TRAVEL = 0.06
 
 export interface CarBodies {
   /** Active nodes only, each tagged with its original genome slot (for pair lookup). */
@@ -54,7 +48,7 @@ export function buildCar(worldId: WorldId, g: Genome, spawn: Vec2): CarBodies {
   const nodes = active.map(o => ({
     body: createCircleBody(worldId, {
       position: { x: spawn.x + o.n.x, y: spawn.y + o.n.y },
-      radius: NODE_RADIUS, density: o.n.mass, friction: NODE_FRICTION, groupIndex: CAR_GROUP,
+      radius: o.n.radius, density: o.n.mass, friction: o.n.friction, groupIndex: CAR_GROUP,
     }),
     slot: o.slot,
   }))
@@ -88,8 +82,10 @@ export function buildCar(worldId: WorldId, g: Genome, spawn: Vec2): CarBodies {
     })
     createWheelJoint(worldId, {
       chassis: nodes[k].body, wheel: body, localAnchorA: { x: 0, y: 0 },
-      axisX: 0, axisY: 1, enableSpring: true, hertz: WHEEL_HERTZ, dampingRatio: WHEEL_DAMPING,
-      lowerTranslation: -WHEEL_TRAVEL, upperTranslation: WHEEL_TRAVEL,
+      // suspension axis is now a gene: θ=0 is vertical, ±θ rakes the strut.
+      axisX: Math.sin(w.suspensionAxis), axisY: Math.cos(w.suspensionAxis),
+      enableSpring: true, hertz: w.suspensionHertz, dampingRatio: w.suspensionDamping,
+      lowerTranslation: -w.suspensionTravel, upperTranslation: w.suspensionTravel,
       // negate so the (always ≥0) gene drives the car forward: the joint motor
       // spins the wheel to move the car +x.
       enableMotor: w.powered, motorSpeed: -w.motorSpeed, maxMotorTorque: w.torque,
