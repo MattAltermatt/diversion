@@ -5,17 +5,27 @@ export interface Size {
   height: number
 }
 
-export type DiversionKind = '2d' | 'webgl'
+export type DiversionKind = '2d' | 'webgl' | 'webgpu'
 
-export type RenderContext = CanvasRenderingContext2D | WebGL2RenderingContext
+export type RenderContext =
+  | CanvasRenderingContext2D
+  | WebGL2RenderingContext
+  | GPUCanvasContext
 
 /** The concrete drawing context the framework hands a diversion of a given kind:
- *  '2d' → CanvasRenderingContext2D, 'webgl' → WebGL2RenderingContext. For the
- *  erased kind (the registry's stored `Diversion`), the union collapses back to
- *  RenderContext, so the framework keeps working at the unknown boundary. */
+ *  '2d' → CanvasRenderingContext2D, 'webgl' → WebGL2RenderingContext, 'webgpu' →
+ *  GPUCanvasContext. NB the webgpu context is only the presentation surface —
+ *  `canvas.getContext('webgpu')` is synchronous, but the GPUDevice it configures
+ *  is acquired asynchronously; a webgpu diversion follows the neural-ca ready-flag
+ *  pattern (setup returns sync, device resolves in a fire-and-forget tail, frame
+ *  no-ops until ready). For the erased kind (the registry's stored `Diversion`),
+ *  the union collapses back to RenderContext, so the framework keeps working at
+ *  the unknown boundary. */
 export type CtxFor<K extends DiversionKind> = K extends '2d'
   ? CanvasRenderingContext2D
-  : WebGL2RenderingContext
+  : K extends 'webgl'
+    ? WebGL2RenderingContext
+    : GPUCanvasContext
 
 /** One pickable preset within a group. `patch` holds the subset of config fields
  *  the preset sets — applied over the current config (top-level), so a nested

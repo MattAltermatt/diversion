@@ -68,9 +68,30 @@ export function AnimationHost({
             antialias: false,
             powerPreference: 'high-performance',
           })
-        : canvas.getContext('2d')
+        : diversion.kind === 'webgpu'
+          ? // getContext('webgpu') is SYNCHRONOUS and returns the presentation
+            // surface immediately; the async GPUDevice is acquired inside the
+            // diversion's setup() (getSharedDevice, neural-ca ready-flag pattern),
+            // which then .configure()s this context. Returns null when the browser
+            // has no navigator.gpu at all — handled below.
+            canvas.getContext('webgpu')
+          : canvas.getContext('2d')
     ) as RenderContext | null
-    if (!ctx) return
+    if (!ctx) {
+      // A missing context is a real, user-facing condition — most importantly a
+      // webgpu diversion on a browser without WebGPU (getContext('webgpu') → null).
+      // Surface it through the same re-throw path a setup() failure uses, so the
+      // surrounding DiversionErrorBoundary shows an inline fallback for THIS tile
+      // instead of a mystery blank canvas (#124).
+      setSetupError(() => {
+        throw new Error(
+          diversion.kind === 'webgpu'
+            ? 'This diversion needs a browser with WebGPU support.'
+            : `Could not acquire a ${diversion.kind} drawing context.`,
+        )
+      })
+      return
+    }
 
     const sizeOf = (): Size => {
       const r = canvas.getBoundingClientRect()

@@ -21,6 +21,12 @@ import {
 // shader-building setup() (plasma/metaballs) to run end-to-end. A genuine
 // shader-compile error therefore can't surface here; that's covered separately
 // in-browser. This sweep guards the JS draw-call surface, not GLSL correctness.
+//
+// webgpu note: jsdom has no `navigator.gpu` at all, so a kind:'webgpu' diversion's
+// device acquisition rejects and its ready-flag keeps frame() a no-op — there is no
+// GPU draw path to exercise here. For those we assert only that setup()+frame() run
+// without throwing (the not-ready branch); the real GPU path is Chrome-verified,
+// exactly as GLSL correctness is.
 
 // 2D calls that count as "something was actually drawn".
 const DRAW_2D = ['fillRect', 'fill', 'stroke', 'drawImage', 'putImageData', 'clearRect']
@@ -55,6 +61,10 @@ describe('diversion smoke sweep (#128)', () => {
           diversion.frame(state as never, ctx as unknown as RenderContext & never, t, 16)
         }
       }).not.toThrow()
+
+      // webgpu can't reach its GPU draw path in jsdom (no navigator.gpu) — the
+      // no-throw checks above cover its ready-gate; skip the draw-call assertion.
+      if (diversion.kind === 'webgpu') return
 
       const draws = diversion.kind === '2d' ? DRAW_2D : DRAW_GL
       const drew = ctx.calls.some((c) => draws.includes(c))

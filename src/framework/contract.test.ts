@@ -28,8 +28,8 @@ describe('diversion contract sweep (#127)', () => {
         expect(d.id).toBe(slug)
       })
 
-      it("kind is '2d' or 'webgl'", () => {
-        expect(['2d', 'webgl']).toContain(d.kind)
+      it("kind is '2d', 'webgl', or 'webgpu'", () => {
+        expect(['2d', 'webgl', 'webgpu']).toContain(d.kind)
       })
 
       it('has a non-empty title and description', () => {
