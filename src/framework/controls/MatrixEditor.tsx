@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type React from 'react'
 import type { FieldMeta } from '../fieldMeta'
 import { paletteColors, type PaletteName } from '../../diversions/particle-life/palette'
+import { allAttract, allRepel, identity, chase, randomize, invert } from './matrixTransforms'
 
 type Cfg = Record<string, any>
 
@@ -61,6 +62,17 @@ export function MatrixEditor({ config, onConfigChange, meta }: {
     onConfigChange(rest)
   }
   const zeroAll = () => onConfigChange({ ...config, matrix: new Array(n * n).fill(0) }) // blank slate — every relationship neutral (Custom)
+  const applyMatrix = (next: number[]) => onConfigChange({ ...config, matrix: next }) // whole-grid preset → Custom override (rides the share-link)
+  // One-click matrix presets (#220): each is a pure transform that writes the whole
+  // grid through the same Custom path as a hand-drag, so it pins into the URL snapshot.
+  const presets: Array<[slug: string, label: string, title: string, run: () => number[]]> = [
+    ['allplus', 'All +', 'Every pair attracts', () => allAttract(n)],
+    ['allminus', 'All −', 'Every pair repels', () => allRepel(n)],
+    ['identity', 'Identity', 'Self-attract, cross-repel (tight same-species clumps)', () => identity(n)],
+    ['chase', 'Chase', 'Species i attracts i+1 (rock-paper-scissors trains)', () => chase(n)],
+    ['random', 'Random', 'Fresh random matrix, independent of the seed', () => randomize(n)],
+    ['invert', 'Invert', 'Negate the current matrix', () => invert(effectiveMatrix(config, meta))],
+  ]
   const startDrag = (i: number, j: number, e: React.PointerEvent) => {
     const startY = e.clientY
     const startV = m[i * n + j] ?? 0
@@ -121,6 +133,18 @@ export function MatrixEditor({ config, onConfigChange, meta }: {
         <div className={`mr-verb ${relation(av).cls}`}>{relation(av).verb}</div>
         <div className="mr-row"><span className="mswatch" style={{ background: colors[active[1]] }} />{speciesLabel(config, active[1])}</div>
         <div className="mr-val">{av >= 0 ? '+' : ''}{av.toFixed(2)}</div>
+      </div>
+      <div className="matrix-presets">
+        {presets.map(([slug, label, title, run]) => (
+          <button
+            key={slug}
+            type="button"
+            className="matrix-preset"
+            data-testid={`matrix-preset-${slug}`}
+            title={title}
+            onClick={() => applyMatrix(run())}
+          >{label}</button>
+        ))}
       </div>
       <div className="matrix-actions">
         <button type="button" className="matrix-reset" data-testid="matrix-reset" onClick={reset}>↺ Reset to seed</button>

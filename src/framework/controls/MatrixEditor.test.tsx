@@ -56,6 +56,25 @@ describe('MatrixEditor (editing)', () => {
     expect('matrix' in latest).toBe(false)
   })
 
+  it('preset buttons write a full-length Custom matrix (#220)', () => {
+    let latest: any = null
+    const config = { ...particleLifeGpuSchema.parse({ colors: 3 }) }
+    render(<MatrixEditor config={config} onConfigChange={(n) => (latest = n)} meta={meta} />)
+    fireEvent.click(screen.getByTestId('matrix-preset-allplus'))
+    expect(latest.matrix).toEqual(new Array(9).fill(1)) // All + → every pair attracts
+    fireEvent.click(screen.getByTestId('matrix-preset-identity'))
+    expect(latest.matrix[0]).toBe(1) // self
+    expect(latest.matrix[1]).toBe(-1) // cross
+  })
+
+  it('Invert negates the effective matrix (#220)', () => {
+    let latest: any = null
+    const config = { ...particleLifeGpuSchema.parse({ colors: 3 }), matrix: new Array(9).fill(0.4) }
+    render(<MatrixEditor config={config} onConfigChange={(n) => (latest = n)} meta={meta} />)
+    fireEvent.click(screen.getByTestId('matrix-preset-invert'))
+    expect(latest.matrix).toEqual(new Array(9).fill(-0.4))
+  })
+
   it('Symmetric mode mirrors the partner cell on drag', () => {
     let latest: any = null
     const config = { ...particleLifeGpuSchema.parse({ colors: 3 }), symmetry: 'Symmetric' as const }
