@@ -43,6 +43,22 @@ export const palettePresets: Preset[] = [
     },
   },
   {
+    // The video's signature: near-black shapes on white (spike bursts, tiles).
+    name: 'Ink',
+    patch: {
+      background: '#f2f0ec', strokeColor: '#141414', strokeWidth: 0.6, colorBy: 'index',
+      color: { stops: ['#171717ff', '#2e2e2eff', '#171717ff'] },
+    },
+  },
+  {
+    // Grayscale ramp for the lit-sphere / dome heads.
+    name: 'Silver',
+    patch: {
+      background: '#f4f2ee', strokeColor: '#8a8a8a', strokeWidth: 0.4, colorBy: 'radius',
+      color: { stops: ['#fafafaff', '#b8b8b8ff', '#3a3a3aff', '#141414ff'] },
+    },
+  },
+  {
     name: 'Mono Gold',
     patch: {
       background: '#0a0805', strokeColor: '#05030a', strokeWidth: 0.5, colorBy: 'radius',
