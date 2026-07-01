@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   seedWorld, packMatrix, packColors, packParams, packView, worldDims, DEFAULT_CAMERA,
-  WORLD_W, WORLD_H, DT, PARAMS_SIZE, VIEW_SIZE,
+  resolveMatrix, WORLD_W, WORLD_H, DT, PARAMS_SIZE, VIEW_SIZE,
 } from './pack'
 import { createSim } from '../particle-life/sim'
 import { buildMatrix } from '../particle-life/matrix'
@@ -61,6 +61,28 @@ describe('particle-life-gpu pack', () => {
       const b = buildMatrix(6, 99, 'Asymmetric', 0.2)
       expect(a).toEqual(b)
       expect(a.length).toBe(36)
+    })
+  })
+
+  describe('resolveMatrix', () => {
+    const base = { colors: 3, seed: 1337, symmetry: 'Asymmetric' as const, attractBias: 0.1 }
+
+    it('falls back to the seed-derived matrix when no override', () => {
+      const got = resolveMatrix({ ...base })
+      const want = packMatrix(3, 1337, 'Asymmetric', 0.1)
+      expect(Array.from(got)).toEqual(Array.from(want))
+    })
+
+    it('prefers a valid override of length colors²', () => {
+      const override = [0.5, -0.5, 1, -1, 0, 0.25, -0.25, 0.75, -0.75] // 3×3
+      const got = resolveMatrix({ ...base, matrix: override })
+      expect(Array.from(got)).toEqual(override)
+    })
+
+    it('ignores an override of the wrong length (falls back to seed)', () => {
+      const got = resolveMatrix({ ...base, matrix: [0.5, -0.5] }) // wrong length for 3×3
+      const want = packMatrix(3, 1337, 'Asymmetric', 0.1)
+      expect(Array.from(got)).toEqual(Array.from(want))
     })
   })
 

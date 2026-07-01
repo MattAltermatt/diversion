@@ -61,7 +61,15 @@ describe('codec sweep — every registered diversion (#127)', () => {
       const sp = encodeConfig(d.schema, defaults as never)
       const skip = freshLoadKeys(d.schema)
       const emitted = [...sp.keys()].sort()
-      const expected = [...urlKeyMap(d.schema).values()].filter((k) => !skip.has(k)).sort()
+      // Full snapshot = every leaf that CARRIES a value in defaults, minus pin-only.
+      // An optional field with no default (e.g. a Custom-only matrix override) has no
+      // value at defaults, so it legitimately emits nothing until set — excluded here,
+      // exactly like a pin-only field. Round-trip when present is covered per-diversion.
+      const expected = [...urlKeyMap(d.schema).entries()]
+        .filter(([path]) => getAt(defaults, path) !== undefined)
+        .map(([, k]) => k)
+        .filter((k) => !skip.has(k))
+        .sort()
       expect(emitted).toEqual(expected)
     })
 

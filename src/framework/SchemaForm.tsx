@@ -9,6 +9,7 @@ import { Swatch } from './controls/Swatch'
 import { ColorList } from './controls/ColorList'
 import { Group } from './controls/Group'
 import { Subpanel } from './controls/Subpanel'
+import { MatrixEditor } from './controls/MatrixEditor'
 
 type AnyObj = Record<string, any>
 
@@ -67,6 +68,12 @@ export function SchemaForm({
       if (!shown) return null
     }
     if (meta.ui === 'hidden') return null // schema-only field (URL-encoded), no control
+    if (meta.ui === 'matrix') {
+      // Config-aware control: unlike normal controls (which get only their own
+      // field value) it reads sibling fields (colors/palette/symmetry) and writes
+      // the whole config back.
+      return <MatrixEditor key={key} meta={meta} config={value} onConfigChange={onChange} />
+    }
     if (meta.ui === 'group') {
       return (
         <Group key={key} label={meta.label}>

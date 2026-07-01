@@ -64,6 +64,17 @@ export function packMatrix(colors: number, seed: number, symmetry: Symmetry, bia
   return buildMatrix(colors, seed, symmetry, bias)
 }
 
+/** The matrix the sim should use: the user's Custom override when present AND
+ *  correctly sized (length colors²), else the seed-derived table. The length guard
+ *  lives here (not in the URL codec) because only the consumer knows `colors`. */
+export function resolveMatrix(
+  cfg: { colors: number; seed: number; symmetry: Symmetry; attractBias: number; matrix?: number[] },
+): Float32Array {
+  const n = cfg.colors
+  if (Array.isArray(cfg.matrix) && cfg.matrix.length === n * n) return Float32Array.from(cfg.matrix)
+  return packMatrix(n, cfg.seed, cfg.symmetry, cfg.attractBias)
+}
+
 /** Per-species RGBA (0..1) laid out as vec4f, for the render color storage buffer. */
 export function packColors(palette: PaletteName, colors: number): Float32Array {
   const hexes = paletteColors(palette, colors)

@@ -8,6 +8,7 @@
 //     the per-step GPU evolution can drift slightly by device.
 import { z } from 'zod'
 import { PALETTE_NAMES } from '../particle-life/palette'
+import { buildMatrix } from '../particle-life/matrix'
 
 export const particleLifeGpuSchema = z.object({
   count: z.number().int().min(500).max(25000).default(8000)
@@ -38,6 +39,11 @@ export const particleLifeGpuSchema = z.object({
   attractBias: z.number().min(-1).max(1).default(0.1)
     .meta({ section: 'Forces', ui: 'slider', min: -1, max: 1, step: 0.05, label: 'Attraction bias',
             help: 'Nudges every relationship toward attraction (positive → clumpy cells) or repulsion (negative → skittish gas). 0 = whatever the seed rolled.' }),
+  matrix: z.array(z.number().min(-1).max(1)).optional()
+    .meta({ section: 'Forces', ui: 'matrix', label: 'Interaction matrix',
+            help: 'Per-species attract/repel table. Drag cells to hand-tune relationships; Reset to seed re-rolls it. Changing Seed or Species rebuilds it.',
+            deriveFrom: (c: { colors: number; seed: number; symmetry: 'Asymmetric' | 'Symmetric'; attractBias: number }) =>
+              [...buildMatrix(c.colors, c.seed, c.symmetry, c.attractBias)] }),
 
   palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
     .meta({ section: 'Look', ui: 'segmented', options: [...PALETTE_NAMES], label: 'Palette',

@@ -13,6 +13,7 @@ import { defineDiversion, type Size } from '../../framework/types'
 import { getSharedDevice } from '../../framework/webgpu'
 import { particleLifeGpuSchema, type ParticleLifeGpuConfig } from './schema'
 import { particleLifeGpuPresets } from './presets'
+import { reconcileMatrix } from './reconcile'
 import { worldDims, type Camera } from './pack'
 import {
   initGPU, runFrame, resizeGPU, writeParams, writeColors, writeMatrix, writeView, writeFade,
@@ -133,6 +134,7 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
   kind: 'webgpu',
   schema: particleLifeGpuSchema,
   presets: particleLifeGpuPresets,
+  reconcile: reconcileMatrix,
 
   setup(ctx, cfg, size): State {
     const state: State = {
@@ -183,7 +185,10 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
     state.size = size
     if (!state.res) return true // still initializing; the async tail reads state.cfg
     writeParams(state.res, cfg)
-    if (cfg.symmetry !== prev.symmetry || cfg.attractBias !== prev.attractBias) writeMatrix(state.res, cfg)
+    // Re-upload the matrix on any change that alters it: a symmetry flip, a bias
+    // shift, OR a direct cell edit / Zero / Reset (cfg.matrix is a fresh reference
+    // each edit, undefined⇄array on Reset) — else hand-tuning never reaches the GPU.
+    if (cfg.symmetry !== prev.symmetry || cfg.attractBias !== prev.attractBias || cfg.matrix !== prev.matrix) writeMatrix(state.res, cfg)
     if (cfg.palette !== prev.palette) writeColors(state.res, cfg)
     if (cfg.background !== prev.background || cfg.trailFade !== prev.trailFade) writeFade(state.res, cfg)
     if (cfg.dotSize !== prev.dotSize) writeView(state.res, cfg, size, state.cam)

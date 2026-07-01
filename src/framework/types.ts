@@ -64,6 +64,10 @@ export interface Diversion<
    *  setup(). Diversion-specific staleness policy lives here; the framework owns the
    *  reseed lifecycle and live-config reporting. Omit → never auto-restarts. */
   shouldRestart?(state: State, t: number, dt: number): boolean
+  /** Config screen: normalize a config edit before it commits (e.g. clear a derived
+   *  override when its generator changes). Pure; the framework calls it in
+   *  ConfigScreen.update. Omit → edits commit as-is. */
+  reconcile?(prev: Config, next: Config): Config
   /** Optional named preset groups (motion, palette, …). Each option patches a
    *  subset of config; the framework renders a dropdown per group. */
   presets?: PresetGroup<Config>[]

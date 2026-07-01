@@ -705,3 +705,27 @@ input[type='color'] {
 .play-screen.idle {
   cursor: none;
 }
+
+/* Interaction-matrix editor (ui:'matrix') — n×n per-species attract/repel grid. */
+.matrix-editor { display: flex; flex-direction: column; gap: 9px; user-select: none; }
+.matrix-legend { display: flex; gap: 14px; font-size: 10px; color: var(--muted); }
+.matrix-legend i { display: inline-block; width: 20px; height: 8px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
+.matrix-grid { display: grid; gap: 3px; }
+.mhead { display: flex; align-items: center; justify-content: center; }
+.mswatch { width: 13px; height: 13px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.mcell { position: relative; aspect-ratio: 1 / 1; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.06); cursor: ns-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.mcell.diag { border-color: rgba(255, 255, 255, 0.34); }
+.mcell.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mval { font-size: 9px; color: rgba(255, 255, 255, 0.6); pointer-events: none; }
+.matrix-axis { font-size: 10px; color: var(--muted); }
+.matrix-readout { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--fg); }
+.matrix-readout .mr-row { display: flex; align-items: center; gap: 7px; }
+.matrix-readout .mr-verb { font-weight: 700; }
+.matrix-readout .mr-attract { color: var(--accent-2); }
+.matrix-readout .mr-repel { color: #ff6b6b; }
+.matrix-readout .mr-ignore { color: var(--muted); }
+.matrix-readout .mr-val { font-variant-numeric: tabular-nums; color: var(--muted); }
+.matrix-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.matrix-custom { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 2px 6px; }
+.matrix-reset { font: inherit; font-size: 11px; color: var(--muted); background: var(--field); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.matrix-reset:hover { color: var(--fg); }

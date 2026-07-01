@@ -21,7 +21,7 @@
 // hue survives density (gotcha-additive-glow-blowout-two-layer).
 import { parseHex6 } from '../../framework/color'
 import {
-  seedWorld, packMatrix, packColors, packParams, packView, worldDims, DEFAULT_CAMERA,
+  seedWorld, packColors, packParams, packView, worldDims, DEFAULT_CAMERA, resolveMatrix,
   PARAMS_SIZE, VIEW_SIZE, type SeededWorld, type Camera,
 } from './pack'
 import type { ParticleLifeGpuConfig } from './schema'
@@ -239,7 +239,7 @@ export function initGPU(
   const colors = cfg.colors
   const { w: worldW, h: worldH } = worldDims(cfg.worldSize)
   const world: SeededWorld = seedWorld(count, colors, cfg.seed, worldW, worldH)
-  const matrix = packMatrix(colors, cfg.seed, cfg.symmetry as Symmetry, cfg.attractBias)
+  const matrix = resolveMatrix({ ...cfg, symmetry: cfg.symmetry as Symmetry })
   const colorData = packColors(cfg.palette as PaletteName, colors)
 
   const mk = (bytes: number, usage: number) => device.createBuffer({ size: bytes, usage })
@@ -370,9 +370,9 @@ export function writeColors(res: GpuResources, cfg: ParticleLifeGpuConfig): void
   res.device.queue.writeBuffer(res.colorBuf, 0, packColors(cfg.palette as PaletteName, cfg.colors))
 }
 export function writeMatrix(res: GpuResources, cfg: ParticleLifeGpuConfig): void {
-  // seed + colors are structural (re-setup), so a live symmetry/bias edit repacks
-  // the same-size matrix in place.
-  res.device.queue.writeBuffer(res.matrixBuf, 0, packMatrix(cfg.colors, cfg.seed, cfg.symmetry as Symmetry, cfg.attractBias))
+  // seed + colors are structural (re-setup), so a live symmetry/bias/matrix edit
+  // repacks the same-size matrix in place — a Custom override wins over the seed.
+  res.device.queue.writeBuffer(res.matrixBuf, 0, resolveMatrix({ ...cfg, symmetry: cfg.symmetry as Symmetry }))
 }
 export function writeView(
   res: GpuResources, cfg: ParticleLifeGpuConfig, size: { width: number; height: number }, cam: Camera,

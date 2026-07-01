@@ -44,8 +44,9 @@ export function ConfigScreen() {
   if (!diversion || !config) return <div className="empty">Unknown diversion.</div>
 
   const update = (next: Record<string, unknown>) => {
-    setConfig(next)
-    const qs = encodeConfig(diversion.schema, next).toString()
+    const reconciled = (diversion.reconcile ? diversion.reconcile(config as any, next as any) : next) as Record<string, unknown>
+    setConfig(reconciled)
+    const qs = encodeConfig(diversion.schema, reconciled).toString()
     navigate({ search: qs ? `?${qs}` : '' }, { replace: true })
   }
 
