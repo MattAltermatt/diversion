@@ -25,7 +25,7 @@ Lining up `Q1 — motion? A/B/C`, `Q2 — coloring? A/B/C/D` and making the user
 ## The workflow
 
 1. **Gather the facts yourself.** Read the issue, the port ethos, any memory. If there's a reference (video/site/hack), fetch what you can. If you genuinely cannot perceive the reference (e.g. a video's frames), say so plainly and make your best SME reconstruction — do **not** convert that gap into a pile of user questions.
-2. **Make the design calls as SME.** Motion model, palette, dot/line treatment, background, loop behavior — you decide, grounded in the reference + the 5 UX invariants + the zen-screensaver ethos (calm defaults).
+2. **Make the design calls as SME — and when a call has real options, expose them as UI knobs, don't hard-code one.** Motion model, palette, dot/line treatment, background, loop behavior — you decide the *default*, grounded in the reference + the 5 UX invariants + the zen-screensaver ethos (calm defaults). But if a decision had viable alternatives, ship those alternatives as schema fields (a `segmented`/`select`/`color`/slider) **plus a preset dropdown** that bundles the good combinations — including a preset that snaps to the reference exactly. **Err toward too many buttons + presets, never toward none.** The user tweaks against the running thing; give them the actual dials to do it. A dueling-agent disagreement about the look is a signal to expose *both* options as a knob, not to pick one and bury the other. Only genuinely single-answer, no-alternative facts get hard-coded.
 3. **Dueling agents for the non-obvious/load-bearing calls only.** When a call affects 2+ downstream aspects, is hard to reverse, or is a genuine "what will look best" toss-up, dispatch 2–3 parallel agents with competing takes and synthesize — per `superpowers:dispatching-parallel-agents` and the dueling-agents rule. Agents *decide the call for you*; they are not a way to hand the choice back to the user. Include an adversarial/falsifier agent for any premise you're unsure of.
 4. **Write a short spec recording the calls you made** (so the reasoning is traceable), commit it, and go straight to building — no "please review the spec first" pause.
 5. **Build it and get it RUNNING in Chrome** on the dev server (port 5180). Use `new-diversion` for the contract, `verify-diversion` to check it. It must actually *look good*, not just render.
@@ -44,7 +44,10 @@ Driving the *design* does not mean skipping the standing gates:
 
 ```text
 Non-obvious visual/design call    → dueling agents decide, then build
-Obvious SME call                  → just decide, then build
+Decision that HAD viable options  → expose ALL of them as UI knobs + a preset
+                                    (incl. a "match the reference" preset); err
+                                    toward too many buttons, never none
+Obvious single-answer fact        → just hard-code it, then build
 Can't perceive the reference      → say so, best-reconstruct, build (don't ask)
 Strategic / scope / destructive   → still ask the user
 After it's running                → user tweaks live, one change at a time
