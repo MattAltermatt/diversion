@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import { PALETTE_NAMES } from '../particle-life/palette'
 import { buildMatrix } from '../particle-life/matrix'
+import { FORCE_CURVES } from '../particle-life/force'
 
 export const particleLifeGpuSchema = z.object({
   count: z.number().int().min(500).max(25000).default(8000)
@@ -30,6 +31,9 @@ export const particleLifeGpuSchema = z.object({
   forceScale: z.number().min(0.1).max(3).default(1)
     .meta({ section: 'Forces', ui: 'slider', min: 0.1, max: 3, step: 0.05, label: 'Force',
             help: 'Overall strength of attraction and repulsion. Low = a slow, gentle drift; high = snappy, energetic swarms.' }),
+  forceCurve: z.enum(FORCE_CURVES).default('Standard')
+    .meta({ section: 'Forces', ui: 'segmented', options: [...FORCE_CURVES], label: 'Force curve',
+            help: 'The SHAPE of the pull/push between particles (same personal-space core, so nothing collapses). Standard = classic cells; Smooth = gooier, membrane-like blobs; Long-range = a long attraction tail → sweeping continents; Stepped = quantized bands → crisp, crystalline shells. Changes how structure emerges, not just the look.' }),
   friction: z.number().min(0.01).max(0.2).default(0.04)
     .meta({ section: 'Forces', ui: 'slider', min: 0.01, max: 0.2, step: 0.005, label: 'Glide (s)',
             help: 'Velocity half-life in seconds — how long momentum lingers. Low = crisp, damped moves; high = dreamy, gliding motion.' }),
@@ -46,7 +50,7 @@ export const particleLifeGpuSchema = z.object({
               [...buildMatrix(c.colors, c.seed, c.symmetry, c.attractBias)] }),
 
   palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
-    .meta({ section: 'Look', ui: 'segmented', options: [...PALETTE_NAMES], label: 'Palette',
+    .meta({ section: 'Look', ui: 'select', options: [...PALETTE_NAMES], label: 'Palette',
             help: 'Species colors are spaced evenly across this palette for maximum contrast.' }),
   dotSize: z.number().min(1).max(5).default(2.5)
     .meta({ section: 'Look', ui: 'slider', min: 1, max: 5, step: 0.5, label: 'Particle size',

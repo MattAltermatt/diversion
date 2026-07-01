@@ -20,6 +20,7 @@ interface State {
 const toSimConfig = (c: ParticleLifeConfig): SimConfig => ({
   count: c.count, colors: c.colors, seed: c.seed, rMax: c.rMax, beta: c.beta,
   forceScale: c.forceScale, friction: c.friction, symmetry: c.symmetry, attractBias: c.attractBias,
+  forceCurve: c.forceCurve, // #206 — rides Object.assign in update(), so it live-applies (no re-setup)
 })
 
 const makeSprites = (c: ParticleLifeConfig): GlowSprites =>

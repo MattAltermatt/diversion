@@ -4,6 +4,7 @@ import { fields, type FieldMeta } from './fieldMeta'
 import { Slider } from './controls/Slider'
 import { NumberInput } from './controls/NumberInput'
 import { Segmented } from './controls/Segmented'
+import { Select } from './controls/Select'
 import { Toggle } from './controls/Toggle'
 import { Swatch } from './controls/Swatch'
 import { ColorList } from './controls/ColorList'
@@ -36,6 +37,8 @@ function controlFor(ui: FieldMeta['ui']): ControlComponent | null {
       return NumberInput as ControlComponent
     case 'segmented':
       return Segmented as ControlComponent
+    case 'select':
+      return Select as ControlComponent
     case 'toggle':
       return Toggle as ControlComponent
     case 'color':

@@ -5,7 +5,7 @@
 import { mulberry32 } from '../../framework/rng'
 import { ParticleGrid } from './grid'
 import { buildMatrix, type Symmetry } from './matrix'
-import { force } from './force'
+import { force, forceCurveId, type ForceCurve } from './force'
 
 export const WORLD_W = 1280
 export const WORLD_H = 800
@@ -21,6 +21,7 @@ export interface SimConfig {
   friction: number
   symmetry: Symmetry
   attractBias: number
+  forceCurve?: ForceCurve // #206; defaults to Standard when absent
 }
 
 export interface Sim {
@@ -68,6 +69,7 @@ export function rebuildGrid(sim: Sim): void {
 export function stepSim(sim: Sim): void {
   const { px, py, vx, vy, type, matrix, grid, n, cfg } = sim
   const rMax = cfg.rMax, beta = cfg.beta, nColors = cfg.colors
+  const curve = forceCurveId(cfg.forceCurve ?? 'Standard')
   const forceMul = rMax * cfg.forceScale
   const frictionFactor = Math.pow(0.5, DT / cfg.friction)
 
@@ -87,7 +89,7 @@ export function stepSim(sim: Sim): void {
       const dist = Math.sqrt(dx * dx + dy * dy)
       const q = dist / rMax
       const a = matrix[rowBase + type[j]]
-      const f = force(q, a, beta)
+      const f = force(q, a, beta, curve)
       const inv = f / dist
       fx += dx * inv
       fy += dy * inv

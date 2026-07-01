@@ -45,6 +45,16 @@ describe('particle-life sim', () => {
     for (let i = 0; i < s.n; i++) expect(s.type[i]).toBeLessThan(8)
   })
 
+  it('forceCurve actually reaches the sim: a non-Standard curve diverges (#206)', () => {
+    // Guards the toSimConfig↔sim wiring — the control renders + round-trips, but must
+    // also change the animation. Same seed/config, different band shape → different world.
+    const std = run(cfg({ forceCurve: 'Standard' }), 60)
+    for (const other of ['Smooth', 'Long-range', 'Stepped'] as const) {
+      const alt = run(cfg({ forceCurve: other }), 60)
+      expect(Array.from(alt.px), `${other} should diverge from Standard`).not.toEqual(Array.from(std.px))
+    }
+  })
+
   it('actually moves particles (forces do work)', () => {
     const s0 = createSim(cfg())
     const x0 = Float32Array.from(s0.px)

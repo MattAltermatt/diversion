@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { z } from 'zod'
 import { SchemaForm } from './SchemaForm'
@@ -55,6 +55,20 @@ describe('SchemaForm', () => {
     rerender(<SchemaForm schema={swSchema} value={{ mode: 'b', onlyA: 5, onlyB: 9 }} onChange={() => {}} />)
     expect(screen.queryByText('Only A')).not.toBeInTheDocument()
     expect(screen.getByText('Only B')).toBeInTheDocument()
+  })
+
+  it("renders a ui:'select' enum as a dropdown carrying every option", () => {
+    const selSchema = z.object({
+      palette: z.enum(['Mariners', 'Spectrum', 'Neon']).default('Spectrum')
+        .meta({ ui: 'select', options: ['Mariners', 'Spectrum', 'Neon'], label: 'Palette' }),
+    })
+    const onChange = vi.fn()
+    render(<SchemaForm schema={selSchema} value={selSchema.parse({})} onChange={onChange} />)
+    const box = screen.getByRole('combobox')
+    expect(box).toHaveValue('Spectrum')
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Mariners', 'Spectrum', 'Neon'])
+    fireEvent.change(box, { target: { value: 'Neon' } })
+    expect(onChange).toHaveBeenCalledWith({ palette: 'Neon' })
   })
 
   it("renders nothing for a ui:'hidden' field (URL-encoded but not a control)", () => {

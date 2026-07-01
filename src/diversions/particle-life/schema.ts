@@ -1,6 +1,7 @@
 // schema.ts — single source of truth (form + URL codec + Config type).
 import { z } from 'zod'
 import { PALETTE_NAMES } from './palette'
+import { FORCE_CURVES } from './force'
 
 export const particleLifeSchema = z.object({
   count: z.number().int().min(200).max(4000).default(1500)
@@ -19,6 +20,9 @@ export const particleLifeSchema = z.object({
   forceScale: z.number().min(0.1).max(3).default(1)
     .meta({ section: 'Forces', ui: 'slider', min: 0.1, max: 3, step: 0.05, label: 'Force',
             help: 'Overall strength of attraction and repulsion. Low = a slow, gentle drift; high = snappy, energetic swarms.' }),
+  forceCurve: z.enum(FORCE_CURVES).default('Standard')
+    .meta({ section: 'Forces', ui: 'segmented', options: [...FORCE_CURVES], label: 'Force curve',
+            help: 'The SHAPE of the pull/push between particles (same personal-space core, so nothing collapses). Standard = classic cells; Smooth = gooier, membrane-like blobs; Long-range = a long attraction tail → sweeping continents; Stepped = quantized bands → crisp, crystalline shells. Changes how structure emerges, not just the look.' }),
   friction: z.number().min(0.01).max(0.2).default(0.04)
     .meta({ section: 'Forces', ui: 'slider', min: 0.01, max: 0.2, step: 0.005, label: 'Glide (s)',
             help: 'Velocity half-life in seconds — how long momentum lingers. Low = crisp, damped moves; high = dreamy, gliding motion.' }),
@@ -30,7 +34,7 @@ export const particleLifeSchema = z.object({
             help: 'Nudges every relationship toward attraction (positive → clumpy cells) or repulsion (negative → skittish gas). 0 = whatever the seed rolled.' }),
 
   palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
-    .meta({ section: 'Look', ui: 'segmented', options: [...PALETTE_NAMES], label: 'Palette',
+    .meta({ section: 'Look', ui: 'select', options: [...PALETTE_NAMES], label: 'Palette',
             help: 'Species colors are spaced evenly across this palette for maximum contrast.' }),
   dotSize: z.number().min(1).max(5).default(2.5)
     .meta({ section: 'Look', ui: 'slider', min: 1, max: 5, step: 0.5, label: 'Particle size',

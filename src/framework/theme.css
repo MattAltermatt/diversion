@@ -381,29 +381,46 @@ input[type='range']::-moz-range-thumb {
 }
 
 /* segmented */
+/* Wrapping pill segments: a row of choices that flows onto a second line when the
+   options are too wide for the panel (e.g. the 4 force curves), so a long option set
+   never forces a horizontal scrollbar. Each button is its own bordered pill. */
 .seg {
   display: flex;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  overflow: hidden;
-  width: max-content;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 100%;
 }
 .seg button {
-  border: none;
-  border-right: 1px solid var(--line-2);
-  border-radius: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
   background: transparent;
   color: #b6b6be;
   padding: 6px 12px;
   font-size: 11px;
-}
-.seg button:last-child {
-  border-right: none;
+  cursor: pointer;
 }
 .seg button.on {
   background: var(--accent);
   color: var(--accent-ink);
   font-weight: 600;
+  border-color: var(--accent);
+}
+/* ui:'select' — a fixed-width dropdown (matches the preset pickers), so a long enum
+   like the palette never overflows the panel into a horizontal scrollbar. */
+.ctl-select {
+  width: 100%;
+  background: var(--field);
+  color: var(--fg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ctl-select:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* toggle */

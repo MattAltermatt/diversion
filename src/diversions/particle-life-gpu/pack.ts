@@ -12,6 +12,7 @@ import { mulberry32 } from '../../framework/rng'
 import { parseHex6 } from '../../framework/color'
 import { buildMatrix, type Symmetry } from '../particle-life/matrix'
 import { paletteColors, type PaletteName } from '../particle-life/palette'
+import { forceCurveId } from '../particle-life/force'
 
 // Base toroidal world (matches the CPU diversion, sim.ts); the actual arena is this
 // times cfg.worldSize.
@@ -93,12 +94,13 @@ export function packColors(palette: PaletteName, colors: number): Float32Array {
 // WGSL uniform structs of 4-byte scalars pack sequentially; the struct size rounds
 // up to 16, so both buffers are padded. Written little-endian via DataView.
 
-export const PARAMS_SIZE = 48 // 9 × 4 = 36 → round up to 16 = 48
+export const PARAMS_SIZE = 48 // 10 × 4 = 40 → round up to 16 = 48
 
 /** Params uniform for the compute shader. forceMul/frictionFactor are precomputed
- *  here exactly as sim.ts:71-72 so the shader stays branch-light. */
+ *  here exactly as sim.ts:71-72 so the shader stays branch-light. `curve` is the
+ *  force-curve id (#206) matching force.ts / the WGSL `band()` switch. */
 export function packParams(
-  cfg: { count: number; colors: number; rMax: number; beta: number; forceScale: number; friction: number },
+  cfg: { count: number; colors: number; rMax: number; beta: number; forceScale: number; friction: number; forceCurve?: string },
   worldW: number = WORLD_W, worldH: number = WORLD_H,
 ): ArrayBuffer {
   const buf = new ArrayBuffer(PARAMS_SIZE)
@@ -112,6 +114,7 @@ export function packParams(
   dv.setFloat32(24, DT, true)
   dv.setFloat32(28, worldW, true)
   dv.setFloat32(32, worldH, true)
+  dv.setUint32(36, forceCurveId(cfg.forceCurve ?? 'Standard'), true) // curve id
   return buf
 }
 
