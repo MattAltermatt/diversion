@@ -37,3 +37,6 @@ pnpm-debug.log*
 .truchet-demo.png
 screenshots/
 .halo-verify/
+
+# scratch screenshots from Chrome verification
+tmp-*.png
