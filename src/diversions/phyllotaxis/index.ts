@@ -32,7 +32,7 @@ function makeState(cfg: PhyllotaxisConfig, w: number, h: number): PhyllotaxisSta
     lut: buildLUT(cfg.color.stops),
     t: 0,
     shown: cfg.growSeconds > 0 ? 0 : cfg.count,
-    spawn: cfg.count, // start pre-populated so Flow has no empty startup
+    spawn: 0, // Flow grows from the centre outward on load (nothing pre-filled)
     w,
     h,
   }
@@ -86,9 +86,10 @@ const phyllotaxis = defineDiversion<typeof phyllotaxisSchema, PhyllotaxisState, 
       const reach = (Math.hypot(w, h) * 0.5 * 1.12) / cfg.zoom
       const flowSpacing = reach / Math.sqrt(cfg.count)
       state.spawn += cfg.emitRate * dts * cfg.speed
-      const res = writeFlowPositions(state.coords, cfg.count, state.spawn, cfg.divergence, flowSpacing, cfg.jitter, cfg.seed)
-      n = res.n
-      drawN = cfg.count
+      // Only draw florets that have been emitted → the head grows from the centre
+      // on load, then holds full once `spawn` passes `count` (oldest cull at the rim).
+      drawN = Math.min(cfg.count, Math.floor(state.spawn))
+      if (drawN >= 1) n = writeFlowPositions(state.coords, drawN, state.spawn, cfg.divergence, flowSpacing, cfg.jitter, cfg.seed).n
       refR = reach * 0.6
       cullR = reach + Math.max(cfg.leafLength, cfg.leafWidth)
     } else {
@@ -106,6 +107,9 @@ const phyllotaxis = defineDiversion<typeof phyllotaxisSchema, PhyllotaxisState, 
     }
     if (drawN < 3) return
 
+    // Leaves reach full size within a small inner radius, then stay constant — so
+    // they read as fixed shapes PUSHED outward, not shapes that grow toward the rim.
+    const sizeRefR = refR * 0.3
     const denomIdx = Math.max(1, cfg.count - 1)
     // Colour param for floret j: in flow, index cycles by birth-id so colours stream
     // outward and repeat; otherwise it's the static growth-order / radius ramp.
@@ -155,7 +159,7 @@ const phyllotaxis = defineDiversion<typeof phyllotaxisSchema, PhyllotaxisState, 
         const x = state.coords[2 * j], y = state.coords[2 * j + 1]
         const r = Math.hypot(x, y)
         if (r > cullR) continue // flowed off-screen
-        const s = (1 - cfg.sizeGrow) + cfg.sizeGrow * Math.min(1, r / refR)
+        const s = (1 - cfg.sizeGrow) + cfg.sizeGrow * Math.min(1, r / sizeRefR)
         const L = baseL * s, W = baseW * s
         const hl = L * 0.5, hw = W * 0.5
         const round = Math.min(cfg.leafRound * hw, hw, hl)

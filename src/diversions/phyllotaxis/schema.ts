@@ -56,10 +56,11 @@ export const phyllotaxisSchema = z.object({
             help: 'Shades each leaf light-to-dark across a diagonal, so overlapping tiles read as '
                 + 'folded 3D scales — turns a big-leaf head into a hypnotic spiral vortex. 0 = flat.' }),
   sizeGrow: z.number().min(0).max(1).default(0.55)
-    .meta({ section: 'Form', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Grow outward',
+    .meta({ section: 'Form', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Born small',
             showWhen: { field: 'renderMode', equals: 'leaf' },
-            help: 'How much each leaf grows as it travels away from the centre. In Flow motion '
-                + 'this makes shapes swell as they stream off-screen. 0 = uniform size.' }),
+            help: 'How tiny each leaf starts at the centre before quickly reaching full size — so '
+                + 'shapes are born small and then pushed outward at constant size. 0 = full size '
+                + 'everywhere.' }),
   colorBy: z.enum(['index', 'radius']).default('index')
     .meta({ section: 'Color', ui: 'segmented', options: ['index', 'radius'], label: 'Color by',
             help: 'index: rainbow along the growth order (matches the video — arms become '
