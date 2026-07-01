@@ -6,6 +6,7 @@ import { writeSitePositions, writeFlowPositions, diskRadius, divergenceAt } from
 import { formPresets, palettePresets } from './presets'
 
 const LUT_SIZE = 512 // palette samples cached once per config so fills are a lookup
+const DEG2RAD = Math.PI / 180
 
 interface PhyllotaxisState {
   cfg: PhyllotaxisConfig
@@ -116,6 +117,7 @@ const phyllotaxis = defineDiversion<typeof phyllotaxisSchema, PhyllotaxisState, 
 
     ctx.save()
     ctx.translate(w / 2, h / 2)
+    if (cfg.spin !== 0) ctx.rotate(cfg.spin * DEG2RAD * state.t) // continuous winding
     if (cfg.zoom !== 1) ctx.scale(cfg.zoom, cfg.zoom)
 
     if (cfg.renderMode === 'mesh') {

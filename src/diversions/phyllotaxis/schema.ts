@@ -88,9 +88,13 @@ export const phyllotaxisSchema = z.object({
             showWhen: { field: 'motion', equals: ['sweep', 'still'] },
             help: 'Seconds the seed head takes to accrete from the centre outward on load. '
                 + '0 = appear instantly.' }),
+  spin: z.number().min(-60).max(60).default(8)
+    .meta({ section: 'Motion', ui: 'slider', min: -60, max: 60, step: 1, label: 'Spin',
+            help: 'Continuous rotation of the whole head, in degrees/sec — the hypnotic winding '
+                + 'seen in nearly every demo. 0 = no spin; negative = the other way.' }),
   speed: z.number().min(0.1).max(3).default(0.6)
     .meta({ section: 'Motion', ui: 'slider', min: 0.1, max: 3, step: 0.1, label: 'Speed',
-            help: 'Global time scale. Zen-slow by default.' }),
+            help: 'Global time scale (also scales spin & flow). Zen-slow by default.' }),
   strokeWidth: z.number().min(0).max(3).default(0.6)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 3, step: 0.1, label: 'Mesh lines',
             showWhen: { field: 'renderMode', equals: 'mesh' },
