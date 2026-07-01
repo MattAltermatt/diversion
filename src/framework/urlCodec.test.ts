@@ -297,13 +297,27 @@ describe('applyFreshLoadRandomization', () => {
     count: z.number().int().default(7).meta({ ui: 'number', label: 'Count' }),
   })
 
-  it('rolls flagged fields to a random integer, leaves unflagged ones', () => {
+  it('rolls a flagged field when the URL omits it, leaves unflagged ones', () => {
     const base = freshSchema.parse({})
-    const rolled = applyFreshLoadRandomization(freshSchema, base, () => 0.5)
-    expect(rolled.seed).toBe(Math.floor(0.5 * 1e9)) // flagged → rolled from rand
+    const empty = new URLSearchParams()
+    const rolled = applyFreshLoadRandomization(freshSchema, base, empty, () => 0.5)
+    expect(rolled.seed).toBe(Math.floor(0.5 * 1e9)) // flagged + absent → rolled from rand
     expect(rolled.count).toBe(base.count) // unflagged → untouched
     // a different rand stream yields a different seed (so refresh → new run)
-    expect(applyFreshLoadRandomization(freshSchema, base, () => 0.9).seed).not.toBe(rolled.seed)
+    expect(applyFreshLoadRandomization(freshSchema, base, empty, () => 0.9).seed).not.toBe(rolled.seed)
+  })
+
+  it('leaves a flagged field untouched when the URL pins it (seed=N for testing)', () => {
+    const base = { ...freshSchema.parse({}), seed: 999 }
+    const pinned = new URLSearchParams('seed=999')
+    const out = applyFreshLoadRandomization(freshSchema, base, pinned, () => 0.5)
+    expect(out.seed).toBe(999) // present → pinned, NOT rolled
+  })
+
+  it('encodeConfig never emits a randomizeOnFreshLoad field (pin-only)', () => {
+    const sp = encodeConfig(freshSchema, { seed: 12345, count: 7 })
+    expect(sp.has('seed')).toBe(false)
+    expect(sp.get('count')).toBe('7')
   })
 
   it('hasFreshLoadRandomization detects the opt-in', () => {

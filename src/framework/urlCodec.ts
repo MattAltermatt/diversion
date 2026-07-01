@@ -187,33 +187,54 @@ function setPath(root: Json, path: string, value: unknown): void {
   cur[parts[parts.length - 1]] = value
 }
 
+/** Encoded URL keys of the top-level fields flagged `randomizeOnFreshLoad`. These are
+ *  "pin-only" fields (e.g. a seed): never emitted into a shareable URL, and rolled
+ *  fresh on load whenever the URL omits them — so a shared link stays a "new world
+ *  every visit" link, and an explicit `?seed=N` (for testing) still reproduces. */
+export function freshLoadKeys(schema: ZodObject<any>): Set<string> {
+  const { encode } = buildUrlKeyMap(schema)
+  const keys = new Set<string>()
+  for (const [name, field] of Object.entries(schema.shape)) {
+    if (readMeta(field as ZodType)?.randomizeOnFreshLoad) keys.add(encode.get(name) ?? name)
+  }
+  return keys
+}
+
 export function encodeConfig<T extends ZodObject<any>>(
   schema: T,
   value: ReturnType<T['parse']>,
 ): URLSearchParams {
   const flatVal = flatten(value as Json)
   const { encode } = buildUrlKeyMap(schema)
+  const skip = freshLoadKeys(schema)
   const sp = new URLSearchParams()
   for (const [path, v] of Object.entries(flatVal)) {
-    sp.set(encode.get(path) ?? path, v) // full snapshot — every field, flat leaf name
+    const key = encode.get(path) ?? path
+    if (skip.has(key)) continue // pin-only field (seed) — never emitted; absent → rolled fresh on load
+    sp.set(key, v) // full snapshot of every OTHER field, flat leaf name
   }
   return sp
 }
 
 /**
- * On a bare page load (empty query string), replace each top-level field flagged
- * `randomizeOnFreshLoad` with a fresh random integer, so every visit shows a
- * different run. Share-links carry an explicit value for the field, so this only
- * ever fires when there are NO params — saved links still reproduce exactly.
+ * Roll each top-level field flagged `randomizeOnFreshLoad` (e.g. a seed) to a fresh
+ * random integer WHEN THE URL OMITS IT — so a seedless link shows a different run
+ * every visit. A field present in the URL (an explicit `?seed=N`, for testing /
+ * exact reproduction) is left untouched. Since `encodeConfig` never emits these
+ * fields, shared links are always seedless and therefore always "new every visit".
  */
 export function applyFreshLoadRandomization<T extends ZodObject<any>>(
   schema: T,
   config: ReturnType<T['parse']>,
+  params: URLSearchParams,
   rand: () => number = Math.random,
 ): ReturnType<T['parse']> {
+  const { encode } = buildUrlKeyMap(schema)
   const out: Json = { ...(config as Json) }
   for (const [key, field] of Object.entries(schema.shape)) {
-    if (readMeta(field as ZodType)?.randomizeOnFreshLoad) out[key] = Math.floor(rand() * 1e9)
+    if (!readMeta(field as ZodType)?.randomizeOnFreshLoad) continue
+    const urlKey = encode.get(key) ?? key
+    if (!params.has(urlKey)) out[key] = Math.floor(rand() * 1e9) // absent → fresh; present → pinned
   }
   return out as ReturnType<T['parse']>
 }

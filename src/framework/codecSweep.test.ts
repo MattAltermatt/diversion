@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { listDiversions } from './registry'
-import { encodeConfig, decodeConfig } from './urlCodec'
+import { encodeConfig, decodeConfig, freshLoadKeys } from './urlCodec'
 import { deepEqual } from './presets'
 import { leafFields, urlKeyMap, nodeType, type FieldEntry } from './sweepHelpers'
 
@@ -9,7 +9,8 @@ import { leafFields, urlKeyMap, nodeType, type FieldEntry } from './sweepHelpers
 // against EVERY registered diversion's real schema. Any future diversion is
 // covered the moment its folder lands. Three invariants per diversion:
 //   (a) round-trip — decode(encode(defaults)) deep-equals defaults
-//   (b) full snapshot — encode emits exactly one key per schema leaf
+//   (b) full snapshot — encode emits exactly one key per schema leaf, EXCEPT
+//       pin-only `randomizeOnFreshLoad` fields (seed) which are never emitted
 //   (c) per-field degradation — one garbage field reverts to its own default
 //       while a valid sibling survives (no whole-config wipe)
 
@@ -56,10 +57,11 @@ describe('codec sweep — every registered diversion (#127)', () => {
       expect(round).toEqual(defaults)
     })
 
-    it(`${d.id}: encode emits exactly one key per schema leaf (full snapshot)`, () => {
+    it(`${d.id}: encode emits exactly one key per schema leaf (full snapshot, minus pin-only)`, () => {
       const sp = encodeConfig(d.schema, defaults as never)
+      const skip = freshLoadKeys(d.schema)
       const emitted = [...sp.keys()].sort()
-      const expected = [...urlKeyMap(d.schema).values()].sort()
+      const expected = [...urlKeyMap(d.schema).values()].filter((k) => !skip.has(k)).sort()
       expect(emitted).toEqual(expected)
     })
 

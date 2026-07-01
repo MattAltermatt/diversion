@@ -22,9 +22,12 @@ describe('flock-vs-hunter schema', () => {
     }
   })
 
-  it('round-trips through the URL codec', () => {
+  it('round-trips through the URL codec (seed is pin-only, not encoded)', () => {
     const cfg = flockVsHunterSchema.parse({ seed: 999, boidCount: 180 })
     const decoded = decodeConfig(flockVsHunterSchema, encodeConfig(flockVsHunterSchema, cfg))
-    expect(decoded).toEqual(cfg)
+    // Every non-seed field round-trips. `seed` is a randomizeOnFreshLoad field, so
+    // encode never emits it and decode reverts it to its default (the route layer
+    // rolls it fresh on load / honors an explicit ?seed=N for testing).
+    expect(decoded).toEqual({ ...cfg, seed: flockVsHunterSchema.parse({}).seed })
   })
 })

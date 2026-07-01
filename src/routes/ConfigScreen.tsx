@@ -21,11 +21,10 @@ export function ConfigScreen() {
     if (!diversion) return null
     const params = new URLSearchParams(location.search)
     const decoded = decodeConfig(diversion.schema, params)
-    // Bare load (no params) → roll a fresh seed so the config screen also opens on
-    // a new run (matching PlayScreen). Any edit then writes it to the URL.
-    return [...params].length === 0
-      ? applyFreshLoadRandomization(diversion.schema, decoded)
-      : decoded
+    // A flagged field (seed) the URL omits → roll fresh, so the config screen also
+    // opens on a new run (matching PlayScreen). seed is never encoded, so edits keep
+    // the URL seedless; an explicit ?seed=N is honored for reproducible testing.
+    return applyFreshLoadRandomization(diversion.schema, decoded, params)
   })
   // Bumping this remounts AnimationHost (via its key) → a clean teardown + fresh
   // setup() with the current config, so the animation restarts from frame zero
@@ -36,7 +35,8 @@ export function ConfigScreen() {
   // Our own form writes use navigate(replace) (navType !== 'POP'), so no loop.
   useEffect(() => {
     if (navType === 'POP' && diversion) {
-      setConfig(decodeConfig(diversion.schema, new URLSearchParams(location.search)))
+      const params = new URLSearchParams(location.search)
+      setConfig(applyFreshLoadRandomization(diversion.schema, decodeConfig(diversion.schema, params), params))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key])
