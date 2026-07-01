@@ -13,7 +13,7 @@ export const phyllotaxisSchema = z.object({
             help: 'How many cells fill the seed head. ~900 keeps every spiral arm legible; '
                 + 'far higher muddies the mesh into haze.' }),
   divergence: z.number().min(0).max(360).default(137.507)
-    .meta({ section: 'Pattern', ui: 'number', step: 0.001, label: 'Divergence angle',
+    .meta({ section: 'Pattern', ui: 'number', min: 0, max: 360, step: 0.001, label: 'Divergence angle',
             help: 'The turn between successive florets, in degrees. 137.507° (the golden '
                 + 'angle) is the magic value the spirals lock into; the sweep oscillates '
                 + 'around it.' }),
