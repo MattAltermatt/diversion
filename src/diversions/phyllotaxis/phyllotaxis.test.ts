@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sitePositions, divergenceAt, diskRadius, siteJitter } from './phyllotaxis'
+import { sitePositions, divergenceAt, diskRadius, siteJitter, writeFlowPositions } from './phyllotaxis'
 
 describe('sitePositions', () => {
   it('is deterministic for a given (count, seed)', () => {
@@ -85,5 +85,31 @@ describe('diskRadius', () => {
   it('grows as spacing·√count', () => {
     expect(diskRadius(11, 900)).toBeCloseTo(11 * 30, 6)
     expect(diskRadius(11, 0)).toBe(0)
+  })
+})
+
+describe('writeFlowPositions (continuous emission)', () => {
+  const radiusAt = (out: Float64Array, j: number) => Math.hypot(out[2 * j], out[2 * j + 1])
+
+  it('is deterministic and grows radius with age (youngest at the centre)', () => {
+    const a = new Float64Array(2 * 400)
+    const b = new Float64Array(2 * 400)
+    writeFlowPositions(a, 400, 500.5, 137.507, 11, 0.3, 7)
+    writeFlowPositions(b, 400, 500.5, 137.507, 11, 0.3, 7)
+    expect(Array.from(a)).toEqual(Array.from(b))
+    // j=0 is the newest (age≈frac, near centre); radius increases with j (age).
+    expect(radiusAt(a, 0)).toBeLessThan(radiusAt(a, 50))
+    expect(radiusAt(a, 50)).toBeLessThan(radiusAt(a, 399))
+  })
+
+  it('reports n=floor(spawn) and streams a given floret outward as spawn advances', () => {
+    const t0 = new Float64Array(2 * 100)
+    const t1 = new Float64Array(2 * 100)
+    const r0 = writeFlowPositions(t0, 100, 200, 137.507, 11, 0, 1)
+    expect(r0.n).toBe(200)
+    // After one more spawn, the floret born at id 200 is now age 1 (was age 0):
+    // it sits at index j=1 in the newer frame and its radius has grown from ~0.
+    writeFlowPositions(t1, 100, 201, 137.507, 11, 0, 1)
+    expect(radiusAt(t1, 1)).toBeGreaterThan(radiusAt(t0, 0))
   })
 })

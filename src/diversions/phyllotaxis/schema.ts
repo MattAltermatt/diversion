@@ -55,20 +55,37 @@ export const phyllotaxisSchema = z.object({
             showWhen: { field: 'renderMode', equals: 'leaf' },
             help: 'Shades each leaf light-to-dark across a diagonal, so overlapping tiles read as '
                 + 'folded 3D scales — turns a big-leaf head into a hypnotic spiral vortex. 0 = flat.' }),
+  sizeGrow: z.number().min(0).max(1).default(0.55)
+    .meta({ section: 'Form', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Grow outward',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'How much each leaf grows as it travels away from the centre. In Flow motion '
+                + 'this makes shapes swell as they stream off-screen. 0 = uniform size.' }),
   colorBy: z.enum(['index', 'radius']).default('index')
     .meta({ section: 'Color', ui: 'segmented', options: ['index', 'radius'], label: 'Color by',
             help: 'index: rainbow along the growth order (matches the video — arms become '
                 + 'colour streams). radius: colour by distance from the centre.' }),
+  motion: z.enum(['flow', 'sweep', 'still']).default('flow')
+    .meta({ section: 'Motion', ui: 'segmented', options: ['flow', 'sweep', 'still'], label: 'Motion',
+            help: 'flow: shapes are born at the centre and stream outward off-screen forever (a '
+                + 'living fountain). sweep: a fixed seed head whose angle oscillates so it shatters '
+                + 'and re-forms. still: a static seed head.' }),
+  emitRate: z.number().min(2).max(200).default(28)
+    .meta({ section: 'Motion', ui: 'slider', min: 2, max: 200, step: 2, label: 'Flow rate',
+            showWhen: { field: 'motion', equals: 'flow' },
+            help: 'New shapes emitted per second — how fast the fountain streams outward.' }),
   sweepAmp: z.number().min(0).max(6).default(0.9)
     .meta({ section: 'Motion', ui: 'slider', min: 0, max: 6, step: 0.1, label: 'Sweep amplitude',
+            showWhen: { field: 'motion', equals: 'sweep' },
             help: 'How far the divergence angle drifts off golden, in degrees. The spirals '
                 + 'shatter into a burst of radial slivers at the extremes and re-form at '
-                + 'golden. 0 = a static seed head.' }),
+                + 'golden.' }),
   sweepPeriod: z.number().min(10).max(180).default(60)
     .meta({ section: 'Motion', ui: 'slider', min: 10, max: 180, step: 5, label: 'Sweep period',
+            showWhen: { field: 'motion', equals: 'sweep' },
             help: 'Seconds for one full shatter-and-reform cycle. Higher = slower, calmer.' }),
   growSeconds: z.number().min(0).max(30).default(12)
     .meta({ section: 'Motion', ui: 'slider', min: 0, max: 30, step: 1, label: 'Grow-in',
+            showWhen: { field: 'motion', equals: ['sweep', 'still'] },
             help: 'Seconds the seed head takes to accrete from the centre outward on load. '
                 + '0 = appear instantly.' }),
   speed: z.number().min(0.1).max(3).default(0.6)

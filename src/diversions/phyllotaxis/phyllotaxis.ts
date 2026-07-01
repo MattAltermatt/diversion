@@ -58,6 +58,36 @@ export function diskRadius(spacing: number, count: number): number {
   return spacing * Math.sqrt(Math.max(0, count))
 }
 
+/** Continuous-emission ("Flow") layout: new florets are born at the centre and
+ *  ride outward as they age, so the whole field streams off-screen forever. At
+ *  time-count `spawnCount`, the newest floret has integer id `n = floor(spawnCount)`
+ *  and age ~0 (centre); the j-th-youngest has id `n−j`, age `j+frac`, radius
+ *  `spacing·√age`, and keeps the golden-angle direction it was born with — so each
+ *  spawn the emergence point turns by the divergence angle (the spiral). Fills `out`
+ *  [x0,y0,…] for j=0…count−1 and returns `{ n, frac }` so the caller can recover per
+ *  floret age (`j+frac`) and id (`n−j`) for size/colour. */
+export function writeFlowPositions(
+  out: Float64Array,
+  count: number,
+  spawnCount: number,
+  divergenceDeg: number,
+  spacing: number,
+  jitter: number,
+  seed: number,
+): { n: number; frac: number } {
+  const jAmp = jitter * JITTER_MAX_DEG
+  const n = Math.floor(spawnCount)
+  const frac = spawnCount - n
+  for (let j = 0; j < count; j++) {
+    const born = n - j
+    const r = spacing * Math.sqrt(j + frac)
+    const ang = (born * divergenceDeg + jAmp * siteJitter(seed, born)) * DEG2RAD
+    out[2 * j] = r * Math.cos(ang)
+    out[2 * j + 1] = r * Math.sin(ang)
+  }
+  return { n, frac }
+}
+
 /** Live divergence angle at time `tSec`: oscillates within [base−amp, base+amp],
  *  dwelling near `base` (golden) and gliding quickly through the shatter extremes
  *  (the eased waveform spends more time near 0 offset). */
