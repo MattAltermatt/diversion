@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
-import { decodeConfig, applyFreshLoadRandomization } from '../framework/urlCodec'
+import { decodeConfig, applyFreshLoadRandomization, encodeConfig } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
 
 export function PlayScreen() {
@@ -30,6 +30,10 @@ export function PlayScreen() {
     [diversion],
   )
 
+  // The world currently on screen. Starts as the mount config; auto-restart reports
+  // a fresh one via onLiveConfigChange each time it reseeds. Drives copy-link-with-seed.
+  const [liveConfig, setLiveConfig] = useState<unknown>(config)
+
   // Auto-hide the chrome (back link + bar) after a few idle seconds — screensaver feel.
   const [idle, setIdle] = useState(false)
   useEffect(() => {
@@ -55,6 +59,9 @@ export function PlayScreen() {
   // encoded, a seedless link stays seedless (a "new world every visit" share link),
   // while an explicit ?seed=N is preserved so a testing link still reproduces.
   const qs = search
+  // Pin the live world: a FULL snapshot including the seed, so the link reopens this
+  // exact world (not a new one). Falls back to the mount config before the first report.
+  const pinnedQs = `?${encodeConfig(diversion.schema, (liveConfig ?? config) as never, { includePinned: true }).toString()}`
 
   return (
     <div className={`play-screen ${idle ? 'idle' : ''}`}>
@@ -63,9 +70,20 @@ export function PlayScreen() {
           ← config
         </Link>
         <CopyLinkButton href={`/d/${diversion.id}/play${qs}`} className="play-copy" />
+        <CopyLinkButton
+          href={`/d/${diversion.id}/play${pinnedQs}`}
+          className="play-copy"
+          label="📌 Copy this world"
+          copiedLabel="✓ World copied"
+        />
       </div>
       <DiversionErrorBoundary>
-        <AnimationHost diversion={diversion} config={config} fullscreenable />
+        <AnimationHost
+          diversion={diversion}
+          config={config}
+          fullscreenable
+          onLiveConfigChange={setLiveConfig}
+        />
       </DiversionErrorBoundary>
     </div>
   )

@@ -49,6 +49,11 @@ export interface Diversion<
    *  if applied live; falsy (or omit the hook) → framework re-runs setup(). */
   update?(state: State, config: Config, size: Size): boolean | void
   teardown?(state: State): void
+  /** Polled once per rendered frame (after frame()). Return true to ask the framework
+   *  to reseed: roll fresh randomizeOnFreshLoad fields (e.g. a new seed) + re-run
+   *  setup(). Diversion-specific staleness policy lives here; the framework owns the
+   *  reseed lifecycle and live-config reporting. Omit → never auto-restarts. */
+  shouldRestart?(state: State, t: number, dt: number): boolean
   /** Optional named preset groups (motion, palette, …). Each option patches a
    *  subset of config; the framework renders a dropdown per group. */
   presets?: PresetGroup<Config>[]

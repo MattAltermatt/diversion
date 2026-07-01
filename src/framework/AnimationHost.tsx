@@ -2,17 +2,26 @@ import { useEffect, useRef, useState } from 'react'
 import type { Diversion, RenderContext, Size } from './types'
 import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
+import { applyFreshLoadRandomization } from './urlCodec'
+
+// A reseed rolls fresh randomizeOnFreshLoad values against an EMPTY query — the same
+// path a bare page load takes — so every restart gets a brand-new world.
+const EMPTY_PARAMS = new URLSearchParams()
 
 export function AnimationHost({
   diversion,
   config,
   fullscreenable = false,
   showChrome = true,
+  onLiveConfigChange,
 }: {
   diversion: Diversion
   config: unknown
   fullscreenable?: boolean
   showChrome?: boolean
+  /** Called with the initial config on mount, and with the new config after each
+   *  auto-restart reseed — so chrome (e.g. copy-link-with-seed) can track the live world. */
+  onLiveConfigChange?: (config: unknown) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -35,6 +44,10 @@ export function AnimationHost({
   // DiversionErrorBoundary shows an inline fallback for THIS tile — instead of
   // an unhandled effect throw white-screening the whole gallery (#124).
   const [, setSetupError] = useState<unknown>()
+  // Keep the latest callback reachable from the once-per-diversion loop closure
+  // without re-running setup when only the callback identity changes.
+  const onLiveRef = useRef<typeof onLiveConfigChange>(undefined)
+  onLiveRef.current = onLiveConfigChange
 
   // Single source of truth for the loop's pause state: paused if ANY source is.
   const syncPaused = () => loopRef.current?.setPaused(shouldPause(pauseRef.current))
@@ -87,6 +100,7 @@ export function AnimationHost({
     const run = { ctx, state, size }
     runRef.current = run
     lastConfigRef.current = config
+    onLiveRef.current?.(config) // initial world → chrome can pin it before any restart
 
     // #39: honor prefers-reduced-motion. We paint exactly ONE frame (so the
     // diversion shows its initial state, not a blank canvas) then freeze, with
@@ -99,6 +113,28 @@ export function AnimationHost({
     let frames = 0
     const loop = createLoop((t, dt) => {
       diversion.frame(run.state, ctx, t, dt)
+      // Auto-restart: the diversion decides it has gone stale → roll a fresh world.
+      // Reseed through the same teardown→setup path a config change uses, then report
+      // the new live config up (for copy-link-with-seed). Only runs while the loop
+      // ticks, so a paused/reduced-frozen host never reseeds.
+      // INVARIANT: a host using shouldRestart must keep its `config` prop STABLE (as
+      // PlayScreen does via useMemo). The reseed advances lastConfigRef to the new
+      // seeded config; a later change to the `config` prop would re-run setup() from
+      // that prop and discard the reseeded world's seed.
+      if (diversion.shouldRestart?.(run.state, t, dt)) {
+        const next = applyFreshLoadRandomization(diversion.schema, lastConfigRef.current as never, EMPTY_PARAMS)
+        diversion.teardown?.(run.state)
+        try {
+          run.state = diversion.setup(ctx, next, run.size)
+        } catch (e) {
+          setSetupError(() => {
+            throw e
+          })
+          return
+        }
+        lastConfigRef.current = next
+        onLiveRef.current?.(next)
+      }
       if (!framePainted) {
         framePainted = true
         if (mql?.matches) {

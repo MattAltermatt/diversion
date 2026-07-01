@@ -320,6 +320,17 @@ describe('applyFreshLoadRandomization', () => {
     expect(sp.get('count')).toBe('7')
   })
 
+  it('encodeConfig includePinned emits the seed; a pinned link round-trips', () => {
+    const cfg = { seed: 4242, count: 7 }
+    // default omits it (unchanged seedless behavior)
+    expect(encodeConfig(freshSchema, cfg).has('seed')).toBe(false)
+    // includePinned emits it → the link pins THIS exact world
+    const pinned = encodeConfig(freshSchema, cfg, { includePinned: true })
+    expect(pinned.get('seed')).toBe('4242')
+    // and it reproduces the exact seed on decode
+    expect(decodeConfig(freshSchema, pinned).seed).toBe(4242)
+  })
+
   it('hasFreshLoadRandomization detects the opt-in', () => {
     expect(hasFreshLoadRandomization(freshSchema)).toBe(true)
     const plain = z.object({ a: z.number().default(1).meta({ ui: 'number', label: 'A' }) })

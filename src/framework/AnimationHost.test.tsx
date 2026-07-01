@@ -313,6 +313,62 @@ describe('AnimationHost HiDPI sizing (#128)', () => {
   })
 })
 
+describe('AnimationHost auto-restart seam', () => {
+  it('reseeds via shouldRestart and reports a new live config', () => {
+    harness.reducedMotion = false
+    const schema = z.object({
+      seed: z.number().int().default(1).meta({ randomizeOnFreshLoad: true }),
+    })
+    let setups = 0
+    let restartOnce = true
+    const seen: number[] = []
+    const div: Diversion = {
+      id: 'restartfake',
+      title: '',
+      description: '',
+      kind: '2d',
+      schema,
+      setup: (_ctx, cfg) => {
+        setups++
+        return { seed: (cfg as { seed: number }).seed }
+      },
+      frame: () => {},
+      shouldRestart: () => {
+        const go = restartOnce
+        restartOnce = false
+        return go // fire exactly once → reseed, then quiescent
+      },
+    }
+    const seen_push = (c: unknown) => seen.push((c as { seed: number }).seed)
+    render(<AnimationHost diversion={div} config={{ seed: 1 }} onLiveConfigChange={seen_push} />)
+    drainRaf() // tick a frame → shouldRestart fires the reseed
+    expect(setups).toBeGreaterThanOrEqual(2) // initial setup + one reseed
+    expect(seen[0]).toBe(1) // initial world reported on mount
+    expect(seen.at(-1)).not.toBe(1) // reseed rolled a fresh random seed
+  })
+
+  it('never reseeds when shouldRestart is absent', () => {
+    harness.reducedMotion = false
+    let setups = 0
+    const div: Diversion = {
+      id: 'norestart',
+      title: '',
+      description: '',
+      kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        setups++
+        return { s: 1 }
+      },
+      frame: () => {},
+    }
+    render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    drainRaf()
+    drainRaf()
+    expect(setups).toBe(1)
+  })
+})
+
 describe('AnimationHost teardown frees resources (#128)', () => {
   it('calls teardown once and removes every listener/observer on unmount', () => {
     const calls: string[] = []

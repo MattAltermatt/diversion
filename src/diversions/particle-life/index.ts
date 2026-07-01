@@ -6,6 +6,7 @@ import { particleLifePresets } from './presets'
 import { createSim, stepSim, rebuildMatrix, rebuildGrid, type Sim, type SimConfig } from './sim'
 import { drawScene, buildSprites, type GlowSprites } from './render'
 import { paletteColors, type PaletteName } from './palette'
+import { createStallState, meanSpeed2, tickStall, type StallState } from './restart'
 
 interface State {
   sim: Sim
@@ -13,6 +14,7 @@ interface State {
   cfg: ParticleLifeConfig
   size: Size
   acc: number // fractional sim-step accumulator → lets speed drop below 1× (slow motion)
+  stall: StallState // auto-restart: reseeds a fresh world once the broth stops moving
 }
 
 const toSimConfig = (c: ParticleLifeConfig): SimConfig => ({
@@ -32,7 +34,14 @@ const particleLife = defineDiversion({
   presets: particleLifePresets,
 
   setup(_ctx, cfg, size): State {
-    return { sim: createSim(toSimConfig(cfg)), sprites: makeSprites(cfg), cfg, size, acc: 0 }
+    return { sim: createSim(toSimConfig(cfg)), sprites: makeSprites(cfg), cfg, size, acc: 0, stall: createStallState() }
+  },
+
+  // Auto-restart: once the broth stops moving (frozen crystal / motionless clump),
+  // the mean kinetic energy stays near zero — reseed a fresh world. A single creature
+  // that zooms forever keeps its energy up, so it's deliberately left alone.
+  shouldRestart(state, _t, dt): boolean {
+    return tickStall(state.stall, dt, meanSpeed2(state.sim.vx, state.sim.vy, state.sim.n))
   },
 
   frame(state, ctx, _t, _dt) {

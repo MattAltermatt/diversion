@@ -59,6 +59,15 @@ describe('CopyLinkButton', () => {
     expect(screen.getByRole('button').textContent).toContain('Copy link')
   })
 
+  it('renders a custom label / copiedLabel when provided', async () => {
+    render(<CopyLinkButton href="/x" label="📌 Copy this world" copiedLabel="✓ World copied" />)
+    expect(screen.getByRole('button').textContent).toContain('📌 Copy this world')
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button'))
+    })
+    expect(screen.getByRole('button').textContent).toContain('✓ World copied')
+  })
+
   it('does NOT show "Copied" when the clipboard write rejects', async () => {
     writeText.mockRejectedValue(new Error('denied'))
     render(<CopyLinkButton href="/d/flow-field/play?seed=1" />)

@@ -1,5 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { paletteColors, PALETTE_NAMES } from './palette'
+import { oklchToHex } from './oklch'
+
+describe('Mariners palette', () => {
+  it('is the first palette name (the new default)', () => {
+    expect(PALETTE_NAMES[0]).toBe('Mariners')
+  })
+
+  it('6 species = the six anchors exactly', () => {
+    expect(paletteColors('Mariners', 6)).toEqual([
+      oklchToHex(0.40, 0.11, 258),
+      oklchToHex(0.55, 0.15, 256),
+      oklchToHex(0.78, 0.09, 240),
+      oklchToHex(0.90, 0.015, 250),
+      oklchToHex(0.88, 0.06, 92),
+      oklchToHex(0.80, 0.145, 85),
+    ])
+  })
+})
 
 describe('paletteColors', () => {
   it('returns n valid, distinct hex colors for every preset', () => {

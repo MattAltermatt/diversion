@@ -5,7 +5,17 @@ import { useEffect, useRef, useState } from 'react'
  * clipboard and flashes a "Copied" confirmation. The screens stay black
  * boxes — they just hand us a play path.
  */
-export function CopyLinkButton({ href, className }: { href: string; className?: string }) {
+export function CopyLinkButton({
+  href,
+  className,
+  label = '🔗 Copy link',
+  copiedLabel = '✓ Copied',
+}: {
+  href: string
+  className?: string
+  label?: string
+  copiedLabel?: string
+}) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<number | undefined>(undefined)
 
@@ -33,7 +43,7 @@ export function CopyLinkButton({ href, className }: { href: string; className?: 
       className={`copy-link-btn${className ? ` ${className}` : ''}`}
       onClick={copy}
     >
-      {copied ? '✓ Copied' : '🔗 Copy link'}
+      {copied ? copiedLabel : label}
     </button>
   )
 }

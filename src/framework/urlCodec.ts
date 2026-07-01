@@ -203,14 +203,18 @@ export function freshLoadKeys(schema: ZodObject<any>): Set<string> {
 export function encodeConfig<T extends ZodObject<any>>(
   schema: T,
   value: ReturnType<T['parse']>,
+  opts: { includePinned?: boolean } = {},
 ): URLSearchParams {
   const flatVal = flatten(value as Json)
   const { encode } = buildUrlKeyMap(schema)
-  const skip = freshLoadKeys(schema)
+  // Default: skip pin-only fields (seed) so a shared link stays seedless / "new world
+  // every visit". includePinned=true emits them too → a link that reproduces THIS exact
+  // world (used by copy-link-with-seed).
+  const skip = opts.includePinned ? new Set<string>() : freshLoadKeys(schema)
   const sp = new URLSearchParams()
   for (const [path, v] of Object.entries(flatVal)) {
     const key = encode.get(path) ?? path
-    if (skip.has(key)) continue // pin-only field (seed) — never emitted; absent → rolled fresh on load
+    if (skip.has(key)) continue // pin-only field (seed) — omitted unless includePinned
     sp.set(key, v) // full snapshot of every OTHER field, flat leaf name
   }
   return sp

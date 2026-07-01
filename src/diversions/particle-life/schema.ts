@@ -29,7 +29,7 @@ export const particleLifeSchema = z.object({
     .meta({ section: 'Forces', ui: 'slider', min: -1, max: 1, step: 0.05, label: 'Attraction bias',
             help: 'Nudges every relationship toward attraction (positive → clumpy cells) or repulsion (negative → skittish gas). 0 = whatever the seed rolled.' }),
 
-  palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Spectrum')
+  palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
     .meta({ section: 'Look', ui: 'segmented', options: [...PALETTE_NAMES], label: 'Palette',
             help: 'Species colors are spaced evenly across this palette for maximum contrast.' }),
   dotSize: z.number().min(1).max(5).default(2.5)

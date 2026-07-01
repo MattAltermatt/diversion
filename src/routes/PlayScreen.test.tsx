@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { PlayScreen } from './PlayScreen'
 
@@ -29,5 +29,21 @@ describe('PlayScreen back-link', () => {
     renderAt('/d/flow-field/play')
     const back = screen.getByRole('link', { name: /config/i }) as HTMLAnchorElement
     expect(back.getAttribute('href')).toBe('/d/flow-field')
+  })
+})
+
+describe('PlayScreen copy-link-with-seed', () => {
+  it('offers a "copy this world" button whose link pins the live seed', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    // particle-life has a randomizeOnFreshLoad seed → a seedless load rolls one, and
+    // the pinned button must bake it into the copied URL.
+    renderAt('/d/particle-life/play')
+    const pinned = screen.getByRole('button', { name: /copy this world/i })
+    await act(async () => {
+      fireEvent.click(pinned)
+    })
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(writeText.mock.calls[0][0]).toContain('seed=')
   })
 })

@@ -17,6 +17,7 @@ export const particleLifePresets: PresetGroup<ParticleLifeConfig>[] = [
   {
     label: 'Look',
     options: [
+      { name: 'Mariners', patch: { palette: 'Mariners', background: '#05070d', trailFade: 0.15, glow: true, dotSize: 2.5 } },
       { name: 'Spectrum', patch: { palette: 'Spectrum', background: '#05070d', trailFade: 0.15, glow: true, dotSize: 2.5 } },
       { name: 'Neon Night', patch: { palette: 'Neon', background: '#05070d', trailFade: 0.2, glow: true, dotSize: 2.5 } },
       { name: 'Pastel Dream', patch: { palette: 'Pastel', background: '#0b0a12', trailFade: 0.25, glow: true, dotSize: 3 } },
