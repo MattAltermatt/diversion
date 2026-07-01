@@ -1,14 +1,24 @@
 import type { PhyllotaxisConfig } from './schema'
 
-// One independent axis: the whole look. Each preset patches background + mesh
-// stroke + colorBy + the palette group together, so the piece slides in one click
-// from the gallery-tuned dark default to the exact white/rainbow source video.
-export interface PalettePreset {
+export interface Preset {
   name: string
   patch: Partial<PhyllotaxisConfig>
 }
 
-export const palettePresets: PalettePreset[] = [
+// FORM axis — the render shape. Each option patches the same key-set (renderMode
+// + every leaf knob + zoom) so matchPresets can detect the active one. The three
+// leaf shapes reproduce the source video's range from one golden-angle rule:
+// overlapping petals, a bloom of spikes, and the zoomed folded-tile vortex.
+export const formPresets: Preset[] = [
+  { name: 'Pompom', patch: { renderMode: 'leaf', leafLength: 34, leafWidth: 18, leafAlpha: 0.95, leafRound: 0.6, leafShade: 0.1, zoom: 1 } },
+  { name: 'Bloom', patch: { renderMode: 'leaf', leafLength: 150, leafWidth: 5, leafAlpha: 0.45, leafRound: 1, leafShade: 0, zoom: 1 } },
+  { name: 'Spiral Tiles', patch: { renderMode: 'leaf', leafLength: 62, leafWidth: 46, leafAlpha: 1, leafRound: 0.15, leafShade: 0.75, zoom: 1.8 } },
+  { name: 'Mesh', patch: { renderMode: 'mesh', leafLength: 48, leafWidth: 14, leafAlpha: 0.8, leafRound: 0.5, leafShade: 0, zoom: 1 } },
+]
+
+// PALETTE axis — colour only. Each option patches background + mesh stroke +
+// colorBy + the palette group together.
+export const palettePresets: Preset[] = [
   {
     name: 'Nightglass',
     patch: {
@@ -22,6 +32,14 @@ export const palettePresets: PalettePreset[] = [
     patch: {
       background: '#f4f2ee', strokeColor: '#ffffff', strokeWidth: 0.8, colorBy: 'index',
       color: { stops: ['#ff2d2dff', '#ff9a2dff', '#ffe02dff', '#37d13bff', '#2d9bffff', '#7a3bffff', '#ff2df0ff'] },
+    },
+  },
+  {
+    // The video's cyan/maroon spiral-tile phase — pairs with the Spiral Tiles form.
+    name: 'Cyan / Maroon',
+    patch: {
+      background: '#0a0a0f', strokeColor: '#05030a', strokeWidth: 0.6, colorBy: 'index',
+      color: { stops: ['#7a1414ff', '#c0392bff', '#e8e8ecff', '#28c8d2ff', '#0d6e8cff'] },
     },
   },
   {

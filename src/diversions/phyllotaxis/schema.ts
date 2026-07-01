@@ -20,10 +20,41 @@ export const phyllotaxisSchema = z.object({
   spacing: z.number().min(4).max(24).default(11)
     .meta({ section: 'Pattern', ui: 'slider', min: 4, max: 24, step: 0.5, label: 'Spacing',
             help: 'Pixels of radius per √k — larger spreads the head wider.' }),
+  zoom: z.number().min(0.3).max(4).default(1)
+    .meta({ section: 'Pattern', ui: 'slider', min: 0.3, max: 4, step: 0.1, label: 'Zoom',
+            help: 'Scales the whole head about the centre. Zoom in (>1) with big overlapping '
+                + 'leaves to dive into the spiral vortex; zoom out to see the full seed head.' }),
   jitter: z.number().min(0).max(1).default(0.15)
     .meta({ section: 'Pattern', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Jitter',
-            help: 'A tiny seeded wobble on each floret so the mesh loses its mechanical, '
+            help: 'A tiny seeded wobble on each floret so it loses its mechanical, '
                 + 'CG-perfect regularity. 0 = perfectly regular.' }),
+  renderMode: z.enum(['leaf', 'mesh']).default('leaf')
+    .meta({ section: 'Form', ui: 'segmented', options: ['leaf', 'mesh'], label: 'Render as',
+            help: 'leaf: each floret is a radial rounded rectangle that streams out from the '
+                + 'centre and overlaps its neighbours (the source-video "flow" — short=petals, '
+                + 'long=a bloom of spikes). mesh: a filled Voronoi tessellation of the florets.' }),
+  leafLength: z.number().min(4).max(220).default(48)
+    .meta({ section: 'Form', ui: 'slider', min: 4, max: 220, step: 2, label: 'Leaf length',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'Radial length of each leaf. Short → overlapping petals (a pompom); long → '
+                + 'thin needles streaming from the centre (a firework bloom).' }),
+  leafWidth: z.number().min(1).max(60).default(14)
+    .meta({ section: 'Form', ui: 'slider', min: 1, max: 60, step: 1, label: 'Leaf width',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'Cross-radial width of each leaf. Narrow + long = spikes; wide = fat petals.' }),
+  leafAlpha: z.number().min(0.05).max(1).default(0.8)
+    .meta({ section: 'Form', ui: 'slider', min: 0.05, max: 1, step: 0.05, label: 'Leaf opacity',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'Lower opacity lets overlapping leaves layer into a soft glow (the bloom look).' }),
+  leafRound: z.number().min(0).max(1).default(0.5)
+    .meta({ section: 'Form', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Leaf rounding',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'Corner rounding of each leaf. 0 = hard rectangles, 1 = stadium/capsule.' }),
+  leafShade: z.number().min(0).max(1).default(0)
+    .meta({ section: 'Form', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Leaf shading',
+            showWhen: { field: 'renderMode', equals: 'leaf' },
+            help: 'Shades each leaf light-to-dark across a diagonal, so overlapping tiles read as '
+                + 'folded 3D scales — turns a big-leaf head into a hypnotic spiral vortex. 0 = flat.' }),
   colorBy: z.enum(['index', 'radius']).default('index')
     .meta({ section: 'Color', ui: 'segmented', options: ['index', 'radius'], label: 'Color by',
             help: 'index: rainbow along the growth order (matches the video — arms become '
@@ -45,12 +76,14 @@ export const phyllotaxisSchema = z.object({
             help: 'Global time scale. Zen-slow by default.' }),
   strokeWidth: z.number().min(0).max(3).default(0.6)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 3, step: 0.1, label: 'Mesh lines',
+            showWhen: { field: 'renderMode', equals: 'mesh' },
             help: 'Width of the lines between cells (the leaded-glass look). 0 = seamless '
                 + 'filled cells, no lines.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0b0713')
     .meta({ section: 'Color', ui: 'color', label: 'Background' }),
   strokeColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05030a')
     .meta({ section: 'Color', ui: 'color', label: 'Mesh line color',
+            showWhen: { field: 'renderMode', equals: 'mesh' },
             help: 'Colour of the cell borders. Only shows when Mesh lines > 0.' }),
   color: z.object({
     stops: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(8)

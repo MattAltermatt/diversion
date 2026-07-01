@@ -54,6 +54,7 @@ export function make2DContext(): Mock2DContext {
     lineTo: rec('lineTo'),
     arc: rec('arc'),
     rect: rec('rect'),
+    roundRect: rec('roundRect'),
     ellipse: rec('ellipse'),
     quadraticCurveTo: rec('quadraticCurveTo'),
     bezierCurveTo: rec('bezierCurveTo'),
