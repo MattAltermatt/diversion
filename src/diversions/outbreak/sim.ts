@@ -27,7 +27,8 @@ const ZOMBIE_CLUMP_R = 90
 const CIV_FLEE_R = 110
 const CIV_SEEK_R = 150 // sense a nearby fighter to run toward
 const FIGHTER_FORM_R = 120 // loose huddle
-const WALL_AVOID_R = 26 // agents start steering off a wall within this range
+const WALL_AVOID_R = 14 // agents steer off a wall within this range — MUST stay well
+// under the corridor width (see arena.ts street fraction) or narrow streets seal shut
 const W_WALL_AVOID = 2.2 // strong — agents should skirt buildings, not clip them
 const SEP_R = 7 // personal space — tight so crowds pack densely (still not a point)
 const BITE_R = 5 // a zombie must be nearly on top of prey to bite

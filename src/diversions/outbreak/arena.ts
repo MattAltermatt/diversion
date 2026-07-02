@@ -16,12 +16,15 @@ export const ARENA_MY = 80
 export function generateArena(seed: number, density: number, worldW: number, worldH: number): Arena {
   if (density <= 0.02) return { walls: [] } // wide-open field
   const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0)
-  const cols = 3 + Math.round(density * 8) // 3..11 columns of blocks
-  const rows = 2 + Math.round(density * 5) // 2..7 rows
+  // Density adds MORE buildings (coverage), it does NOT pinch the streets shut —
+  // corridors must stay wider than the wall-avoidance radius or agents can't thread
+  // them. Grid stays coarse enough that even the densest streets are passable.
+  const cols = 5 + Math.round(density * 4) // 5..9 columns of blocks
+  const rows = 3 + Math.round(density * 3) // 3..6 rows
   const x0 = ARENA_MX, x1 = worldW - ARENA_MX, y0 = ARENA_MY, y1 = worldH - ARENA_MY
   const gw = (x1 - x0) / cols, gh = (y1 - y0) / rows
-  const street = 0.42 - density * 0.26 // street fraction of a cell: 0.42 → 0.16 (narrows)
-  const p = 0.35 + density * 0.6 // chance a cell holds a building
+  const street = 0.34 // constant street fraction → passable-width corridors at any density
+  const p = 0.15 + density * 0.8 // density = how built-up (0.15 → 0.95 of cells)
   const walls: Rect[] = []
   for (let cy = 0; cy < rows; cy++) {
     for (let cx = 0; cx < cols; cx++) {
