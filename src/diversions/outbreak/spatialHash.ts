@@ -72,6 +72,33 @@ export class SpatialHash {
     }
   }
 
+  /** Nearest live agent to an arbitrary POINT (x,y) within `r` — for a bullet, which
+   *  is not an agent index. Optional faction filter. Returns -1 if none. */
+  nearestAtPoint(
+    px: Float32Array, py: Float32Array, x: number, y: number, r: number,
+    alive: Uint8Array, faction?: Uint8Array, want?: number,
+  ): number {
+    const r2 = r * r
+    const cx = this.colOf(x), cy = this.rowOf(y)
+    let best = -1, bestD2 = r2
+    const y0 = cy > 0 ? cy - 1 : 0, y1 = cy < this.rows - 1 ? cy + 1 : this.rows - 1
+    const x0 = cx > 0 ? cx - 1 : 0, x1 = cx < this.cols - 1 ? cx + 1 : this.cols - 1
+    for (let gy = y0; gy <= y1; gy++) {
+      for (let gx = x0; gx <= x1; gx++) {
+        let j = this.head[gy * this.cols + gx]
+        while (j !== -1) {
+          if (alive[j] && (want === undefined || faction![j] === want)) {
+            const dx = px[j] - x, dy = py[j] - y
+            const d2 = dx * dx + dy * dy
+            if (d2 <= bestD2) { bestD2 = d2; best = j }
+          }
+          j = this.next[j]
+        }
+      }
+    }
+    return best
+  }
+
   /** Nearest agent to `i` within `r` whose faction is `want` (or any faction when
    *  `want` is undefined). Returns -1 if none. Clamped 3×3 block, euclidean. */
   nearestWithin(

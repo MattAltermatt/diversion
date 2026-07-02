@@ -6,6 +6,7 @@
 import { mulberry32 } from '../../framework/rng'
 import { SpatialHash } from './spatialHash'
 import { addSeek, addAvoid, addFlee, addCohesion, addSeparation } from './steering'
+import { fireStep, bulletStep } from './combat'
 
 export const CIVILIAN = 0
 export const FIGHTER = 1
@@ -14,7 +15,7 @@ export const ZOMBIE = 2
 export const WORLD_W = 1600
 export const WORLD_H = 900
 
-const DT = 1 / 60 // fixed sim timestep (seconds); `speed` runs N steps per frame
+export const DT = 1 / 60 // fixed sim timestep (seconds); `speed` runs N steps per frame
 const TURN = 0.16 // velocity lerp toward desired heading (0..1) — smooth turning
 
 // Interaction radii (world px). All are ≤ the hash cell so a clamped 3×3 block finds
@@ -25,7 +26,6 @@ const ZOMBIE_CLUMP_R = 90
 const CIV_FLEE_R = 110
 const CIV_SEEK_R = 150 // sense a nearby fighter to run toward
 const FIGHTER_FORM_R = 120 // loose huddle
-const FIGHTER_BACK_R = 120 // back away from the nearest zombie (no guns yet)
 const SEP_R = 15 // personal space — keeps a crowd a crowd, not a point
 const BITE_R = 9
 const RECRUIT_R = 32
@@ -38,7 +38,11 @@ const W_ZOMBIE_CLUMP = 0.35
 const W_CIV_FLEE = 1.4
 const W_CIV_SEEK = 0.5
 const W_FIGHTER_FORM = 0.5
-const W_FIGHTER_BACK = 0.9
+const W_FIGHTER_ADVANCE = 1.0 // fighters close to engagement range
+const W_FIGHTER_KITE = 1.3 // and back off if a zombie gets inside it
+const W_FIGHTER_RECRUIT_SEEK = 0.4 // gentle drift toward civilians to recruit
+const W_ZOMBIE_CHARGE = 1.6 // enraged: drive at the nearest fighter
+const W_ZOMBIE_FEAR = 1.0 // calm: stand off from the guns
 const W_SEP = 1.1 // personal-space shove — dominates only at genuine overlap
 
 export interface SimConfig {
@@ -48,6 +52,15 @@ export interface SimConfig {
   zombieSpeed: number
   humanSpeed: number
   seed: number
+  // combat (#234)
+  fighterRange: number
+  fireCooldown: number // seconds between shots (= 1 / fireRate)
+  magazine: number
+  reloadTime: number
+  bulletSpeed: number
+  zombieFearRadius: number
+  enrageRadius: number
+  enrageTime: number
 }
 
 export type Outcome = 'horde' | 'humans' | null
@@ -63,6 +76,19 @@ export interface Ecosystem {
   alive: Uint8Array
   infecting: Uint8Array
   infectTimer: Float32Array
+  // combat (#234) — per-agent (fighters use ammo/reloadT/fireT; zombies use enrageT)
+  ammo: Int16Array
+  reloadT: Float32Array
+  fireT: Float32Array
+  enrageT: Float32Array
+  // bullet pool
+  bx: Float32Array
+  by: Float32Array
+  bvx: Float32Array
+  bvy: Float32Array
+  brange: Float32Array
+  balive: Uint8Array
+  bulletCursor: number
   hash: SpatialHash
   rng: () => number
   simTime: number
@@ -88,6 +114,11 @@ export function createSim(cfg: SimConfig): Ecosystem {
   const alive = new Uint8Array(n).fill(1)
   const infecting = new Uint8Array(n)
   const infectTimer = new Float32Array(n)
+  const ammo = new Int16Array(n)
+  const reloadT = new Float32Array(n)
+  const fireT = new Float32Array(n)
+  const enrageT = new Float32Array(n)
+  const bulletCap = Math.max(1024, n)
 
   const seedHeading = (i: number, speed: number) => {
     const a = rng() * Math.PI * 2
@@ -99,6 +130,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
   // Fighters cluster on the left edge.
   for (let k = 0; k < cfg.fighterCount; k++, i++) {
     faction[i] = FIGHTER
+    ammo[i] = cfg.magazine
     px[i] = 40 + rng() * 180
     py[i] = 80 + rng() * (WORLD_H - 160)
     seedHeading(i, cfg.humanSpeed)
@@ -120,6 +152,10 @@ export function createSim(cfg: SimConfig): Ecosystem {
 
   const eco: Ecosystem = {
     cfg, n, px, py, vx, vy, faction, alive, infecting, infectTimer,
+    ammo, reloadT, fireT, enrageT,
+    bx: new Float32Array(bulletCap), by: new Float32Array(bulletCap),
+    bvx: new Float32Array(bulletCap), bvy: new Float32Array(bulletCap),
+    brange: new Float32Array(bulletCap), balive: new Uint8Array(bulletCap), bulletCursor: 0,
     hash: new SpatialHash(WORLD_W, WORLD_H, CELL, n),
     rng, simTime: 0, lastEventTime: 0,
     civAlive: cfg.civilianCount, fighterAlive: cfg.fighterCount, zombieAlive: cfg.zombieCount,
@@ -153,8 +189,17 @@ export function stepSim(e: Ecosystem): void {
     acc[0] = 0; acc[1] = 0
     const f = faction[i]
     if (f === ZOMBIE) {
-      const prey = nearestOf(e, i, ZOMBIE_PERCEPT, CIVILIAN, FIGHTER)
-      if (prey !== -1) addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
+      let charging = false
+      if (e.enrageT[i] > 0) { // enraged → drop caution, charge the nearest fighter
+        const fgt = nearestOf(e, i, ZOMBIE_PERCEPT, FIGHTER)
+        if (fgt !== -1) { addSeek(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_CHARGE, acc); charging = true }
+      }
+      if (!charging) {
+        const prey = nearestOf(e, i, ZOMBIE_PERCEPT, CIVILIAN)
+        if (prey !== -1) addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
+        const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER) // calm → stand off from the guns
+        if (fgt !== -1) addAvoid(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_FEAR, acc)
+      }
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, ZOMBIE_CLUMP_R, 24, e.neigh, faction, ZOMBIE)
       addCohesion(px, py, i, e.neigh, W_ZOMBIE_CLUMP, acc)
@@ -164,12 +209,19 @@ export function stepSim(e: Ecosystem): void {
       addFlee(px, py, i, e.neigh, CIV_FLEE_R, W_CIV_FLEE, acc)
       const safe = nearestOf(e, i, CIV_SEEK_R, FIGHTER)
       if (safe !== -1) addSeek(px[i], py[i], px[safe], py[safe], W_CIV_SEEK, acc)
-    } else { // FIGHTER
+    } else { // FIGHTER — advance on the horde to engagement range, hold, kite if overrun
+      const z = nearestOf(e, i, ZOMBIE_PERCEPT, ZOMBIE)
+      if (z !== -1) {
+        const d = Math.hypot(px[z] - px[i], py[z] - py[i])
+        const R = e.cfg.fighterRange
+        if (d > R * 0.75) addSeek(px[i], py[i], px[z], py[z], W_FIGHTER_ADVANCE, acc)
+        else if (d < R * 0.45) addAvoid(px[i], py[i], px[z], py[z], W_FIGHTER_KITE, acc)
+      }
+      const civ = nearestOf(e, i, CIV_SEEK_R, CIVILIAN) // drift toward civilians to recruit
+      if (civ !== -1) addSeek(px[i], py[i], px[civ], py[civ], W_FIGHTER_RECRUIT_SEEK, acc)
       e.neigh.length = 0
-      e.hash.neighborsWithin(px, py, i, FIGHTER_FORM_R, 24, e.neigh, faction, FIGHTER)
+      e.hash.neighborsWithin(px, py, i, FIGHTER_FORM_R, 16, e.neigh, faction, FIGHTER)
       addCohesion(px, py, i, e.neigh, W_FIGHTER_FORM, acc)
-      const threat = nearestOf(e, i, FIGHTER_BACK_R, ZOMBIE)
-      if (threat !== -1) addAvoid(px[i], py[i], px[threat], py[threat], W_FIGHTER_BACK, acc)
     }
     // Separation from ALL nearby agents (any faction) → crowds keep their volume.
     e.neigh.length = 0
@@ -200,9 +252,15 @@ export function stepSim(e: Ecosystem): void {
     else if (py[i] > WORLD_H - 6) { py[i] = WORLD_H - 6; vy[i] = -vy[i] * 0.5 }
   }
 
+  // ── Combat: rebuild the hash on post-move positions, then fighters fire and bullets
+  //    resolve (kills + enrage bursts). The conversions below reuse this same hash.
+  e.hash.rebuild(px, py, e.n, alive)
+  fireStep(e)
+  const kills = bulletStep(e)
+
   // ── Conversion cycle. Bites first (mark infecting), then recruit (skips infecting),
   //    then tick infections to their flip. Any event resets the settle clock.
-  let event = false
+  let event = kills > 0
   // Bite: each zombie marks nearby non-zombies for infection.
   for (let i = 0; i < e.n; i++) {
     if (!alive[i] || faction[i] !== ZOMBIE) continue
@@ -220,7 +278,10 @@ export function stepSim(e: Ecosystem): void {
     e.neigh.length = 0
     e.hash.neighborsWithin(px, py, i, RECRUIT_R, 8, e.neigh, faction, CIVILIAN)
     for (const j of e.neigh) {
-      if (alive[j] && !infecting[j]) { faction[j] = FIGHTER; event = true }
+      if (alive[j] && !infecting[j]) {
+        faction[j] = FIGHTER; e.ammo[j] = e.cfg.magazine; e.reloadT[j] = 0; e.fireT[j] = 0
+        event = true
+      }
     }
   }
   // Infection tick: bitten agents keep their behaviour until the timer flips them.
@@ -229,6 +290,8 @@ export function stepSim(e: Ecosystem): void {
     infectTimer[i] -= DT
     if (infectTimer[i] <= 0) { faction[i] = ZOMBIE; infecting[i] = 0; event = true }
   }
+
+  for (let i = 0; i < e.n; i++) if (e.enrageT[i] > 0) e.enrageT[i] -= DT
 
   e.simTime += DT
   if (event) e.lastEventTime = e.simTime

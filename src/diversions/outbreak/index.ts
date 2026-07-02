@@ -9,11 +9,15 @@ interface State {
   sim: Ecosystem
   cfg: OutbreakConfig
   size: Size
+  stepAcc: number // fractional sim-steps carried between frames (slow-mo when speed < 1)
 }
 
 const toSimConfig = (c: OutbreakConfig): SimConfig => ({
   civilianCount: c.civilianCount, fighterCount: c.fighterCount, zombieCount: c.zombieCount,
   zombieSpeed: c.zombieSpeed, humanSpeed: c.humanSpeed, seed: c.seed,
+  fighterRange: c.fighterRange, fireCooldown: 1 / c.fireRate, magazine: c.magazine,
+  reloadTime: c.reloadTime, bulletSpeed: c.bulletSpeed, zombieFearRadius: c.zombieFearRadius,
+  enrageRadius: c.enrageRadius, enrageTime: c.enrageTime,
 })
 
 const outbreak = defineDiversion({
@@ -24,11 +28,16 @@ const outbreak = defineDiversion({
   schema: outbreakSchema,
 
   setup(_ctx, cfg, size): State {
-    return { sim: createSim(toSimConfig(cfg)), cfg, size }
+    return { sim: createSim(toSimConfig(cfg)), cfg, size, stepAcc: 0 }
   },
 
   frame(state, ctx, _t, _dt) {
-    const steps = Math.max(1, state.cfg.speed)
+    // Accumulate fractional steps so speed < 1 slow-motions (a step every few frames)
+    // while speed > 1 fast-forwards. Cap the burst so a frame hitch can't stampede.
+    state.stepAcc += state.cfg.speed
+    let steps = Math.floor(state.stepAcc)
+    state.stepAcc -= steps
+    if (steps > 8) steps = 8
     for (let i = 0; i < steps; i++) stepSim(state.sim)
     drawScene(ctx as CanvasRenderingContext2D, state.sim, state.cfg, state.size)
   },

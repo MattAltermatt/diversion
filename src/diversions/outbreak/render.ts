@@ -34,4 +34,17 @@ export function drawScene(
   paint(CIVILIAN, cfg.civilianColor)
   paint(FIGHTER, cfg.fighterColor)
   paint(ZOMBIE, cfg.zombieColor)
+
+  // Bullets as short tracer streaks (full muzzle-flash/tracer treatment is #236).
+  ctx.strokeStyle = '#ffe08a'
+  ctx.lineWidth = Math.max(1, scale)
+  ctx.beginPath()
+  const { bx, by, bvx, bvy, balive } = e
+  for (let b = 0; b < balive.length; b++) {
+    if (!balive[b]) continue
+    const x = ox + bx[b] * scale, y = oy + by[b] * scale
+    const tx = ox + (bx[b] - bvx[b] * 0.02) * scale, ty = oy + (by[b] - bvy[b] * 0.02) * scale
+    ctx.moveTo(tx, ty); ctx.lineTo(x, y)
+  }
+  ctx.stroke()
 }

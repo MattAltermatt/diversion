@@ -9,7 +9,7 @@ describe('outbreak schema', () => {
     expect(cfg.civilianCount).toBe(500)
     expect(cfg.fighterCount).toBe(30)
     expect(cfg.zombieCount).toBe(40)
-    expect(cfg.speed).toBe(1)
+    expect(cfg.speed).toBe(0.5)
     expect(cfg.seed).toBe(1337)
   })
 
