@@ -572,22 +572,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     if (!Number.isFinite(s.bestTimeSec)) drawFurthestFlag(ctx, s, sx, ink)
   }
 
-  // rubble obstacle blocks — translucent fill + outline, in a contrasting accent
-  for (const b of s.rubbleBlocks.values()) {
-    const bp = getBodyPosition(b.body)
-    const ba = getBodyAngle(b.body)
-    const half = (b.size / 2) * m2px
-    ctx.save()
-    ctx.translate(sx(bp.x), sy(bp.y))
-    ctx.rotate(-ba)
-    ctx.fillStyle = 'rgba(231,111,81,0.22)'
-    ctx.fillRect(-half, -half, half * 2, half * 2)
-    ctx.strokeStyle = '#e76f51'
-    ctx.lineWidth = 2
-    ctx.strokeRect(-half, -half, half * 2, half * 2)
-    ctx.restore()
-  }
-
   // record-holder ghost (#227) — behind the live car so the live one reads on top
   drawGhost(ctx, s, sx, sy, m2px)
 

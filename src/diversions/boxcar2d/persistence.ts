@@ -39,7 +39,7 @@ export interface RunBlob {
 export const RUN_SHAPE_FIELDS = [
   'seed', 'population', 'eliteCount', 'mutationRate', 'trackLifespan',
   'mode', 'goalDistance', 'timeCap', 'roughness', 'terrainType',
-  'rubbleDensity', 'minProgress', 'progressWindow',
+  'minProgress', 'progressWindow',
 ] as const
 
 /** True if two configs describe the SAME run (all run-shaping fields equal). The

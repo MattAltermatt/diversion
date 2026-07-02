@@ -10,7 +10,6 @@ import {
   destroyBody,
   stepWorld,
   buildTerrainBody,
-  createPolygonBody,
   type WorldId,
   type BodyId,
 } from './physics'
@@ -20,7 +19,6 @@ import { makeGhostTrack, type GhostTrack } from './ghost'
 import { breedGeneration, type Scored } from './ga'
 import { randomGenome, EVOLVE_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
-import { makeRubbleLayout, type RubbleLayout } from './rubble'
 import { drawScene } from './render'
 import { saveRun, loadRun, clearRun, sameRun, type RunBlob } from './persistence'
 
@@ -82,17 +80,6 @@ export function finishFlashEvent(timeSec: number, prevBest: number): { text: str
 // Track lifespan slider at its max = never regenerate (one track, mastered forever).
 // Derived from the schema so it can never drift from the slider's actual max.
 const TRACK_LIFESPAN_MAX = readMeta(boxcar2dSchema.shape.trackLifespan)!.max!
-// Rubble: dynamic blocks live in a tight pool around the car (created once per car,
-// reset on the next spawn). RUBBLE_GROUP 0 collides with the car (CAR_GROUP -1) and
-// the static terrain. MAX hard-caps live bodies regardless of density (perf guard).
-const RUBBLE_GROUP = 0
-const RUBBLE_AHEAD = 70
-const RUBBLE_BEHIND = 20
-const MAX_RUBBLE_BLOCKS = 90
-// Rubble-free launch zone: no blocks for the first RUBBLE_START_GAP meters past
-// spawn, so cars get a clean run to build speed (and evolution a foothold) before
-// the obstacle field begins.
-const RUBBLE_START_GAP = 100
 // Champions panel (#225): how many top cars the "hall of champions" holds.
 const LEADERBOARD_SIZE = 5
 
@@ -150,7 +137,7 @@ export interface BoxCarState {
   /** Render-only cache (sky gradient), keyed by height|skyColour. */
   skyGradient?: CanvasGradient
   skyKey?: string
-  /** Seed of the CURRENT track (terrain + rubble derive from it; reseeded on regen). */
+  /** Seed of the CURRENT track (terrain derives from it; reseeded on regen). */
   trackSeed: number
   /** Physics steps elapsed for the current car (time-mode clock). */
   stepsThisCar: number
@@ -171,9 +158,6 @@ export interface BoxCarState {
   finishFlash: { text: string; ahead: boolean; expiresAt: number } | null
   pendingSplit: { text: string; ahead: boolean } | null
   pendingFinish: { text: string; ahead: boolean } | null
-  rubbleLayout: RubbleLayout | null
-  rubbleBlocks: Map<number, { body: BodyId; size: number }>
-  rubbleNextSlot: number
   /** Ghost replay (#227), time mode only. `ghostRecording` accrues the current car's
    *  per-step pose; on a new record it's promoted to `ghostTrack` (the record-holder
    *  replayed alongside later cars). Transient — no persist, cleared on track regen. */
@@ -199,50 +183,6 @@ function rebuildTerrain(state: BoxCarState, centerX: number): void {
   state.terrainEndX = endX
 }
 
-/** Drop all current rubble bodies and repopulate from the car's spawn point.
- *  Called on every car spawn → identical, fair layout for all cars (no car
- *  bulldozes a path for the next). */
-function resetRubble(state: BoxCarState): void {
-  for (const b of state.rubbleBlocks.values()) destroyBody(b.body)
-  state.rubbleBlocks.clear()
-  state.rubbleNextSlot = state.rubbleLayout
-    ? state.rubbleLayout.firstSlotAtOrAfter(state.spawnX + RUBBLE_START_GAP)
-    : 0
-}
-
-/** Create rubble blocks just ahead of the car (once each) and prune ones far
- *  behind. Blocks are NEVER recreated mid-run, so a knocked-aside block stays put
- *  until the next car resets the field. */
-function extendRubble(state: BoxCarState, carX: number): void {
-  const L = state.rubbleLayout
-  if (!L) return
-  const ahead = carX + RUBBLE_AHEAD
-  while (L.blockX(state.rubbleNextSlot) < ahead && state.rubbleBlocks.size < MAX_RUBBLE_BLOCKS) {
-    const slot = state.rubbleNextSlot++
-    const x = L.blockX(slot)
-    const size = L.blockSize(slot)
-    const half = size / 2
-    const y = state.terrainHeight(x) + half + 0.05
-    const body = createPolygonBody(state.world, {
-      position: { x, y },
-      vertices: [
-        { x: -half, y: -half }, { x: half, y: -half },
-        { x: half, y: half }, { x: -half, y: half },
-      ],
-      density: 0.1, friction: 0.5, groupIndex: RUBBLE_GROUP, // light → cars bash through
-    })
-    state.rubbleBlocks.set(slot, { body, size })
-  }
-  // Map iterates in slot (insertion) order and blockX is monotonic, so the
-  // blocks behind the car are a prefix — stop at the first one still in range.
-  const behind = carX - RUBBLE_BEHIND
-  for (const [slot, b] of state.rubbleBlocks) {
-    if (L.blockX(slot) >= behind) break
-    destroyBody(b.body)
-    state.rubbleBlocks.delete(slot)
-  }
-}
-
 function spawnCar(state: BoxCarState): void {
   // each solo run starts at spawn → re-centre the endless terrain there
   rebuildTerrain(state, state.spawnX)
@@ -260,8 +200,6 @@ function spawnCar(state: BoxCarState): void {
   state.splitsThisCar = []
   // fresh recording buffer per car (a NEW array — the promoted ghostTrack owns the old one)
   state.ghostRecording = []
-  resetRubble(state)
-  extendRubble(state, state.spawnX) // populate the pool immediately (no 1-frame gap)
 }
 
 function endCurrentCar(state: BoxCarState, finished = false): void {
@@ -327,13 +265,12 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
     state.scored = []
     state.carIndex = 0
     // ∞ track lifespan (slider at max) = never regenerate. Otherwise a fresh track
-    // every `trackLifespan` gens; terrain + rubble both derive from the new seed,
-    // drawn from the same rng stream so a seed reproduces the whole run.
+    // every `trackLifespan` gens; terrain derives from the new seed, drawn from the
+    // same rng stream so a seed reproduces the whole run.
     const lifespanInfinite = state.cfg.trackLifespan >= TRACK_LIFESPAN_MAX
     if (!lifespanInfinite && (state.generation - 1) % state.cfg.trackLifespan === 0) {
       state.trackSeed = Math.floor(state.rng() * 1e9)
       state.terrainHeight = makeTerrain(state.trackSeed, state.cfg.roughness, state.cfg.terrainType)
-      state.rubbleLayout = makeRubbleLayout(state.trackSeed, state.cfg.rubbleDensity)
       state.bestDistMeters = 0 // fresh track → fresh record
       state.bestTimeSec = Infinity
       state.bestSplits = [] // fresh track → fresh splits + furthest marker
@@ -355,7 +292,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       trackSeed: state.trackSeed,
     })
   }
-  spawnCar(state) // rebuilds terrain + rubble around spawn
+  spawnCar(state) // rebuilds terrain around spawn
 }
 
 function stepCar(state: BoxCarState): void {
@@ -422,9 +359,8 @@ function stepCar(state: BoxCarState): void {
     }
   }
 
-  // extend the endless terrain + rubble ahead of the car before it reaches the edge
+  // extend the endless terrain ahead of the car before it reaches the edge
   if (x + REBUILD_MARGIN > state.terrainEndX) rebuildTerrain(state, x)
-  extendRubble(state, x)
 }
 
 export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
@@ -487,9 +423,6 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
       finishFlash: null,
       pendingSplit: null,
       pendingFinish: null,
-      rubbleLayout: makeRubbleLayout(trackSeed, config.rubbleDensity),
-      rubbleBlocks: new Map(),
-      rubbleNextSlot: 0,
       // Ghost replay is transient — a resumed run has no ghost until a car beats the
       // restored record time this session (mirrors the splits-on-resume behaviour).
       ghostRecording: [],
@@ -572,8 +505,7 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
       config.mutationRate !== old.mutationRate ||
       config.mode !== old.mode ||
       config.goalDistance !== old.goalDistance ||
-      config.terrainType !== old.terrainType ||
-      config.rubbleDensity !== old.rubbleDensity
+      config.terrainType !== old.terrainType
     ) {
       return false
     }

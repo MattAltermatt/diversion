@@ -33,9 +33,6 @@ export const boxcar2dSchema = z.object({
   terrainType: z.enum(TERRAIN_TYPES).default('dunes')
     .meta({ section: 'Track', ui: 'segmented', options: [...TERRAIN_TYPES], label: 'Terrain',
             help: 'Shape of the hills: rolling, big dunes, stepped plateaus, or sharp ridges.' }),
-  rubbleDensity: z.number().min(0).max(8).default(0)
-    .meta({ section: 'Track', ui: 'slider', min: 0, max: 8, step: 1, label: 'Rubble',
-            help: 'Loose blocks per ~10 m that slow the car, starting ~100 m past the launch (the first stretch is always clear). 0 = none (default). The layout resets for every car — fair for all.' }),
   minProgress: z.number().min(0.2).max(10).default(2)
     .meta({ section: 'Evolution', ui: 'slider', min: 0.2, max: 10, step: 0.1, label: 'Min progress (m)',
             help: 'A car is culled if it fails to gain this much new distance within the progress window — catches cars that are moving but effectively stuck (spinning, backflipping, creeping).' }),

@@ -13,10 +13,9 @@ describe('boxcar2dSchema', () => {
 
 describe('boxcar2d schema additions', () => {
   const d = boxcar2dSchema.parse({})
-  it('defaults: time mode, dunes terrain, rubble off, gentle roughness, infinite track', () => {
+  it('defaults: time mode, dunes terrain, gentle roughness, infinite track', () => {
     expect(d.mode).toBe('time')
     expect(d.terrainType).toBe('dunes')
-    expect(d.rubbleDensity).toBe(0) // off by default — rubble walls evolution before gen 10 (measured)
     expect(d.roughness).toBe(0.4) // softened so evolution has a fitness gradient
     expect(d.trackLifespan).toBe(51) // max == infinite sentinel
     expect(d.timeCap).toBe(180) // 3 min

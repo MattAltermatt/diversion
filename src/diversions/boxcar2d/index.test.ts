@@ -290,18 +290,4 @@ describe('boxcar2d diversion', () => {
     },
     30000,
   )
-
-  it('rubble density > 0 spawns blocks once a car passes the launch gap, without throwing', () => {
-    // Rubble only begins after the RUBBLE_START_GAP (100 m) launch zone, so drive
-    // the sim (speed fast-forward) until a car gets close enough to the field to
-    // trigger block spawning, then assert blocks exist.
-    const rcfg = boxcar2dSchema.parse({ rubbleDensity: 4, population: 6, speed: 8 })
-    const s = diversion.setup(fakeCtx(), rcfg, SIZE)
-    let guard = 0
-    while (guard++ < 40000 && s.rubbleBlocks.size === 0) {
-      diversion.frame(s, fakeCtx(), guard * 16, 16)
-    }
-    expect(s.rubbleBlocks.size).toBeGreaterThan(0)
-    diversion.teardown?.(s)
-  }, 20000)
 })
