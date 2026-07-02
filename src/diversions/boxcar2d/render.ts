@@ -9,6 +9,7 @@
  */
 import { getBodyPosition, getBodyAngle, SCALE } from './physics'
 import { carCentroid } from './car'
+import { ghostPoseAt } from './ghost'
 import type { BoxCarState } from './index'
 
 const ZOOM = 2.2
@@ -205,6 +206,54 @@ function drawSpring(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: n
   ctx.lineTo(ex, ey)
   ctx.lineTo(x2, y2)
   ctx.stroke()
+}
+
+const GHOST_COLOR = '#ffd15a' // warm gold — 'the record to beat', reads on light + dark sky
+
+/** Record-holder ghost (#227): the fastest finished car so far, replayed translucently
+ *  at the live car's step count so the two race in lockstep. Drawn as a faint gold
+ *  silhouette (members + wheel rings, no fill) behind the live car. */
+function drawGhost(
+  ctx: CanvasRenderingContext2D,
+  s: BoxCarState,
+  sx: (wx: number) => number,
+  sy: (wy: number) => number,
+  m2px: number,
+): void {
+  if (!s.cfg.showGhost || s.cfg.mode !== 'time' || !s.ghostTrack) return
+  // step-1: frames[k] holds the pose AFTER step k+1, so the live car at stepsThisCar
+  // matches ghost frame index stepsThisCar-1 (clamped inside ghostPoseAt).
+  const pose = ghostPoseAt(s.ghostTrack, s.stepsThisCar - 1)
+  if (!pose) return
+  ctx.save()
+  ctx.globalAlpha = 0.45
+  ctx.strokeStyle = GHOST_COLOR
+  ctx.lineWidth = 2.5
+  for (const mem of s.ghostTrack.members) {
+    const pa = pose.nodes[mem.a]
+    const pb = pose.nodes[mem.b]
+    ctx.beginPath()
+    ctx.moveTo(sx(pa.x), sy(pa.y))
+    ctx.lineTo(sx(pb.x), sy(pb.y))
+    ctx.stroke()
+  }
+  ctx.lineWidth = 2
+  for (let i = 0; i < pose.wheels.length; i++) {
+    const w = pose.wheels[i]
+    const r = s.ghostTrack.wheelRadii[i] * m2px
+    ctx.save()
+    ctx.translate(sx(w.x), sy(w.y))
+    ctx.rotate(-w.angle)
+    ctx.beginPath()
+    ctx.arc(0, 0, r, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(r, 0)
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.restore()
 }
 
 /** Time-mode pre-record marker (#221②): until any car finishes, a furthest-reached
@@ -426,6 +475,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     ctx.strokeRect(-half, -half, half * 2, half * 2)
     ctx.restore()
   }
+
+  // record-holder ghost (#227) — behind the live car so the live one reads on top
+  drawGhost(ctx, s, sx, sy, m2px)
 
   // current car — skeletal truss: members (bars/springs) + nodes, drawn directly
   // in world space (each member spans two live node bodies; no per-body transform).

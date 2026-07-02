@@ -48,6 +48,10 @@ export const boxcar2dSchema = z.object({
   showHud: z.boolean().default(true)
     .meta({ section: 'Display', ui: 'toggle', label: 'Show HUD',
             help: 'Generation, car number, and live progress (distance or time).' }),
+  showGhost: z.boolean().default(true)
+    .meta({ section: 'Display', ui: 'toggle', label: 'Record-holder ghost',
+            help: 'A translucent replay of the fastest car so far, racing alongside the current one — the visual of the time splits. Appears once a car has finished. Time mode only.',
+            showWhen: { field: 'mode', equals: 'time' } }),
   color: z.object({
     chassis: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#e76f51').meta({ ui: 'color', label: 'Chassis' }),
     wheel: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#264653').meta({ ui: 'color', label: 'Wheel' }),

@@ -11,7 +11,7 @@
 import {
   createWorld, destroyWorld, stepWorld, buildTerrainBody,
   createCircleBody, createWheelJoint, createDistanceJoint,
-  getBodyPosition, type WorldId, type BodyId, type Vec2,
+  getBodyPosition, getBodyAngle, type WorldId, type BodyId, type Vec2,
 } from './physics'
 import { type Genome, pairIndex } from './genome'
 import { triangulateEdges } from './triangulate'
@@ -94,6 +94,18 @@ export function buildCar(worldId: WorldId, g: Genome, spawn: Vec2): CarBodies {
   }
 
   return { nodes, members, wheels }
+}
+
+/** Flat per-step pose snapshot for ghost recording (#227): every node's (x,y) then
+ *  every wheel's (x,y,angle), world meters — the exact order ghost.ts decodes. */
+export function capturePose(car: CarBodies): number[] {
+  const out: number[] = []
+  for (const nd of car.nodes) { const p = getBodyPosition(nd.body); out.push(p.x, p.y) }
+  for (const w of car.wheels) {
+    const p = getBodyPosition(w.body)
+    out.push(p.x, p.y, getBodyAngle(w.body))
+  }
+  return out
 }
 
 /** Mean of the node body positions — the car's reference point (no single chassis). */

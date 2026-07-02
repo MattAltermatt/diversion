@@ -14,7 +14,8 @@ import {
   type WorldId,
   type BodyId,
 } from './physics'
-import { buildCar, carCentroid, type CarBodies } from './car'
+import { buildCar, carCentroid, capturePose, type CarBodies } from './car'
+import { makeGhostTrack, type GhostTrack } from './ghost'
 import { breedGeneration, type Scored } from './ga'
 import { randomGenome, DEFAULT_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
@@ -170,6 +171,11 @@ export interface BoxCarState {
   rubbleLayout: RubbleLayout | null
   rubbleBlocks: Map<number, { body: BodyId; size: number }>
   rubbleNextSlot: number
+  /** Ghost replay (#227), time mode only. `ghostRecording` accrues the current car's
+   *  per-step pose; on a new record it's promoted to `ghostTrack` (the record-holder
+   *  replayed alongside later cars). Transient — no persist, cleared on track regen. */
+  ghostRecording: number[][]
+  ghostTrack: GhostTrack | null
 }
 
 /** (Re)build the sliding-window terrain body centred on `centerX`. */
@@ -245,6 +251,8 @@ function spawnCar(state: BoxCarState): void {
   state.camMY = state.terrainHeight(state.spawnX) + 1
   state.stepsThisCar = 0
   state.splitsThisCar = []
+  // fresh recording buffer per car (a NEW array — the promoted ghostTrack owns the old one)
+  state.ghostRecording = []
   resetRubble(state)
   extendRubble(state, state.spawnX) // populate the pool immediately (no 1-frame gap)
 }
@@ -271,6 +279,9 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
     if (timeSec < state.bestTimeSec) {
       state.bestTimeSec = timeSec
       state.bestSplits = [...state.splitsThisCar]
+      // Promote this run to the ghost (#227) — its bodies still exist here (freed just
+      // below), but makeGhostTrack only reads plain shape data + the recorded frames.
+      state.ghostTrack = makeGhostTrack(state.current, state.ghostRecording)
     }
   }
 
@@ -308,6 +319,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       state.bestTimeSec = Infinity
       state.bestSplits = [] // fresh track → fresh splits + furthest marker
       state.furthestMeters = 0
+      state.ghostTrack = null // fresh track → old ghost's path no longer valid (#227)
     }
     // Auto-persist at the generation boundary (#226): the freshly-bred population is
     // the resumable checkpoint. Cheap (≤40 small genomes), fail-soft, once per gen.
@@ -333,6 +345,16 @@ function stepCar(state: BoxCarState): void {
   if (x > state.maxXThisCar) state.maxXThisCar = x // furthest reached (fitness + flag)
   const dist = x - state.spawnX
   if (dist > state.furthestMeters) state.furthestMeters = dist // pre-record flag + ribbon
+
+  // Ghost recording (#227): capture this car's pose each step in time mode, but only
+  // while it could still beat the record — a car already slower than the record time
+  // can't become the ghost, so stop recording it (bounds memory to the record's length).
+  if (
+    state.cfg.mode === 'time' &&
+    (!Number.isFinite(state.bestTimeSec) || state.stepsThisCar <= state.bestTimeSec * 60)
+  ) {
+    state.ghostRecording.push(capturePose(state.current))
+  }
 
   // Time mode: record 100 m split crossings (splits-vs-record, #221), then finish at
   // the goal / cull at the time cap.
@@ -447,6 +469,10 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
       rubbleLayout: makeRubbleLayout(trackSeed, config.rubbleDensity),
       rubbleBlocks: new Map(),
       rubbleNextSlot: 0,
+      // Ghost replay is transient — a resumed run has no ghost until a car beats the
+      // restored record time this session (mirrors the splits-on-resume behaviour).
+      ghostRecording: [],
+      ghostTrack: null,
     }
     spawnCar(state)
     return state
