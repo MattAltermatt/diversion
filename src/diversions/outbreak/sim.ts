@@ -26,9 +26,9 @@ const ZOMBIE_CLUMP_R = 90
 const CIV_FLEE_R = 110
 const CIV_SEEK_R = 150 // sense a nearby fighter to run toward
 const FIGHTER_FORM_R = 120 // loose huddle
-const SEP_R = 15 // personal space — keeps a crowd a crowd, not a point
-const BITE_R = 9
-const RECRUIT_R = 32
+const SEP_R = 7 // personal space — tight so crowds pack densely (still not a point)
+const BITE_R = 5 // a zombie must be nearly on top of prey to bite
+const RECRUIT_R = 14 // a fighter must be close to pull a civilian in
 const INFECT_DELAY = 1.2 // seconds bitten → turned
 const SETTLE_SECONDS = 14 // no conversion/death for this long → reseed by headcount
 
