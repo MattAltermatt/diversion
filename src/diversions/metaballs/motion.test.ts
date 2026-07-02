@@ -101,4 +101,18 @@ describe('metaballs motion', () => {
     for (let i = 0; i < 100; i++) t = stepBlobs(blobs, cfg, 16, t)
     expect(blobs.map((b) => [b.x, b.y])).toEqual(before) // no evolution over time
   })
+
+  it('a sub-30fps frame is not clamped to slow-motion (#121)', () => {
+    // The internal dt cap was 33ms — a 50ms (20fps) frame ran at ~66% speed. It now
+    // caps at 50ms (the loop's own clamp), so a 50ms step advances temperature
+    // proportionally more than a 33ms step (they were previously equal).
+    const cfg = metaballsSchema.parse({ seed: 7 })
+    const tempDrift = (dt: number) => {
+      const blobs = seedBlobs(cfg, 1.6)
+      const before = blobs.map((b) => b.T)
+      stepBlobs(blobs, cfg, dt, 0)
+      return blobs.reduce((s, b, i) => s + Math.abs(b.T - before[i]), 0)
+    }
+    expect(tempDrift(50)).toBeGreaterThan(tempDrift(33) * 1.3)
+  })
 })

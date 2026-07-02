@@ -45,6 +45,7 @@ export interface SquiralState {
   fadeElapsed: number
   fadeAlpha: number          // per-frame fade composite alpha (fade mode)
   wipeRow: number            // rows cleared from each edge so far (wipe mode)
+  wipeAcc: number            // accumulated ms since the wipe began (dt-driven sweep)
   stepAcc: number
   dirty: DirtyCell[]         // cells filled this frame (renderer drains)
   expired: DirtyCell[]       // cells cleared this frame → repaint bg (renderer drains)
@@ -165,7 +166,7 @@ export function createSquiralState(cfg: SquiralConfig, w: number, h: number): Sq
     bg: parseHex6(cfg.background),
     rng: mulberry32(cycleSeed(cfg.seed, 0)),
     cycle: 0,
-    phase: 'spiraling', fadeElapsed: 0, fadeAlpha: 0, wipeRow: 0,
+    phase: 'spiraling', fadeElapsed: 0, fadeAlpha: 0, wipeRow: 0, wipeAcc: 0,
     stepAcc: 0, dirty: [], expired: [], appearing: [], needsClear: false,
   }
   st.worms = Array.from({ length: cfg.count }, () => {
@@ -196,7 +197,7 @@ function reseed(st: SquiralState): void {
   st.rng = mulberry32(cycleSeed(st.cfg.seed, st.cycle))
   for (const w of st.worms) spawnWorm(st, w)
   st.phase = 'spiraling'
-  st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0
+  st.fadeElapsed = 0; st.fadeAlpha = 0; st.wipeRow = 0; st.wipeAcc = 0
   st.needsClear = true // renderer repaints bg over the faded/wiped field
 }
 
@@ -211,14 +212,18 @@ export function stepSquiral(st: SquiralState, dt: number): void {
     return
   }
   if (st.phase === 'wiping') {
-    const band = Math.max(1, Math.ceil(st.rows / 60)) // ~1s sweep at 60fps
-    for (let k = 0; k < band && st.wipeRow < Math.ceil(st.rows / 2); k++, st.wipeRow++) {
+    // Time-driven sweep: ~st.rows rows/sec from each edge (a full half in ~0.5s),
+    // matching the old ceil(rows/60)-per-frame rate at 60fps but frame-rate independent.
+    st.wipeAcc += dt
+    const half = Math.ceil(st.rows / 2)
+    const targetRow = Math.min(half, Math.floor((st.wipeAcc / 1000) * st.rows))
+    for (; st.wipeRow < targetRow; st.wipeRow++) {
       for (let c = 0; c < st.cols; c++) {
         clearCell(st, st.wipeRow * st.cols + c)
         clearCell(st, (st.rows - 1 - st.wipeRow) * st.cols + c)
       }
     }
-    if (st.wipeRow >= Math.ceil(st.rows / 2)) reseed(st)
+    if (st.wipeRow >= half) reseed(st)
     return
   }
   // spiraling

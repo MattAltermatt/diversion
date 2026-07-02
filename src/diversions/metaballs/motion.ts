@@ -82,7 +82,7 @@ export function stepBlobs(
   dtMs: number,
   t: number,
 ): number {
-  const sdt = (Math.min(dtMs, 33) / 1000) * cfg.speed // clamp tab-stall spikes
+  const sdt = (Math.min(dtMs, 50) / 1000) * cfg.speed // clamp tab-stall spikes (matches the loop's 50ms cap)
   const nt = (t + sdt) % 1e4
   for (const b of blobs) {
     // --- vertical: thermal relaxation oscillator ---

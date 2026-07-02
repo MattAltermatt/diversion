@@ -400,3 +400,20 @@ describe('seeded cracks carry a curvature', () => {
     for (const c of s.cracks) expect(c.curvature).not.toBe(0)
   })
 })
+
+describe('growth is frame-rate independent (#121)', () => {
+  // Carrying the un-run backlog in stepAcc (instead of dropping it) makes the total
+  // step count depend only on elapsed time, not frame batching — so below the
+  // MAX_STEPS×fps throughput ceiling the sim is BIT-IDENTICAL across frame rates.
+  const inkedAfter = (dt: number, frames: number) => {
+    const s = createSubstrateState(cfg({ seed: 5, speed: 30 }), 120, 120) // speed 30 ≪ ceiling
+    for (let i = 0; i < frames; i++) stepSubstrate(s, dt)
+    let n = 0
+    for (const v of s.grid) if (v !== EMPTY) n++
+    return n
+  }
+  it('60fps and 20fps ink the identical cell count over the same elapsed time', () => {
+    // 1500ms: 90 frames @ 16.67ms vs 30 frames @ 50ms.
+    expect(inkedAfter(1000 / 60, 90)).toBe(inkedAfter(50, 30))
+  })
+})

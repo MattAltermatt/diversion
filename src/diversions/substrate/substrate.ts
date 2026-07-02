@@ -317,8 +317,12 @@ export function stepSubstrate(state: SubstrateState, dt: number): void {
   state.elapsed += dt
   state.stepAcc += (state.cfg.speed * (dt / 1000)) / STEP
   let steps = Math.floor(state.stepAcc)
+  if (steps > MAX_STEPS) steps = MAX_STEPS // execution safety cap (post-stall)
+  // Subtract only the steps we actually run so the backlog carries forward — growth
+  // speed is then frame-rate independent (below the MAX_STEPS×fps throughput ceiling).
   state.stepAcc -= steps
-  if (steps > MAX_STEPS) steps = MAX_STEPS
+  // …but bound the backlog so a sustained over-ceiling speed can't accrue unpayable debt.
+  if (state.stepAcc > MAX_STEPS) state.stepAcc = MAX_STEPS
   for (let s = 0; s < steps; s++) {
     let spawn = 0
     for (const cr of state.cracks) {

@@ -186,6 +186,21 @@ describe('lifecycle', () => {
   })
 })
 
+describe('wipe is frame-rate independent (#121)', () => {
+  // The wipe sweep is time-driven, so equal wall-clock reaches the same wipeRow
+  // regardless of frame cadence (it used to clear a fixed row-count PER FRAME).
+  const wipeRowAfter = (dt: number, frames: number) => {
+    const st = freshState({ clearMode: 'wipe', cellSize: 4 })
+    st.phase = 'wiping'; st.wipeRow = 0; st.wipeAcc = 0
+    for (let i = 0; i < frames && st.phase === 'wiping'; i++) stepSquiral(st, dt)
+    return st.wipeRow
+  }
+  it('30fps and 144fps clear the same rows over the same elapsed time', () => {
+    // 200ms of sweep: 6 frames @ ~33.3ms vs 29 frames @ ~6.9ms.
+    expect(wipeRowAfter(1000 / 30, 6)).toBe(wipeRowAfter(1000 / 144, 29))
+  })
+})
+
 describe('determinism', () => {
   it('same seed → identical first 50 filled cells', () => {
     const run = () => {
