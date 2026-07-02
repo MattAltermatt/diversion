@@ -217,6 +217,7 @@ export function stepSim(e: Ecosystem): void {
     if (!alive[i]) continue
     acc[0] = 0; acc[1] = 0
     const f = faction[i]
+    let civAlert = true // civilians only move when they've spotted a zombie or fighter
     if (f === ZOMBIE) {
       let charging = false
       if (e.enrageT[i] > 0) { // enraged → drop caution, charge the nearest fighter
@@ -244,6 +245,7 @@ export function stepSim(e: Ecosystem): void {
       addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
       const safe = nearestOf(e, i, sight, FIGHTER)
       if (safe !== -1) addSeek(px[i], py[i], px[safe], py[safe], W_CIV_SEEK, acc)
+      civAlert = e.neigh.length > 0 || safe !== -1 // saw a zombie (flee) or a fighter (seek)
     } else { // FIGHTER — advance on the horde to engagement range, hold, kite if overrun
       const z = nearestOf(e, i, ZOMBIE_PERCEPT, ZOMBIE)
       if (z !== -1) {
@@ -258,17 +260,21 @@ export function stepSim(e: Ecosystem): void {
       e.hash.neighborsWithin(px, py, i, FIGHTER_FORM_R, 16, e.neigh, faction, FIGHTER)
       addCohesion(px, py, i, e.neigh, W_FIGHTER_FORM, acc)
     }
-    // Separation from ALL nearby agents (any faction) → crowds keep their volume.
-    e.neigh.length = 0
-    e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh)
-    addSeparation(px, py, i, e.neigh, W_SEP, acc)
-    addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
+    // Separation + wall avoidance — skipped for a RESTING civilian (sees no zombie or
+    // fighter) so it settles still instead of jittering away at full speed.
+    if (f !== CIVILIAN || civAlert) {
+      e.neigh.length = 0
+      e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh)
+      addSeparation(px, py, i, e.neigh, W_SEP, acc)
+      addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
+    }
     let maxSpeed = f === ZOMBIE ? zspeed : hspeed
     if (f === ZOMBIE && e.enrageT[i] > 0) maxSpeed *= ENRAGE_SPEED_MULT // adrenaline surge
     const m = Math.hypot(acc[0], acc[1])
     let dvx: number, dvy: number
     if (m > 1e-6) { dvx = (acc[0] / m) * maxSpeed; dvy = (acc[1] / m) * maxSpeed }
-    else { // coast in the current heading
+    else if (f === CIVILIAN) { dvx = 0; dvy = 0 } // nothing in sight → settle to a stop
+    else { // zombie/fighter with no input → coast in the current heading
       const vm = Math.hypot(vx[i], vy[i]) || 1e-6
       dvx = (vx[i] / vm) * maxSpeed; dvy = (vy[i] / vm) * maxSpeed
     }
