@@ -121,12 +121,14 @@ export function sampleField(nav: NavGrid, dist: Int32Array, x: number, y: number
   return true
 }
 
-/** True if the straight segment (ax,ay)→(bx,by) crosses no wall (sampled at ~10px steps;
- *  endpoints — the agent and target centers — are assumed already free). */
+/** True if the straight segment (ax,ay)→(bx,by) crosses no wall (sampled at ~6px steps —
+ *  under the 10px min wall thickness so a thin wall isn't stepped over; endpoints — the
+ *  agent and target centers — are assumed already free). */
 export function losClear(arena: Arena, ax: number, ay: number, bx: number, by: number): boolean {
+  if (arena.walls.length === 0) return true // open field — nothing to occlude, skip the raycast
   const dx = bx - ax, dy = by - ay
   const len = Math.hypot(dx, dy)
-  const steps = Math.max(1, Math.ceil(len / 10))
+  const steps = Math.max(1, Math.ceil(len / 6))
   for (let s = 1; s < steps; s++) {
     const t = s / steps
     if (insideWall(arena, ax + dx * t, ay + dy * t)) return false

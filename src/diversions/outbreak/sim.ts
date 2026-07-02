@@ -251,11 +251,12 @@ export function stepSim(e: Ecosystem): void {
         }
       }
       if (target !== -1) {
-        // Direct-seek when the prey is in sight (lunge on the straightaway); otherwise
-        // descend the human field to route around the wall between them.
-        if (losClear(e.arena, px[i], py[i], px[target], py[target])) {
+        const d2 = (px[target] - px[i]) ** 2 + (py[target] - py[i]) ** 2
+        // Direct-seek only when the prey is near AND in sight (lunge on the straightaway);
+        // a far global-fallback target — or any target behind a wall — routes via the human
+        // field instead (skipping the LOS raycast keeps it cheap at scale).
+        if (d2 <= ZOMBIE_PERCEPT * ZOMBIE_PERCEPT && losClear(e.arena, px[i], py[i], px[target], py[target])) {
           addSeek(px[i], py[i], px[target], py[target], targetW, acc)
-          const d2 = (px[target] - px[i]) ** 2 + (py[target] - py[i]) ** 2
           if (d2 < LUNGE_R * LUNGE_R) lunge = true // close enough to run it down
         } else if (sampleField(e.navGrid, e.navGrid.humanDist, px[i], py[i], true, e.navOut)) {
           acc[0] += e.navOut[0] * targetW; acc[1] += e.navOut[1] * targetW
@@ -270,7 +271,13 @@ export function stepSim(e: Ecosystem): void {
       const sight = e.cfg.civilianSight // adjustable eyesight — flee + seek share it
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, sight, 24, e.neigh, faction, ZOMBIE)
-      const nearZ = nearestOf(e, i, sight, ZOMBIE)
+      // Nearest visible zombie for the LOS test — pulled from the flee list already gathered
+      // above (avoids a second identical spatial-hash scan of the ZOMBIE faction).
+      let nearZ = -1, nearZd2 = Infinity
+      for (const j of e.neigh) {
+        const dx = px[j] - px[i], dy = py[j] - py[i], d2 = dx * dx + dy * dy
+        if (d2 < nearZd2) { nearZd2 = d2; nearZ = j }
+      }
       if (nearZ !== -1) {
         // Flee directly from every visible zombie; if the nearest is behind a wall, ascend
         // the zombie field instead so panic routes down a corridor (not into the wall).

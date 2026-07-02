@@ -146,25 +146,29 @@ export function resolveWall(r: Rect, x: number, y: number): [number, number, 0 |
 /** Repel (x,y) from every wall within `radius` (closest-point on the rect), accumulating
  *  a steering contribution into `out`. Closer walls push harder (linear falloff). Queries
  *  only the grid's 3×3 block around (x,y) when the grid is present. */
+/** Accumulate one rect's linear-falloff repulsion into `out` (module-level so the hot
+ *  addWallAvoid loop allocates no per-call closure). */
+function accumulateAvoid(r: Rect, x: number, y: number, r2: number, radius: number, w: number, out: Float32Array): void {
+  const cxp = x < r.x ? r.x : x > r.x + r.w ? r.x + r.w : x
+  const cyp = y < r.y ? r.y : y > r.y + r.h ? r.y + r.h : y
+  const dx = x - cxp, dy = y - cyp
+  const d2 = dx * dx + dy * dy
+  if (d2 < r2 && d2 > 1e-6) {
+    const d = Math.sqrt(d2)
+    const f = (1 - d / radius) * w
+    out[0] += (dx / d) * f; out[1] += (dy / d) * f
+  }
+}
+
 export function addWallAvoid(
   a: Arena, x: number, y: number, radius: number, w: number, out: Float32Array,
 ): void {
   const r2 = radius * radius
-  const consider = (r: Rect) => {
-    const cxp = x < r.x ? r.x : x > r.x + r.w ? r.x + r.w : x
-    const cyp = y < r.y ? r.y : y > r.y + r.h ? r.y + r.h : y
-    const dx = x - cxp, dy = y - cyp
-    const d2 = dx * dx + dy * dy
-    if (d2 < r2 && d2 > 1e-6) {
-      const d = Math.sqrt(d2)
-      const f = (1 - d / radius) * w
-      out[0] += (dx / d) * f; out[1] += (dy / d) * f
-    }
-  }
   const g = a.grid
   if (g) {
     const cx = clampi(Math.floor(x / g.size), 0, g.cols - 1)
     const cy = clampi(Math.floor(y / g.size), 0, g.rows - 1)
+    if (g.gen >= 0x3fffffff) { g.stamp.fill(0); g.gen = 0 } // keep the stamp inside Int32 range
     const gen = ++g.gen // dedupe: a long wall spans multiple cells in the 3×3 block
     for (let yy = cy - 1; yy <= cy + 1; yy++) {
       if (yy < 0 || yy >= g.rows) continue
@@ -173,11 +177,11 @@ export function addWallAvoid(
         for (const i of g.buckets[yy * g.cols + xx]) {
           if (g.stamp[i] === gen) continue
           g.stamp[i] = gen
-          consider(a.walls[i])
+          accumulateAvoid(a.walls[i], x, y, r2, radius, w, out)
         }
       }
     }
     return
   }
-  for (const r of a.walls) consider(r)
+  for (const r of a.walls) accumulateAvoid(r, x, y, r2, radius, w, out)
 }
