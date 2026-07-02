@@ -288,11 +288,15 @@ export function AnimationHost({
     const onPointerMove = dispatchPointer('move')
     const onPointerUp = dispatchPointer('up')
     const onPointerLeave = dispatchPointer('leave')
+    // pointercancel (an interrupted touch/pen gesture) fires INSTEAD of up/leave, so
+    // map it to 'leave' too — else a drag consumer's held-button state would stick.
+    const onPointerCancel = dispatchPointer('leave')
     if (onPointer) {
       canvas.addEventListener('pointerdown', onPointerDown)
       canvas.addEventListener('pointermove', onPointerMove)
       canvas.addEventListener('pointerup', onPointerUp)
       canvas.addEventListener('pointerleave', onPointerLeave)
+      canvas.addEventListener('pointercancel', onPointerCancel)
     }
 
     return () => {
@@ -309,6 +313,7 @@ export function AnimationHost({
         canvas.removeEventListener('pointermove', onPointerMove)
         canvas.removeEventListener('pointerup', onPointerUp)
         canvas.removeEventListener('pointerleave', onPointerLeave)
+        canvas.removeEventListener('pointercancel', onPointerCancel)
       }
       loop.stop()
       loopRef.current = null
