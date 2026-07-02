@@ -61,8 +61,8 @@ export const outbreakSchema = z.object({
     .meta({ section: 'Look', ui: 'color', label: 'Zombie color', help: 'The horde. Sickly green pops against the neutral crowd.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0b0d10')
     .meta({ section: 'Look', ui: 'color', label: 'Background' }),
-  wallColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1b2530')
-    .meta({ section: 'Look', ui: 'color', label: 'Walls', help: 'Buildings / arena border. A muted slate reads as structure without stealing focus from the agents.' }),
+  wallColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8cbef2')
+    .meta({ section: 'Look', ui: 'color', label: 'Walls', help: 'Maze walls / arena border, drawn translucent so the crowd reads through them.' }),
   speed: z.number().min(0.1).max(4).default(0.5)
     .meta({ section: 'Motion', ui: 'slider', min: 0.1, max: 4, step: 0.05, label: 'Speed',
             help: 'Playback rate. Below 1 is slow-motion (0.1 is a very slow, meditative watch); above 1 fast-forwards. Only changes how fast you watch, never the outcome.' }),
