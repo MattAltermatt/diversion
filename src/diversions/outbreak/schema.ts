@@ -16,9 +16,9 @@ export const outbreakSchema = z.object({
   arenaDensity: z.number().min(0).max(1).default(0.35)
     .meta({ section: 'Arena', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Arena density',
             help: 'Procgen city blocks. 0 is a wide-open field (sweeping engagements); 1 is a dense office maze of tight corridors and chokepoints that trap and funnel. Changing it rebuilds the arena.' }),
-  zombieSpeed: z.number().min(20).max(140).default(68)
+  zombieSpeed: z.number().min(20).max(140).default(90)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 140, step: 1, label: 'Zombie speed',
-            help: 'Slow-but-relentless is the classic feel — a bit below human speed. Enraged zombies surge past it.' }),
+            help: 'A touch faster than the humans so the relentless horde slowly runs stragglers down; enraged zombies surge well past it.' }),
   humanSpeed: z.number().min(20).max(200).default(84)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 200, step: 1, label: 'Human speed',
             help: 'Civilians and fighters move faster than the horde — their one edge.' }),
