@@ -108,6 +108,46 @@ export function capturePose(car: CarBodies): number[] {
   return out
 }
 
+/** A car's static rest shape (local meters, Y-up), derived purely from its Genome —
+ *  NO physics world. Mirrors buildCar's active-node filter, Delaunay members, and
+ *  wheel-mount logic so a thumbnail matches the body the sim builds. Used by the
+ *  leaderboard (#225) to draw champion mini-cars, precomputed once per champion. */
+export interface CarShape {
+  nodes: { x: number; y: number }[]
+  members: { a: number; b: number; stiffness: number }[]
+  wheels: { x: number; y: number; radius: number }[]
+  /** Local-space bbox over nodes + wheel discs, precomputed so the thumbnail fit is
+   *  a few arithmetic ops per frame instead of a rescan of every point. */
+  bounds: { minX: number; maxX: number; minY: number; maxY: number }
+}
+export function staticCarShape(g: Genome): CarShape {
+  const active = g.nodes.map((n, i) => ({ n, slot: i })).filter((o) => o.n.present)
+  const local = active.map((o) => ({ x: o.n.x, y: o.n.y }))
+  const members: CarShape['members'] = triangulateEdges(local).map(([ai, bi]) => ({
+    a: ai,
+    b: bi,
+    stiffness: g.pairs[pairIndex(active[ai].slot, active[bi].slot)].stiffness,
+  }))
+  const slotToArr = new Map(active.map((o, k) => [o.slot, k]))
+  const wheels: CarShape['wheels'] = []
+  for (const w of g.wheels) {
+    if (!w.present) continue
+    const k = slotToArr.get(w.node)
+    if (k === undefined) continue // unreachable after repair; guards a malformed genome
+    wheels.push({ x: local[k].x, y: local[k].y, radius: w.radius })
+  }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const n of local) {
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x)
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y)
+  }
+  for (const wl of wheels) {
+    minX = Math.min(minX, wl.x - wl.radius); maxX = Math.max(maxX, wl.x + wl.radius)
+    minY = Math.min(minY, wl.y - wl.radius); maxY = Math.max(maxY, wl.y + wl.radius)
+  }
+  return { nodes: local, members, wheels, bounds: { minX, maxX, minY, maxY } }
+}
+
 /** Mean of the node body positions — the car's reference point (no single chassis). */
 export function carCentroid(car: CarBodies): Vec2 {
   let sx = 0, sy = 0

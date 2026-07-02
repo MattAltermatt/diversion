@@ -47,6 +47,30 @@ function fakeCtx(): CanvasRenderingContext2D {
   } as unknown as CanvasRenderingContext2D
 }
 
+describe('champions panel (#225)', () => {
+  it(
+    'fills the leaderboard from finished runs, fitness-descending and capped at 5',
+    () => {
+      // rough terrain + fast-forward so many cars finish/cull quickly
+      const lbCfg = boxcar2dSchema.parse({ population: 6, roughness: 1.2, speed: 8 })
+      const s = diversion.setup(fakeCtx(), lbCfg, SIZE)
+      let guard = 0
+      while (s.leaderboard.length < 5 && guard++ < 400000) diversion.frame(s, fakeCtx(), guard * 16, 16)
+      expect(s.leaderboard.length).toBe(5)
+      // ranked fitness-descending
+      const fits = s.leaderboard.map((c) => c.fitness)
+      expect([...fits].sort((a, b) => b - a)).toEqual(fits)
+      // every card carries a drawable shape + a label
+      for (const c of s.leaderboard) {
+        expect(c.shape.nodes.length).toBeGreaterThan(0)
+        expect(c.label).toMatch(/(\d+(\.\d+)?s|\d+ m)/)
+      }
+      diversion.teardown?.(s)
+    },
+    30000,
+  )
+})
+
 describe('annealedRate', () => {
   it('cools from the gen-1 peak toward a lower floor', () => {
     const peak = 0.21

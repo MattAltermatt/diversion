@@ -52,6 +52,9 @@ export const boxcar2dSchema = z.object({
     .meta({ section: 'Display', ui: 'toggle', label: 'Record-holder ghost',
             help: 'A translucent replay of the fastest car so far, racing alongside the current one — the visual of the time splits. Appears once a car has finished. Time mode only.',
             showWhen: { field: 'mode', equals: 'time' } }),
+  showLeaderboard: z.boolean().default(true)
+    .meta({ section: 'Display', ui: 'toggle', label: 'Champions panel',
+            help: 'A side panel of the top cars this run, drawn as mini-car thumbnails ranked by fitness — a “hall of champions”. The currently-running car is highlighted when it’s one of them (e.g. an elite carried forward). In time mode, finishers show their time and the rest the distance reached.' }),
   color: z.object({
     chassis: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#e76f51').meta({ ui: 'color', label: 'Chassis' }),
     wheel: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#264653').meta({ ui: 'color', label: 'Wheel' }),

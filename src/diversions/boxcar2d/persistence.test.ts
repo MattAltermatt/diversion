@@ -92,7 +92,7 @@ describe('boxcar2d persistence', () => {
     // Cosmetic fields intentionally excluded from the resume-match: changing them must
     // not void a resume. Any OTHER schema field defines the run and MUST be in the
     // list — this fails when a new run-shaping field is added and forces a decision.
-    const COSMETIC = new Set(['color', 'speed', 'showHud', 'showGhost'])
+    const COSMETIC = new Set(['color', 'speed', 'showHud', 'showGhost', 'showLeaderboard'])
     const missing = Object.keys(boxcar2dSchema.shape).filter(
       (k) => !COSMETIC.has(k) && !(RUN_SHAPE_FIELDS as readonly string[]).includes(k),
     )

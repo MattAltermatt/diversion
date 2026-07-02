@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { simulateCar, buildCar, carCentroid } from './car'
+import { simulateCar, buildCar, carCentroid, staticCarShape } from './car'
 import { randomGenome } from './genome'
 import { makeTerrain, terrainPoints } from './terrain'
 import { createWorld, destroyWorld, buildTerrainBody, stepWorld, getBodyPosition } from './physics'
@@ -24,6 +24,28 @@ describe('buildCar', () => {
     expect(car.members).toHaveLength(triangulateEdges(localPts).length)
     expect(car.wheels).toHaveLength(activeWheels)
     destroyWorld(world)
+  })
+})
+
+describe('staticCarShape', () => {
+  it('matches buildCar counts (same active-node/Delaunay/wheel-mount logic, no physics)', () => {
+    const g = randomGenome(mulberry32(7))
+    const world = createWorld(-10)
+    buildTerrainBody(world, TERRAIN)
+    const car = buildCar(world, g, { x: 2, y: 3 })
+    const shape = staticCarShape(g)
+    expect(shape.nodes).toHaveLength(car.nodes.length)
+    expect(shape.members).toHaveLength(car.members.length)
+    expect(shape.wheels).toHaveLength(car.wheels.length)
+    destroyWorld(world)
+  })
+  it('mounts each wheel at its node’s local position with the gene radius', () => {
+    const g = randomGenome(mulberry32(13))
+    const shape = staticCarShape(g)
+    for (const w of shape.wheels) {
+      expect(shape.nodes.some((n) => n.x === w.x && n.y === w.y)).toBe(true)
+      expect(w.radius).toBeGreaterThan(0)
+    }
   })
 })
 

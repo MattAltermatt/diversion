@@ -8,7 +8,7 @@
  * outline + centre spokes + translucent fill — so the structure of each car reads clearly.
  */
 import { getBodyPosition, getBodyAngle, SCALE } from './physics'
-import { carCentroid } from './car'
+import { carCentroid, type CarShape } from './car'
 import { ghostPoseAt } from './ghost'
 import type { BoxCarState } from './index'
 
@@ -350,6 +350,118 @@ function drawFlash(
   ctx.textAlign = 'left'
 }
 
+/** Draw a champion's static rest shape fitted into a card rect (screen px). Simplified
+ *  vs the live car — members as plain lines (no spring coils, illegible this small),
+ *  outlined wheels, node dots — but colour-coded the same (chassis / spring accent). */
+function drawMiniCar(
+  ctx: CanvasRenderingContext2D,
+  shape: CarShape,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  chassis: string,
+  ink: string,
+): void {
+  // precomputed local bbox (staticCarShape) → fit into the card. Inline the affine
+  // transform (ox/oy origin + scale, Y-up → Y-down) so no closures alloc per frame.
+  const { minX, maxX, minY, maxY } = shape.bounds
+  const bw = Math.max(0.1, maxX - minX), bh = Math.max(0.1, maxY - minY)
+  const pad = 6
+  const scale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh)
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
+  const ox = x + w / 2, oy = y + h / 2
+
+  for (const m of shape.members) {
+    const a = shape.nodes[m.a], b = shape.nodes[m.b]
+    ctx.strokeStyle = m.stiffness >= SPRING_THRESH ? chassis : SPRING_COLOR
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(ox + (a.x - cx) * scale, oy - (a.y - cy) * scale)
+    ctx.lineTo(ox + (b.x - cx) * scale, oy - (b.y - cy) * scale)
+    ctx.stroke()
+  }
+  ctx.strokeStyle = ink
+  ctx.lineWidth = 1.5
+  for (const wl of shape.wheels) {
+    ctx.beginPath()
+    ctx.arc(ox + (wl.x - cx) * scale, oy - (wl.y - cy) * scale, wl.radius * scale, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.fillStyle = chassis
+  for (const n of shape.nodes) {
+    ctx.beginPath()
+    ctx.arc(ox + (n.x - cx) * scale, oy - (n.y - cy) * scale, 1.6, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+const LB_GOLD = '#ffd15a' // running-champion highlight (ties to the ghost's "record" gold)
+
+/** Champions panel (#225): a right-edge, screen-space column of the top cars this run
+ *  as mini-car thumbnails ranked by fitness. Screen-space so it survives the hard
+ *  camera cut to the next car at spawn. The currently-running car (an elite carried
+ *  forward, matched by genome reference) gets a gold highlight. */
+function drawLeaderboard(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
+  if (!s.cfg.showLeaderboard || s.leaderboard.length === 0) return
+  const { width, height } = s.size
+  const CW = 150
+  const cardH = 54
+  const gap = 6
+  const headerH = 22
+  const pad = 12
+  const panelX = width - CW - pad
+  const topY = 44 // clears the HUD plate (8..34) + a split flash line
+  // fit as many cards as the viewport height allows (short screens show fewer)
+  const availH = height - topY - pad
+  const maxRows = Math.max(1, Math.floor((availH - headerH - 8) / (cardH + gap)))
+  const shown = Math.min(s.leaderboard.length, maxRows)
+  const panelH = headerH + shown * (cardH + gap) - gap + 10
+
+  const chassis = s.cfg.color.chassis
+  // backing plate — near-opaque dark so the thumbnails read over any sky/terrain (#1/#5)
+  ctx.fillStyle = 'rgba(12,16,22,0.8)'
+  ctx.fillRect(panelX, topY, CW, panelH)
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'
+  ctx.font = 'bold 12px system-ui, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText('CHAMPIONS', panelX + 10, topY + 6)
+
+  const runningGenome = s.current?.genome
+  for (let i = 0; i < shown; i++) {
+    const c = s.leaderboard[i]
+    const cardX = panelX + 6
+    const cardY = topY + headerH + i * (cardH + gap)
+    const cardW = CW - 12
+    const running = c.genome === runningGenome
+    // card background + optional running highlight border
+    ctx.fillStyle = running ? 'rgba(255,209,90,0.16)' : 'rgba(255,255,255,0.06)'
+    ctx.fillRect(cardX, cardY, cardW, cardH)
+    if (running) {
+      ctx.strokeStyle = LB_GOLD
+      ctx.lineWidth = 2
+      ctx.strokeRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2)
+    }
+    // rank badge (left column)
+    ctx.fillStyle = running ? LB_GOLD : 'rgba(255,255,255,0.75)'
+    ctx.font = 'bold 15px system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(`${i + 1}`, cardX + 13, cardY + cardH / 2)
+    // mini-car (middle) — light-ink outlines read on the dark plate
+    drawMiniCar(ctx, c.shape, cardX + 24, cardY + 2, cardW - 74, cardH - 4, chassis, 'rgba(235,240,248,0.92)')
+    // metric label (right column)
+    ctx.fillStyle = running ? LB_GOLD : 'rgba(255,255,255,0.9)'
+    ctx.font = 'bold 12px system-ui, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(c.label, cardX + cardW - 8, cardY + cardH / 2)
+  }
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+}
+
 export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   const { width, height } = s.size
   const m2px = SCALE * ZOOM
@@ -561,4 +673,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     drawFlash(ctx, width, s.finishFlash, 40, 17)
     drawFlash(ctx, width, s.splitFlash, 66, 14)
   }
+
+  // Champions panel (#225) — its own toggle, drawn independent of the HUD.
+  drawLeaderboard(ctx, s)
 }

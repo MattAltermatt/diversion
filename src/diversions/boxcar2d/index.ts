@@ -14,7 +14,8 @@ import {
   type WorldId,
   type BodyId,
 } from './physics'
-import { buildCar, carCentroid, capturePose, type CarBodies } from './car'
+import { buildCar, carCentroid, capturePose, staticCarShape, type CarBodies } from './car'
+import { updateLeaderboard, championLabel, type Champion } from './leaderboard'
 import { makeGhostTrack, type GhostTrack } from './ghost'
 import { breedGeneration, type Scored } from './ga'
 import { randomGenome, DEFAULT_RANGES, type Genome } from './genome'
@@ -92,6 +93,8 @@ const MAX_RUBBLE_BLOCKS = 90
 // spawn, so cars get a clean run to build speed (and evolution a foothold) before
 // the obstacle field begins.
 const RUBBLE_START_GAP = 100
+// Champions panel (#225): how many top cars the "hall of champions" holds.
+const LEADERBOARD_SIZE = 5
 
 // Resume decision (#226), routed from the Play screen into setup(). setup() only
 // receives `config`, which can't distinguish a seedless resume from an explicit
@@ -176,6 +179,10 @@ export interface BoxCarState {
    *  replayed alongside later cars). Transient — no persist, cleared on track regen. */
   ghostRecording: number[][]
   ghostTrack: GhostTrack | null
+  /** Top-cars "hall of champions" (#225): the best genomes this run as mini-car
+   *  thumbnails, ranked by fitness. Transient — refills from the persisted elites
+   *  within a generation on resume; reset on track regen (old terrain's fitnesses). */
+  leaderboard: Champion[]
 }
 
 /** (Re)build the sliding-window terrain body centred on `centerX`. */
@@ -269,6 +276,18 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
     timeSec,
   })
   state.scored.push({ genome: state.current.genome, fitness })
+  // Fold this run into the champions panel (#225). Deduped by genome reference, so an
+  // elite re-running each generation updates its card instead of spamming duplicates.
+  state.leaderboard = updateLeaderboard(
+    state.leaderboard,
+    {
+      genome: state.current.genome,
+      fitness,
+      label: championLabel(state.cfg.mode, finished, timeSec, distance),
+      shape: staticCarShape(state.current.genome),
+    },
+    LEADERBOARD_SIZE,
+  )
   if (distance > state.furthestMeters) state.furthestMeters = distance
   if (state.cfg.mode === 'distance') {
     if (distance > state.bestDistMeters) state.bestDistMeters = distance
@@ -320,6 +339,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       state.bestSplits = [] // fresh track → fresh splits + furthest marker
       state.furthestMeters = 0
       state.ghostTrack = null // fresh track → old ghost's path no longer valid (#227)
+      state.leaderboard = [] // fresh track → old champions' fitnesses were on the old terrain (#225)
     }
     // Auto-persist at the generation boundary (#226): the freshly-bred population is
     // the resumable checkpoint. Cheap (≤40 small genomes), fail-soft, once per gen.
@@ -473,6 +493,9 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
       // restored record time this session (mirrors the splits-on-resume behaviour).
       ghostRecording: [],
       ghostTrack: null,
+      // Champions panel (#225): transient, rebuilt from runs this session (a resume
+      // refills it from the persisted elites within a generation), so nothing to restore.
+      leaderboard: [],
     }
     spawnCar(state)
     return state
