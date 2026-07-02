@@ -94,6 +94,26 @@ export interface Diversion<
   /** Discard any persisted session (the Play-screen "New run" control). Called by
    *  the framework when the user asks for a fresh run. Omit → no persistence. */
   clearPersistedRun?(): void
+  /** Pointer input (#9). The framework owns the DOM: it attaches the canvas pointer
+   *  listeners (only when this hook exists), normalizes each event into the diversion's
+   *  OWN draw space — CSS pixels for `2d`, device pixels for `webgl`/`webgpu`, matching
+   *  the coords `frame()` draws in — plus a resolution-independent 0..1 `(nx, ny)`, and
+   *  tears the listeners down on diversion switch/unmount. The diversion stays a black
+   *  box: it never touches the canvas or React, just reads the sample and mutates its
+   *  own state (which `frame()` then renders). Omit → no pointer input. */
+  onPointer?(state: State, sample: PointerSample): void
+}
+
+/** A pointer event normalized into a diversion's draw space (#9). `x`/`y` are in the
+ *  same coordinate space `frame()` draws in (CSS px for `2d`, device px for GPU kinds);
+ *  `nx`/`ny` are 0..1 across the canvas (clamped) for resolution-independent logic. */
+export interface PointerSample {
+  phase: 'down' | 'move' | 'up' | 'leave'
+  x: number
+  y: number
+  nx: number
+  ny: number
+  buttons: number // MouseEvent.buttons bitmask (0 = no button held, e.g. a hover move)
 }
 
 /** Identity factory that ties a diversion's `Config` to its Zod `schema` at the

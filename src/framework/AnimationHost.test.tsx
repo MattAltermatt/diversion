@@ -405,3 +405,49 @@ describe('AnimationHost teardown frees resources (#128)', () => {
     expect(docRemoveSpy.mock.calls.map((c) => c[0])).toContain('visibilitychange')
   })
 })
+
+describe('AnimationHost pointer seam (#9)', () => {
+  function makePointerDiv(samples: unknown[]): Diversion {
+    return {
+      id: 'ptr', title: 'Ptr', description: '', kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({ s: 1 }),
+      frame: () => {},
+      onPointer: (_state, sample) => { samples.push(sample) },
+    }
+  }
+
+  it('normalizes canvas pointer events into the diversion draw space', () => {
+    const samples: any[] = []
+    // jsdom returns a zero rect by default — give the canvas a real 200×100 box.
+    const rectSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
+    const { container, unmount } = render(<AnimationHost diversion={makePointerDiv(samples)} config={{ v: 0 }} />)
+    const canvas = container.querySelector('canvas')!
+
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 25, buttons: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 200, clientY: 100, buttons: 0 })
+
+    expect(samples).toHaveLength(2)
+    // 2d draw space = CSS px (no DPR scaling); nx/ny are 0..1 across the box.
+    expect(samples[0]).toMatchObject({ phase: 'down', x: 50, y: 25, nx: 0.25, ny: 0.25, buttons: 1 })
+    // corner event clamps to 1,1.
+    expect(samples[1]).toMatchObject({ phase: 'move', nx: 1, ny: 1 })
+    rectSpy.mockRestore()
+    unmount()
+  })
+
+  it('attaches no pointer listeners when a diversion omits onPointer', () => {
+    const div: Diversion = {
+      id: 'noptr', title: 'NoPtr', description: '', kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({ s: 1 }), frame: () => {},
+    }
+    const addSpy = vi.spyOn(HTMLCanvasElement.prototype, 'addEventListener')
+    const { unmount } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    const added = addSpy.mock.calls.map((c) => c[0])
+    expect(added).not.toContain('pointerdown')
+    addSpy.mockRestore()
+    unmount()
+  })
+})

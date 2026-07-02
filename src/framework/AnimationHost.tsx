@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Diversion, RenderContext, Size } from './types'
+import type { Diversion, RenderContext, Size, PointerSample } from './types'
 import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
 import { applyFreshLoadRandomization } from './urlCodec'
@@ -263,6 +263,38 @@ export function AnimationHost({
       canvas.addEventListener('webglcontextrestored', onRestored)
     }
 
+    // Pointer input (#9): only wired when the diversion opts in via onPointer. The
+    // framework owns the DOM — it maps each event into the diversion's own draw space
+    // (CSS px for 2d, device px for GPU kinds, matching what frame() draws in) so the
+    // diversion never touches the canvas or re-derives DPR. Passive: we don't
+    // preventDefault (a future drag consumer can opt into that when one exists).
+    const onPointer = diversion.onPointer
+    const dispatchPointer = (phase: PointerSample['phase']) => (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return
+      const nx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
+      const ny = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+      // Draw space: 2d draws in CSS px; webgl/webgpu draw in device px (like `size`).
+      const scale = diversion.kind === '2d' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+      onPointer!(run.state, {
+        phase,
+        x: (e.clientX - r.left) * scale,
+        y: (e.clientY - r.top) * scale,
+        nx, ny,
+        buttons: e.buttons,
+      })
+    }
+    const onPointerDown = dispatchPointer('down')
+    const onPointerMove = dispatchPointer('move')
+    const onPointerUp = dispatchPointer('up')
+    const onPointerLeave = dispatchPointer('leave')
+    if (onPointer) {
+      canvas.addEventListener('pointerdown', onPointerDown)
+      canvas.addEventListener('pointermove', onPointerMove)
+      canvas.addEventListener('pointerup', onPointerUp)
+      canvas.addEventListener('pointerleave', onPointerLeave)
+    }
+
     return () => {
       ro?.disconnect()
       io?.disconnect()
@@ -271,6 +303,12 @@ export function AnimationHost({
       if (diversion.kind === 'webgl') {
         canvas.removeEventListener('webglcontextlost', onLost as EventListener)
         canvas.removeEventListener('webglcontextrestored', onRestored)
+      }
+      if (onPointer) {
+        canvas.removeEventListener('pointerdown', onPointerDown)
+        canvas.removeEventListener('pointermove', onPointerMove)
+        canvas.removeEventListener('pointerup', onPointerUp)
+        canvas.removeEventListener('pointerleave', onPointerLeave)
       }
       loop.stop()
       loopRef.current = null
