@@ -321,6 +321,24 @@ if (typeof globalThis.ImageData === 'undefined') {
   globalThis.ImageData = ImageDataPolyfill as unknown as typeof ImageData
 }
 
+// jsdom's opaque about:blank origin ships no localStorage — the boxcar2d run-
+// persistence layer (#226) reads/writes it. Minimal in-memory Storage stand-in,
+// cleared per test in the beforeEach below.
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map<string, string>()
+  const storage: Storage = {
+    get length() {
+      return store.size
+    },
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+  }
+  globalThis.localStorage = storage
+}
+
 globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
 globalThis.IntersectionObserver =
   MockIntersectionObserver as unknown as typeof IntersectionObserver
@@ -335,4 +353,5 @@ beforeEach(() => {
   harness.lastIntersectionObserver = null
   harness.reducedMotion = false
   rafCallbacks = []
+  globalThis.localStorage?.clear()
 })

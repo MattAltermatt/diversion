@@ -20,6 +20,7 @@ import { randomGenome, DEFAULT_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
 import { makeRubbleLayout, type RubbleLayout } from './rubble'
 import { drawScene } from './render'
+import { saveRun, loadRun, clearRun, sameRun, type RunBlob } from './persistence'
 
 // Mechanism constants (not user-facing balance — the schema owns the tunables).
 const GRAVITY = -10 // m/s²
@@ -68,6 +69,29 @@ const MAX_RUBBLE_BLOCKS = 90
 // spawn, so cars get a clean run to build speed (and evolution a foothold) before
 // the obstacle field begins.
 const RUBBLE_START_GAP = 100
+
+// Resume decision (#226), routed from the Play screen into setup(). setup() only
+// receives `config`, which can't distinguish a seedless resume from an explicit
+// ?seed=N that happens to match a saved run (e.g. a shared ?seed=42 link, 42 being
+// the default) — the former must resume, the latter must be a fresh run. So the
+// decision is made ONCE in resumeConfig (which sees the URL params) and stashed here
+// for the setup() that immediately follows. NOT cleared by setup: React strict-mode
+// double-invokes setup() in dev, and resumeConfig refreshes this before any later
+// boxcar2d setup runs. The sameRun() gate in setup is a belt-and-suspenders check so
+// a stale value can never resume the wrong (e.g. Config-screen) config.
+let pendingResume: RunBlob | null = null
+
+// The config the CURRENT session is allowed to persist under, or null if this session
+// must not touch the resume slot. Armed by the Play screen (armPersistence) with the
+// mounted config for a seedless run, and disarmed (null) on unmount and for an
+// explicit ?seed run. Default null so a session that never armed it — the Config-
+// screen live preview and the Gallery thumbnail, which mount the diversion but never
+// call armPersistence — can NEVER auto-save and clobber the user's bred run. The
+// save is additionally gated on sameRun(persistFor, cfg): even a stale value left by
+// a prior Play mount can't write, because a different screen's config (always a fresh
+// random seed) won't match. This is deliberately NOT the diversion inferring its own
+// screen — the Play screen, which alone knows a run is persistable, tells it.
+let persistFor: BoxCar2DConfig | null = null
 
 export interface BoxCarState {
   cfg: BoxCar2DConfig
@@ -238,6 +262,18 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       state.bestDistMeters = 0 // fresh track → fresh record
       state.bestTimeSec = Infinity
     }
+    // Auto-persist at the generation boundary (#226): the freshly-bred population is
+    // the resumable checkpoint. Cheap (≤40 small genomes), fail-soft, once per gen.
+    // Only when the Play screen armed THIS run for persistence (see persistFor); the
+    // sameRun gate makes a stale arming from a prior mount harmless.
+    if (persistFor && sameRun(persistFor, state.cfg)) saveRun({
+      config: state.cfg,
+      population: state.population,
+      generation: state.generation,
+      bestDistMeters: state.bestDistMeters,
+      bestTimeSec: state.bestTimeSec,
+      trackSeed: state.trackSeed,
+    })
   }
   spawnCar(state) // rebuilds terrain + rubble around spawn
 }
@@ -298,38 +334,73 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
   setup(_ctx, config, size) {
     const rng = mulberry32(config.seed)
     const world = createWorld(GRAVITY)
-    const population = Array.from({ length: config.population }, () => randomGenome(rng))
+    // Resume a persisted run (#226) when one matches this exact run-shape. The route
+    // layer (PlayScreen) only feeds us the saved config on a seedless visit, so a
+    // fresh visit / explicit ?seed / different config falls through to a fresh run.
+    // The genomes ARE the payload — we do NOT re-simulate from the seed; the rng
+    // stream simply restarts, so post-resume breeding diverges from an uninterrupted
+    // run (accepted: the seed only ever fixed gen 1). trackSeed is restored so a run
+    // that had regenerated its track (finite lifespan) resumes on the right terrain.
+    const saved = pendingResume
+    const resuming = saved !== null && sameRun(saved.config, config)
+    const trackSeed = resuming ? saved!.trackSeed : config.seed
+    const population = resuming
+      ? saved!.population
+      : Array.from({ length: config.population }, () => randomGenome(rng))
     const state: BoxCarState = {
       cfg: config,
       size,
       world,
-      terrainHeight: makeTerrain(config.seed, config.roughness, config.terrainType),
+      terrainHeight: makeTerrain(trackSeed, config.roughness, config.terrainType),
       terrainBody: undefined,
       terrainStartX: 0,
       terrainEndX: 0,
       population,
       scored: [],
       carIndex: 0,
-      generation: 1,
+      generation: resuming ? saved!.generation : 1,
       current: undefined as unknown as BoxCarState['current'],
       camMX: SPAWN_X,
       camMY: SPAWN_Y,
-      bestDistMeters: 0,
+      bestDistMeters: resuming ? saved!.bestDistMeters : 0,
       spawnX: SPAWN_X,
       spawnY: SPAWN_Y,
       windowStartX: SPAWN_X,
       windowSteps: 0,
       maxXThisCar: SPAWN_X,
       rng,
-      trackSeed: config.seed,
+      trackSeed,
       stepsThisCar: 0,
-      bestTimeSec: Infinity,
-      rubbleLayout: makeRubbleLayout(config.seed, config.rubbleDensity),
+      bestTimeSec: resuming ? saved!.bestTimeSec : Infinity,
+      rubbleLayout: makeRubbleLayout(trackSeed, config.rubbleDensity),
       rubbleBlocks: new Map(),
       rubbleNextSlot: 0,
     }
     spawnCar(state)
     return state
+  },
+
+  resumeConfig(params, direct) {
+    // Resume READ only (persistence arming is armPersistence's job). Resume the saved
+    // run only on a direct load / reload (not an in-app Play click, so a just-
+    // configured world is always honored) of a seedless URL — an explicit ?seed=N is
+    // the reproducible / share path and always starts fresh. ('seed' is the flat URL
+    // key; it is globally unique in this schema.) Idempotent: safe to call more than
+    // once per mount (React may re-run the resolver); stashes the decision for the
+    // setup() that follows (see `pendingResume`).
+    pendingResume = !params.has('seed') && direct ? loadRun() : null
+    return pendingResume ? pendingResume.config : null
+  },
+
+  armPersistence(config) {
+    // The Play screen alone knows a run is persistable (a seedless Play mount) and
+    // hands us the exact mounted config; it disarms (null) on unmount and for an
+    // explicit ?seed. No other screen calls this, so a preview/thumbnail can't persist.
+    persistFor = config
+  },
+
+  clearPersistedRun() {
+    clearRun()
   },
 
   frame(state, ctx, _t, dt) {

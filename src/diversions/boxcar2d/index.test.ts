@@ -1,6 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import diversion, { annealedRate } from './index'
-import { boxcar2dSchema } from './schema'
+import { boxcar2dSchema, type BoxCar2DConfig } from './schema'
+
+// Reset both module-level persistence decisions before every test (localStorage
+// itself is cleared by the global setup beforeEach): the pending resume (explicit
+// seed → resumeConfig stashes null) and the armed persist-config (disarm). So a test
+// that never opts into resume/persist can't inherit a prior test's state — the
+// determinism keystone especially must always start fresh and never persist.
+beforeEach(() => {
+  diversion.resumeConfig?.(new URLSearchParams('seed=0'), false)
+  diversion.armPersistence?.(null)
+})
 
 const SIZE = { width: 800, height: 600 }
 const cfg = boxcar2dSchema.parse({})
@@ -106,6 +116,108 @@ describe('boxcar2d diversion', () => {
       }
       diversion.teardown?.(s)
       expect(sawFinisher).toBe(true)
+    },
+    30000,
+  )
+
+  // ----- persistence / resume (#226) -----
+
+  const RESUME_CFG = boxcar2dSchema.parse({ population: 5, roughness: 1.2, speed: 8 })
+
+  /** Drive a fresh, PERSISTABLE run until it reaches `targetGen` (auto-saves fire at
+   *  each gen boundary). Arms persistence for RESUME_CFG exactly as a seedless Play
+   *  mount would (armPersistence with the mounted config), then runs. Rough terrain +
+   *  fast-forward so generations turn over quickly. */
+  function runToGeneration(targetGen: number): ReturnType<typeof diversion.setup> {
+    diversion.armPersistence!(RESUME_CFG)
+    const s = diversion.setup(fakeCtx(), RESUME_CFG, SIZE)
+    let guard = 0
+    while (s.generation < targetGen && guard++ < 400000) diversion.frame(s, fakeCtx(), guard * 16, 16)
+    return s
+  }
+  const genOf = () => JSON.parse(localStorage.getItem('diversion:boxcar2d:run')!).generation
+
+  it(
+    'auto-persists each generation and resumes the bred population on a direct seedless visit',
+    () => {
+      const a = runToGeneration(4)
+      const savedGen = a.generation
+      const savedGenomes: unknown = JSON.parse(JSON.stringify(a.population))
+      diversion.teardown?.(a)
+      expect(savedGen).toBeGreaterThanOrEqual(4)
+
+      // direct seedless visit → resumeConfig hands back the saved config; setup restores it
+      const resumeCfg = diversion.resumeConfig!(new URLSearchParams(''), true)
+      expect(resumeCfg).not.toBeNull()
+      const b = diversion.setup(fakeCtx(), resumeCfg as BoxCar2DConfig, SIZE)
+      expect(b.generation).toBe(savedGen)
+      expect(b.population).toEqual(savedGenomes) // the bred champions, not a fresh gen 1
+      diversion.teardown?.(b)
+    },
+    30000,
+  )
+
+  it(
+    'an in-app Play click (direct=false) honors its config and does NOT resume',
+    () => {
+      diversion.teardown?.(runToGeneration(4))
+      // seedless but not direct (PUSH) → no resume even though a saved run exists
+      expect(diversion.resumeConfig!(new URLSearchParams(''), false)).toBeNull()
+      const b = diversion.setup(fakeCtx(), RESUME_CFG, SIZE)
+      expect(b.generation).toBe(1)
+      diversion.teardown?.(b)
+    },
+    30000,
+  )
+
+  it(
+    'an explicit ?seed starts a FRESH run and never overwrites the bred run (share-link safety)',
+    () => {
+      diversion.teardown?.(runToGeneration(4))
+      const bred = genOf()
+      expect(bred).toBeGreaterThanOrEqual(4)
+
+      // explicit seed → no resume, and PlayScreen disarms persistence for this session
+      expect(diversion.resumeConfig!(new URLSearchParams('seed=99'), true)).toBeNull()
+      diversion.armPersistence!(null)
+      const b = diversion.setup(fakeCtx(), boxcar2dSchema.parse({ seed: 99, population: 5, roughness: 1.2, speed: 8 }), SIZE)
+      expect(b.generation).toBe(1)
+      let guard = 0
+      while (b.generation < 3 && guard++ < 400000) diversion.frame(b, fakeCtx(), guard * 16, 16)
+      diversion.teardown?.(b)
+      // the bred run in the slot is untouched by the explicit-seed session
+      expect(genOf()).toBe(bred)
+    },
+    30000,
+  )
+
+  it(
+    'a non-Play mount (Config preview / Gallery thumbnail) never writes the resume slot',
+    () => {
+      // Breed + persist a run, then simulate a LEAK: persistFor is left armed for the
+      // bred run (a Config-preview mount never calls armPersistence, so a sticky value
+      // from the prior Play mount could survive). A different-config run must still not
+      // clobber the slot — the sameRun write-gate blocks it. (#226 review must-fix #1.)
+      diversion.teardown?.(runToGeneration(4))
+      const bred = genOf()
+      // deliberately do NOT disarm — this is the stale-global case the gate must survive
+      const preview = boxcar2dSchema.parse({ seed: 777, population: 6, roughness: 0.7, speed: 8 })
+      const p = diversion.setup(fakeCtx(), preview, SIZE)
+      let guard = 0
+      while (p.generation < 3 && guard++ < 400000) diversion.frame(p, fakeCtx(), guard * 16, 16)
+      diversion.teardown?.(p)
+      expect(genOf()).toBe(bred) // untouched by the foreign-config mount
+    },
+    30000,
+  )
+
+  it(
+    'clearPersistedRun discards the saved run (the "New run" control)',
+    () => {
+      diversion.teardown?.(runToGeneration(3))
+      expect(diversion.resumeConfig!(new URLSearchParams(''), true)).not.toBeNull()
+      diversion.clearPersistedRun!()
+      expect(diversion.resumeConfig!(new URLSearchParams(''), true)).toBeNull()
     },
     30000,
   )

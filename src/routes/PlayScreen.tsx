@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useLocation, Link } from 'react-router-dom'
+import { useParams, useLocation, useNavigationType, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
@@ -9,6 +9,11 @@ import { CopyLinkButton } from '../framework/CopyLinkButton'
 export function PlayScreen() {
   const { slug } = useParams()
   const { search } = useLocation()
+  // 'POP' = a direct load / reload / bookmark / back-forward; 'PUSH' = an in-app link
+  // (e.g. the Config screen's Play button). Persistence resumes only on POP so that
+  // clicking "Play" after tweaking the config always shows the just-configured world,
+  // while a plain reload brings a bred run back. Captured at mount (constant here).
+  const navType = useNavigationType()
   const diversion = getDiversion(slug!)
 
   // Parse config ONCE from the URL; frozen for the session. Source the query
@@ -19,6 +24,12 @@ export function PlayScreen() {
     () => {
       if (!diversion) return null
       const params = new URLSearchParams(search)
+      // Persistence resume (#226): on a direct load / reload (POP, not an in-app Play
+      // click), a diversion may resume a saved session. A returned config is mounted
+      // verbatim (the diversion's setup() restores its own runtime); the hook gates on
+      // the explicit-seed / direct rules. Persistence *arming* is the effect below.
+      const resumed = diversion.resumeConfig?.(params, navType === 'POP')
+      if (resumed) return resumed
       const decoded = decodeConfig(diversion.schema, params)
       // Any flagged field (seed) the URL omits → roll fresh, so a seedless link is a
       // new run every visit. An explicit ?seed=N (testing) is honored & reproduces.
@@ -33,6 +44,21 @@ export function PlayScreen() {
   // The world currently on screen. Starts as the mount config; auto-restart reports
   // a fresh one via onLiveConfigChange each time it reseeds. Drives copy-link-with-seed.
   const [liveConfig, setLiveConfig] = useState<unknown>(config)
+
+  // A seedless URL may persist/resume; an explicit ?seed is a fixed reproducible run
+  // that must not touch the resume slot. (Mount-time snapshot; `search` is frozen.)
+  const seedless = useMemo(() => !new URLSearchParams(search).has('seed'), [search])
+
+  // Arm persistence (#226) for THIS Play mount, and disarm on unmount. This is the
+  // only place that arms it, so a Config-screen preview or Gallery thumbnail — which
+  // mount the diversion but never arm — can never auto-save over a bred run. The
+  // cleanup fires when navigating away in-app (SPA, no page reload), closing the
+  // window in which a sticky flag used to leak into the next screen.
+  useEffect(() => {
+    if (!diversion || !config) return
+    diversion.armPersistence?.(seedless ? config : null)
+    return () => diversion.armPersistence?.(null)
+  }, [diversion, config, seedless])
 
   // Auto-hide the chrome (back link + bar) after a few idle seconds — screensaver feel.
   const [idle, setIdle] = useState(false)
@@ -76,6 +102,22 @@ export function PlayScreen() {
           label="📌 Copy this world"
           copiedLabel="✓ World copied"
         />
+        {diversion.clearPersistedRun && seedless && (
+          <button
+            className="play-copy"
+            title="Discard the saved run and start a brand-new one"
+            onClick={() => {
+              // Discard the saved run, then reload. Only shown on a seedless URL, so the
+              // fresh mount rolls a new seed and starts a brand-new run (an explicit
+              // ?seed would reload the same world and isn't persisting anyway). Reload
+              // keeps any base path intact.
+              diversion.clearPersistedRun!()
+              window.location.reload()
+            }}
+          >
+            🆕 New run
+          </button>
+        )}
       </div>
       <DiversionErrorBoundary>
         <AnimationHost

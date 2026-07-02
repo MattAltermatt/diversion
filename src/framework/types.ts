@@ -71,6 +71,29 @@ export interface Diversion<
   /** Optional named preset groups (motion, palette, …). Each option patches a
    *  subset of config; the framework renders a dropdown per group. */
   presets?: PresetGroup<Config>[]
+  /** Play-screen resume (persistence, #226). Consulted with the incoming URL params
+   *  and `direct` (true for a direct load / reload / bookmark / back-forward; false
+   *  for an in-app link such as the Config screen's Play button). Return a config to
+   *  resume a saved session with — the framework mounts it verbatim and the diversion's
+   *  setup() restores its own runtime (e.g. a bred population) from the same store —
+   *  or null to mount normally. Typically resume only when `direct`, so an in-app Play
+   *  click always honors its config. Pure READ: no side effects beyond stashing the
+   *  decision for the setup() that follows, and MUST be idempotent (React may re-run
+   *  the resolver). Persistence arming is a separate concern (armPersistence). Omit →
+   *  no resume. */
+  resumeConfig?(params: URLSearchParams, direct: boolean): Config | null
+  /** Arm/disarm this session's persistence (#226). The Play screen calls it with the
+   *  mounted config when the run may occupy the diversion's single resume slot (a
+   *  seedless Play run), and with null to disarm — on unmount and for a run that must
+   *  not persist (an explicit ?seed reproducible link). No OTHER screen calls it, so a
+   *  Config-screen live preview or a Gallery thumbnail — which mount the diversion but
+   *  never arm — can never clobber the slot. Idempotent; the diversion should still
+   *  gate its writes on the armed config matching the run actually being saved. Omit →
+   *  never persists. */
+  armPersistence?(config: Config | null): void
+  /** Discard any persisted session (the Play-screen "New run" control). Called by
+   *  the framework when the user asks for a fresh run. Omit → no persistence. */
+  clearPersistedRun?(): void
 }
 
 /** Identity factory that ties a diversion's `Config` to its Zod `schema` at the
