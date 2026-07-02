@@ -49,11 +49,11 @@ export const boxcar2dSchema = z.object({
     .meta({ section: 'Display', ui: 'toggle', label: 'Show HUD',
             help: 'Generation, car number, and live progress (distance or time).' }),
   color: z.object({
-    chassis: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffb703').meta({ ui: 'color', label: 'Chassis' }),
-    wheel: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffffff').meta({ ui: 'color', label: 'Wheel' }),
-    terrain: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#2a3b2f').meta({ ui: 'color', label: 'Terrain' }),
-    sky: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0e1626').meta({ ui: 'color', label: 'Sky' }),
-  }).default({ chassis: '#ffb703', wheel: '#ffffff', terrain: '#2a3b2f', sky: '#0e1626' })
+    chassis: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#e76f51').meta({ ui: 'color', label: 'Chassis' }),
+    wheel: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#264653').meta({ ui: 'color', label: 'Wheel' }),
+    terrain: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#3a5a40').meta({ ui: 'color', label: 'Terrain' }),
+    sky: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#bde3ec').meta({ ui: 'color', label: 'Sky' }),
+  }).default({ chassis: '#e76f51', wheel: '#264653', terrain: '#3a5a40', sky: '#bde3ec' })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(42)
     .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,

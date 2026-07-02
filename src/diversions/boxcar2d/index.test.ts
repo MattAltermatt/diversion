@@ -10,11 +10,13 @@ function fakeCtx(): CanvasRenderingContext2D {
   const noop = () => {}
   return {
     createLinearGradient: () => ({ addColorStop: noop }),
+    createRadialGradient: () => ({ addColorStop: noop }),
     fillRect: noop,
     strokeRect: noop,
     beginPath: noop,
     moveTo: noop,
     lineTo: noop,
+    quadraticCurveTo: noop,
     closePath: noop,
     fill: noop,
     stroke: noop,
@@ -28,6 +30,7 @@ function fakeCtx(): CanvasRenderingContext2D {
     strokeStyle: '',
     font: '',
     lineWidth: 1,
+    lineCap: 'butt',
     textBaseline: 'top',
   } as unknown as CanvasRenderingContext2D
 }
