@@ -43,6 +43,7 @@ const W_FIGHTER_KITE = 1.3 // and back off if a zombie gets inside it
 const W_FIGHTER_RECRUIT_SEEK = 0.4 // gentle drift toward civilians to recruit
 const W_ZOMBIE_CHARGE = 1.6 // enraged: drive at the nearest fighter
 const W_ZOMBIE_FEAR = 1.0 // calm: stand off from the guns
+const ENRAGE_SPEED_MULT = 1.5 // enraged zombies surge — briefly outrunning the humans
 const W_SEP = 1.1 // personal-space shove — dominates only at genuine overlap
 
 export interface SimConfig {
@@ -196,9 +197,14 @@ export function stepSim(e: Ecosystem): void {
       }
       if (!charging) {
         const prey = nearestOf(e, i, ZOMBIE_PERCEPT, CIVILIAN)
-        if (prey !== -1) addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
-        const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER) // calm → stand off from the guns
-        if (fgt !== -1) addAvoid(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_FEAR, acc)
+        if (prey !== -1) { // easy prey nearby → hunt it, wary of the guns
+          addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
+          const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER)
+          if (fgt !== -1) addAvoid(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_FEAR, acc)
+        } else { // no easy prey → commit to the soldiers (drop the fear), forcing the endgame
+          const fgt = nearestOf(e, i, ZOMBIE_PERCEPT, FIGHTER)
+          if (fgt !== -1) addSeek(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_HUNT, acc)
+        }
       }
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, ZOMBIE_CLUMP_R, 24, e.neigh, faction, ZOMBIE)
@@ -227,7 +233,8 @@ export function stepSim(e: Ecosystem): void {
     e.neigh.length = 0
     e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh)
     addSeparation(px, py, i, e.neigh, W_SEP, acc)
-    const maxSpeed = f === ZOMBIE ? zspeed : hspeed
+    let maxSpeed = f === ZOMBIE ? zspeed : hspeed
+    if (f === ZOMBIE && e.enrageT[i] > 0) maxSpeed *= ENRAGE_SPEED_MULT // adrenaline surge
     const m = Math.hypot(acc[0], acc[1])
     let dvx: number, dvy: number
     if (m > 1e-6) { dvx = (acc[0] / m) * maxSpeed; dvy = (acc[1] / m) * maxSpeed }

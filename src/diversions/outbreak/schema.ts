@@ -13,10 +13,10 @@ export const outbreakSchema = z.object({
   zombieCount: z.number().int().min(2).max(400).default(40)
     .meta({ section: 'Population', ui: 'slider', min: 2, max: 400, step: 1, label: 'Zombies',
             help: 'The starting horde. Slow but relentless; each bite grows it.' }),
-  zombieSpeed: z.number().min(20).max(140).default(52)
+  zombieSpeed: z.number().min(20).max(140).default(68)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 140, step: 1, label: 'Zombie speed',
-            help: 'Slow-but-relentless is the classic feel — keep it below human speed.' }),
-  humanSpeed: z.number().min(20).max(200).default(88)
+            help: 'Slow-but-relentless is the classic feel — a bit below human speed. Enraged zombies surge past it.' }),
+  humanSpeed: z.number().min(20).max(200).default(84)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 200, step: 1, label: 'Human speed',
             help: 'Civilians and fighters move faster than the horde — their one edge.' }),
   fighterRange: z.number().min(60).max(150).default(128)
