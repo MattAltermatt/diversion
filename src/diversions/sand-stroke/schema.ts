@@ -55,8 +55,8 @@ export const sandStrokeSchema = z.object({
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 100, step: 1, label: 'Color drift',
             help: 'Chance a sweep recolours mid-pass near a flat point (palette mode). 0 = one colour per pass.' }),
   seed: z.number().int().default(4823)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed regenerates the same lanes, colours and wave character.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same lanes, colours and wave character. A fresh visit rolls a new one.' }),
 })
 
 export type SandStrokeConfig = z.infer<typeof sandStrokeSchema>

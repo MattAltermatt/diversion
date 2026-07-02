@@ -3,10 +3,6 @@ import { z } from 'zod'
 // V-concentration → color ramp. Default: Deep Coral (deep water → cyan structures).
 const DEEP_CORAL = ['#06121f', '#0a4f6e', '#58d8ff']
 
-// Fresh seed per load → every reload grows a different pattern; a URL with an
-// explicit ?seed=N pins it (the codec encodes whatever value is active).
-const rollSeed = () => Math.floor(Math.random() * 1e9)
-
 export const grayScottSchema = z.object({
   // ── Simulation ──
   simSpeed: z.number().min(0.1).max(24).default(2)
@@ -14,10 +10,10 @@ export const grayScottSchema = z.object({
             help: 'How fast the reaction evolves, in sub-steps per frame. Below 1 runs a '
                 + 'step every few frames for a slow, meditative drift (0.1 ≈ a step every '
                 + '10 frames); above 1 runs several steps per frame for faster growth.' }),
-  seed: z.number().int().default(rollSeed)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. Each reload grows a different pattern; the same seed always '
-                + 'restarts the chemical field the same way. A shared link pins its seed.' }),
+  seed: z.number().int().default(1)
+    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed always restarts the chemical field the same way. '
+                + 'A shared link is seedless — every fresh visit grows a different pattern.' }),
   // ── Advanced ── raw feed/kill, clamped to the thin viable band.
   feed: z.number().min(0.01).max(0.09).default(0.0545)
     .meta({ section: 'Advanced', ui: 'slider', min: 0.01, max: 0.09, step: 0.0005, label: 'Feed (F)',

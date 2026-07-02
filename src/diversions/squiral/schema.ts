@@ -68,8 +68,8 @@ export const squiralSchema = z.object({
     stops: ['#0b1622ff', '#2a5cf0ff', '#ffe08aff'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(7411)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed regenerates the same sequence of spirals.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same sequence of spirals. A fresh visit rolls a new one.' }),
 })
 
 export type SquiralConfig = z.infer<typeof squiralSchema>

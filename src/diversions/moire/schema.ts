@@ -56,8 +56,8 @@ export const moireSchema = z.object({
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(1701)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed places centers and drift directions identically every run.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed places centers and drift directions identically every run. A fresh visit rolls a new one.' }),
 })
 
 export type MoireConfig = z.infer<typeof moireSchema>

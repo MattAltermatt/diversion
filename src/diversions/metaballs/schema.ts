@@ -37,8 +37,8 @@ export const metaballsSchema = z.object({
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05060a')
     .meta({ section: 'Color', ui: 'color', label: 'Background' }),
   seed: z.number().int().default(1742)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed always regenerates the same arrangement.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed always regenerates the same arrangement. A fresh visit rolls a new one.' }),
 })
 
 export type MetaballsConfig = z.infer<typeof metaballsSchema>

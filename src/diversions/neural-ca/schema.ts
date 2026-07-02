@@ -1,10 +1,6 @@
 import { z } from 'zod'
 import { MODEL_IDS } from './models'
 
-// Fresh seed per load → every reload grows a different variant; a URL with an explicit ?seed=N
-// pins it (the codec encodes whatever value is active). Same pattern as Gray-Scott.
-const rollSeed = () => Math.floor(Math.random() * 1e9)
-
 export const neuralCaSchema = z.object({
   // Which trained texture grows. Driven by the "Texture" preset dropdown (11 options) — there is
   // no inline 'select' control, so the field itself is hidden, but it's still URL-encoded so a
@@ -17,10 +13,10 @@ export const neuralCaSchema = z.object({
   scale: z.number().min(0.5).max(2).default(1)
     .meta({ section: 'Simulation', ui: 'slider', min: 0.5, max: 2, step: 0.1, label: 'Scale',
             help: 'Cell size — higher = a finer grid of more, smaller cells.' }),
-  seed: z.number().int().default(rollSeed)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed',
-            help: 'Each reload grows a different variant; the same seed restarts identically. '
-                + 'A shared link pins its seed.' }),
+  seed: z.number().int().default(1337)
+    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed restarts the variant identically. '
+                + 'A shared link is seedless — every fresh visit grows a different variant.' }),
 })
 
 export type NeuralCaConfig = z.infer<typeof neuralCaSchema>

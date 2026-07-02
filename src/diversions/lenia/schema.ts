@@ -3,10 +3,6 @@ import { z } from 'zod'
 // Field value → color ramp. Default: Bioluminescence (deep navy → teal → white-hot).
 const BIOLUMINESCENCE = ['#040a1a', '#0a6e7a', '#eafcff']
 
-// Fresh seed per load → every reload grows a different soup; a URL with an explicit
-// ?seed=N pins it (the codec encodes whatever value is active).
-const rollSeed = () => Math.floor(Math.random() * 1e9)
-
 export const leniaSchema = z.object({
   // ── Simulation ──
   simSpeed: z.number().min(0.1).max(10).default(1)
@@ -15,10 +11,10 @@ export const leniaSchema = z.object({
                 + 'condense from the seed — a meditative genesis; the default settles in roughly a '
                 + 'minute, and the fastest in a few seconds. (The frame cost is the same at every '
                 + 'speed — only the pace changes.)' }),
-  seed: z.number().int().default(rollSeed)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. Each reload grows a different soup; the same seed always restarts '
-                + 'the field the same way. A shared link pins its seed.' }),
+  seed: z.number().int().default(1)
+    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed always restarts the field the same way. '
+                + 'A shared link is seedless — every fresh visit grows a different soup.' }),
   // ── Advanced ── raw growth band; most values away from a preset give a dead or saturated field.
   mu: z.number().min(0.05).max(0.45).default(0.15)
     .meta({ section: 'Advanced', ui: 'slider', min: 0.05, max: 0.45, step: 0.001, label: 'Growth center (μ)',

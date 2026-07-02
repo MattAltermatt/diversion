@@ -87,8 +87,8 @@ export const gravityWellsSchema = z.object({
     stops: ['#1b3a8aaa', '#3bd2ffaa', '#ffd23baa', '#ff3b3baa'],
   }).meta({ section: 'Color', ui: 'group', label: 'Palette / Gradient' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed always regenerates the same pattern.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same initial layout and overall character. A fresh visit rolls a new one.' }),
 })
 
 export type GravityWellsConfig = z.infer<typeof gravityWellsSchema>

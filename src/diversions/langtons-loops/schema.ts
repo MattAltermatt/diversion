@@ -32,8 +32,8 @@ export const langtonsLoopsSchema = z.object({
   }).default({ hueStart: 40, hueSpan: 260, saturation: 78, lightness: 66 })
     .meta({ section: 'Color', ui: 'group', label: 'Signals' }),
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed regenerates the same loop orientations and reseed sequence.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same loop orientations and reseed sequence. A fresh visit rolls a new one.' }),
 })
 
 export type LangtonsLoopsConfig = z.infer<typeof langtonsLoopsSchema>

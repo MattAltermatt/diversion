@@ -41,8 +41,8 @@ export const turmiteSchema = z.object({
             help: 'One color per state. A cell cycles through the list each time an ant visits; '
                 + 'the first color reads as erased (set it close to the background).' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed always regenerates the same pattern.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed always regenerates the same pattern. A fresh visit rolls a new one.' }),
 })
 
 export type TurmiteConfig = z.infer<typeof turmiteSchema>

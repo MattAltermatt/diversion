@@ -4,12 +4,12 @@ import { encodeConfig, decodeConfig } from '../../framework/urlCodec'
 import { MODEL_IDS } from './models'
 
 describe('neural-ca schema', () => {
-  it('parses to documented defaults (seed is rolled fresh each parse)', () => {
+  it('parses to documented defaults (seed is a stable constant; the route layer rolls it fresh)', () => {
     const d = neuralCaSchema.parse({})
     expect(d.pattern).toBe('bubbly')
     expect(d.speed).toBe(1.5)
     expect(d.scale).toBe(1)
-    expect(typeof d.seed).toBe('number')
+    expect(d.seed).toBe(1337)
   })
 
   it('pattern enum covers every curated model id', () => {
@@ -18,9 +18,11 @@ describe('neural-ca schema', () => {
     }
   })
 
-  it('rolls a different seed on separate parses', () => {
-    // astronomically unlikely to collide; guards the genesis-variety default
-    expect(neuralCaSchema.parse({}).seed).not.toBe(neuralCaSchema.parse({}).seed)
+  it('seed is a stable constant across parses (per-visit variety is the route layer\'s job, not the default)', () => {
+    // The keystone contract: the seed default is a fixed constant so the codec
+    // round-trip is deterministic; `randomizeOnFreshLoad` makes the route layer
+    // roll a fresh one on a bare load. A random default would break the sweep.
+    expect(neuralCaSchema.parse({}).seed).toBe(neuralCaSchema.parse({}).seed)
   })
 
   it('every visible field carries a ui meta', () => {
@@ -30,11 +32,12 @@ describe('neural-ca schema', () => {
     }
   })
 
-  it('round-trips a tweaked config through the URL codec (full snapshot)', () => {
+  it('round-trips a tweaked config through the URL codec (seed is pin-only, not encoded)', () => {
     const cfg = { ...neuralCaSchema.parse({}), pattern: 'woven', speed: 2.5, scale: 1.5, seed: 42 }
     const sp = encodeConfig(neuralCaSchema, cfg)
     expect(sp.get('pattern')).toBe('woven')
-    expect(sp.get('seed')).toBe('42')
-    expect(decodeConfig(neuralCaSchema, sp)).toEqual(cfg)
+    // seed is a randomizeOnFreshLoad field → encode never emits it, decode reverts to default.
+    expect(sp.get('seed')).toBeNull()
+    expect(decodeConfig(neuralCaSchema, sp)).toEqual({ ...cfg, seed: neuralCaSchema.parse({}).seed })
   })
 })

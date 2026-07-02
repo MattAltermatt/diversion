@@ -71,8 +71,8 @@ export const substrateSchema = z.object({
     stops: ['#3a4a6bff', '#c8762fff', '#7c3f1eff'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(2917)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
-            help: 'Any integer. The same seed regenerates the same sequence of crack networks.' }),
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same sequence of crack networks. A fresh visit rolls a new one.' }),
 })
 
 export type SubstrateConfig = z.infer<typeof substrateSchema>

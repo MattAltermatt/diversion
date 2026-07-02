@@ -59,9 +59,9 @@ export const strangeAttractorsSchema = z.object({
     stops: ['#3b1a6a66', '#7a3bff66', '#3bd2ff66', '#3bff7a66', '#ffe08a66'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed',
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always regenerates the same attractor. '
-                + 'Change it to discover a new one.' }),
+                + 'A fresh visit rolls a new one to discover a different map.' }),
 })
 
 export type StrangeAttractorsConfig = z.infer<typeof strangeAttractorsSchema>

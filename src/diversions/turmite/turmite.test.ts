@@ -154,10 +154,11 @@ describe('shouldReseed', () => {
 })
 
 describe('turmite codec round-trip', () => {
-  it('encodes then decodes back to the same config', () => {
+  it('encodes then decodes back to the same config (seed is pin-only, reverts to default)', () => {
     const cfg = turmiteSchema.parse({ rule: 'LLRR', ants: 6, cellSize: 8, seed: 99 })
     const round = decodeConfig(turmiteSchema, encodeConfig(turmiteSchema, cfg))
-    expect(round).toEqual(cfg)
+    // seed is a randomizeOnFreshLoad field → encode omits it, decode reverts to default.
+    expect(round).toEqual({ ...cfg, seed: turmiteSchema.parse({}).seed })
   })
 })
 
