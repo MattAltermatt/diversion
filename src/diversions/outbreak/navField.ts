@@ -8,7 +8,8 @@
 // faction value as a param) to avoid a circular dependency with sim.ts.
 import { insideWall, type Arena } from './arena'
 
-export const NAV_CELL = 20
+export const NAV_CELL = 10 // < the 10px min wall thickness, so a thin wall always blocks a
+// cell (a 20px grid could straddle a thin wall and route agents straight through it)
 const INF = 0x3fffffff
 
 export interface NavGrid {
@@ -40,10 +41,21 @@ export function createNavGrid(arena: Arena, worldW: number, worldH: number): Nav
   const rows = Math.max(1, Math.ceil(worldH / cell))
   const n = cols * rows
   const blocked = new Uint8Array(n)
+  // Block a cell if ANY wall overlaps it — sample a 3×3 grid inside the cell (spacing
+  // cell/3 ≈ 3.3px, well under the 10px min wall thickness) so a thin wall covering any
+  // part of the cell reliably marks it blocked. Center-only sampling would let a wall
+  // slice through the unsampled edges and leave the cell "open".
   for (let cy = 0; cy < rows; cy++) {
     for (let cx = 0; cx < cols; cx++) {
-      const x = cx * cell + cell / 2, y = cy * cell + cell / 2
-      blocked[cy * cols + cx] = insideWall(arena, x, y) ? 1 : 0
+      let blk = 0
+      for (let sy = 0; sy < 3 && !blk; sy++) {
+        for (let sx = 0; sx < 3 && !blk; sx++) {
+          const x = cx * cell + (sx + 0.5) * (cell / 3)
+          const y = cy * cell + (sy + 0.5) * (cell / 3)
+          if (insideWall(arena, x, y)) blk = 1
+        }
+      }
+      blocked[cy * cols + cx] = blk
     }
   }
   return {

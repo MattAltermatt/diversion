@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { createSim, stepSim, ZOMBIE, type SimConfig } from './sim'
+import { createSim, stepSim, ZOMBIE, WORLD_W, WORLD_H, type SimConfig } from './sim'
+import { buildWallGrid } from './arena'
+import { createNavGrid } from './navField'
 
 const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
   civilianCount: 0, fighterCount: 1, zombieCount: 1,
@@ -46,5 +48,34 @@ describe('combat', () => {
       for (let z = 0; z < e.n; z++) if (e.faction[z] === ZOMBIE && e.enrageT[z] > 0) sawEnrage = true
     }
     expect(sawEnrage).toBe(true)
+  })
+
+  it('a fighter cannot shoot a zombie through a wall (LOS gates fire)', () => {
+    // A wall between the fighter and a point-blank zombie. With everyone frozen (speed 0),
+    // the only way the zombie dies is a through-wall shot — which must not happen.
+    const walled = createSim(cfg({ zombieCount: 1, zombieSpeed: 0, humanSpeed: 0 }))
+    const wall = { x: 820, y: 380, w: 15, h: 140 }
+    walled.arena = { walls: [wall], grid: buildWallGrid([wall], WORLD_W, WORLD_H) }
+    walled.navGrid = createNavGrid(walled.arena, WORLD_W, WORLD_H)
+    walled.px[0] = 800; walled.py[0] = 450; walled.px[1] = 850; walled.py[1] = 450 // wall between
+    for (let i = 0; i < 200; i++) stepSim(walled)
+    expect(walled.zombieAlive).toBe(1) // never shot through the wall
+
+    // Control: same geometry, no wall → the fighter guns it down (proves it WOULD fire).
+    const open = createSim(cfg({ zombieCount: 1, zombieSpeed: 0, humanSpeed: 0, arenaDensity: 0 }))
+    open.px[0] = 800; open.py[0] = 450; open.px[1] = 850; open.py[1] = 450
+    for (let i = 0; i < 200 && open.zombieAlive > 0; i++) stepSim(open)
+    expect(open.zombieAlive).toBe(0)
+  })
+
+  it('a bullet dies when it enters a wall (no shooting through)', () => {
+    const e = createSim(cfg({ zombieCount: 0 }))
+    const wall = { x: 800, y: 400, w: 40, h: 40 }
+    e.arena = { walls: [wall], grid: buildWallGrid([wall], WORLD_W, WORLD_H) }
+    e.navGrid = createNavGrid(e.arena, WORLD_W, WORLD_H)
+    // A live bullet just outside the wall, flying into it.
+    e.bx[0] = 790; e.by[0] = 420; e.bvx[0] = 660; e.bvy[0] = 0; e.brange[0] = 400; e.balive[0] = 1
+    stepSim(e)
+    expect(e.balive[0]).toBe(0) // crossed into the wall this step → expired
   })
 })

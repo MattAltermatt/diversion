@@ -4,6 +4,8 @@
 // charges the line, gets shot, and enrages the next pocket). Pure over Ecosystem +
 // its SimConfig; zero per-step allocation (bullet pool + reused scratch).
 import { DT, ZOMBIE, FIGHTER, WORLD_W, WORLD_H, type Ecosystem } from './sim'
+import { insideWall } from './arena'
+import { losClear } from './navField'
 
 const HIT_R = 9 // bullet/zombie contact radius (generous → no tunnelling at bullet speed)
 
@@ -50,7 +52,15 @@ export function fireStep(e: Ecosystem): void {
     }
     if (e.ammo[i] <= 0) { e.reloadT[i] = cfg.reloadTime; continue } // empty → start reload
     if (e.fireT[i] > 0) continue // between shots
-    const t = e.hash.nearestWithin(e.px, e.py, i, cfg.fighterRange, e.alive, e.faction, ZOMBIE)
+    // Fire at the nearest zombie in range WITH a clear line of sight — no shooting through
+    // walls. A zombie behind cover is safe until it steps into view.
+    e.neigh.length = 0
+    e.hash.neighborsWithin(e.px, e.py, i, cfg.fighterRange, 32, e.neigh, e.faction, ZOMBIE)
+    let t = -1, td2 = Infinity
+    for (const j of e.neigh) {
+      const dx = e.px[j] - e.px[i], dy = e.py[j] - e.py[i], d2 = dx * dx + dy * dy
+      if (d2 < td2 && losClear(e.arena, e.px[i], e.py[i], e.px[j], e.py[j])) { td2 = d2; t = j }
+    }
     if (t === -1) continue
     spawnBullet(e, i, t)
     e.ammo[i]--
@@ -72,6 +82,7 @@ export function bulletStep(e: Ecosystem): number {
     if (e.brange[b] <= 0 || e.bx[b] < 0 || e.bx[b] > WORLD_W || e.by[b] < 0 || e.by[b] > WORLD_H) {
       e.balive[b] = 0; continue
     }
+    if (insideWall(e.arena, e.bx[b], e.by[b])) { e.balive[b] = 0; continue } // bullets stop at walls
     const z = e.hash.nearestAtPoint(e.px, e.py, e.bx[b], e.by[b], HIT_R, e.alive, e.faction, ZOMBIE)
     if (z !== -1) {
       // Enrage burst: every zombie near the kill flips fear→charge.
