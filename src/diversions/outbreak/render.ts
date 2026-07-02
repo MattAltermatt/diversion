@@ -12,7 +12,9 @@ export function drawScene(
   ctx.fillStyle = cfg.background
   ctx.fillRect(0, 0, size.width, size.height)
 
-  const scale = Math.max(size.width / WORLD_W, size.height / WORLD_H)
+  // Contain-fit: the whole arena always fits inside the canvas (centered, letterboxed
+  // into the background) rather than cover-cropping agents past the visible edges.
+  const scale = Math.min(size.width / WORLD_W, size.height / WORLD_H)
   const ox = (size.width - WORLD_W * scale) / 2
   const oy = (size.height - WORLD_H * scale) / 2
   const r = Math.max(0.8, cfg.agentRadius * scale)
