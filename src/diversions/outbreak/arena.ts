@@ -16,22 +16,32 @@ export const ARENA_MY = 80
 export function generateArena(seed: number, density: number, worldW: number, worldH: number): Arena {
   if (density <= 0.02) return { walls: [] } // wide-open field
   const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0)
-  // Density adds MORE buildings (coverage), it does NOT pinch the streets shut —
-  // corridors must stay wider than the wall-avoidance radius or agents can't thread
-  // them. Grid stays coarse enough that even the densest streets are passable.
-  const cols = 5 + Math.round(density * 4) // 5..9 columns of blocks
+  // A grid of cells is the skeleton, but buildings vary: some cells merge into bigger
+  // blocks (1×1 / 2×1 / 1×2 / 2×2) and every side gets its own random street inset, so
+  // streets bend and vary in width — creating avenues, alleys, funnels and dead-end
+  // pockets instead of a uniform lattice. Density adds MORE buildings (coverage), never
+  // pinches streets shut: the min inset keeps every corridor wider than the avoid radius.
+  const cols = 5 + Math.round(density * 4) // 5..9 columns
   const rows = 3 + Math.round(density * 3) // 3..6 rows
   const x0 = ARENA_MX, x1 = worldW - ARENA_MX, y0 = ARENA_MY, y1 = worldH - ARENA_MY
   const gw = (x1 - x0) / cols, gh = (y1 - y0) / rows
-  const street = 0.34 // constant street fraction → passable-width corridors at any density
-  const p = 0.15 + density * 0.8 // density = how built-up (0.15 → 0.95 of cells)
+  const p = 0.15 + density * 0.8 // how built-up (0.15 → 0.95 of cells)
+  const MIN_INSET = 0.16, INSET_VAR = 0.22 // per-side street fraction: 0.16 → 0.38
+  const occupied = new Uint8Array(cols * rows)
   const walls: Rect[] = []
+  const free = (cx: number, cy: number) => cx < cols && cy < rows && !occupied[cy * cols + cx]
   for (let cy = 0; cy < rows; cy++) {
     for (let cx = 0; cx < cols; cx++) {
-      if (rng() < p) {
-        const padX = gw * street * 0.5, padY = gh * street * 0.5
-        walls.push({ x: x0 + cx * gw + padX, y: y0 + cy * gh + padY, w: gw - 2 * padX, h: gh - 2 * padY })
-      }
+      if (occupied[cy * cols + cx] || rng() >= p) continue
+      // random footprint — sometimes swallow the neighbour to the right / below
+      let sx = 1, sy = 1
+      if (free(cx + 1, cy) && rng() < 0.35) sx = 2
+      if (rng() < 0.3 && free(cx, cy + 1) && (sx === 1 || free(cx + 1, cy + 1))) sy = 2
+      for (let dy = 0; dy < sy; dy++) for (let dx = 0; dx < sx; dx++) occupied[(cy + dy) * cols + cx + dx] = 1
+      const rx = x0 + cx * gw, ry = y0 + cy * gh
+      const il = gw * (MIN_INSET + rng() * INSET_VAR), ir = gw * (MIN_INSET + rng() * INSET_VAR)
+      const it = gh * (MIN_INSET + rng() * INSET_VAR), ib = gh * (MIN_INSET + rng() * INSET_VAR)
+      walls.push({ x: rx + il, y: ry + it, w: sx * gw - il - ir, h: sy * gh - it - ib })
     }
   }
   return { walls }

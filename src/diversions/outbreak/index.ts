@@ -14,8 +14,8 @@ interface State {
 
 const toSimConfig = (c: OutbreakConfig): SimConfig => ({
   civilianCount: c.civilianCount, fighterCount: c.fighterCount, zombieCount: c.zombieCount,
-  zombieSpeed: c.zombieSpeed, humanSpeed: c.humanSpeed, seed: c.seed,
-  arenaDensity: c.arenaDensity,
+  zombieSpeed: c.zombieSpeed, humanSpeed: c.humanSpeed, civilianSight: c.civilianSight,
+  seed: c.seed, arenaDensity: c.arenaDensity,
   fighterRange: c.fighterRange, fireCooldown: 1 / c.fireRate, magazine: c.magazine,
   reloadTime: c.reloadTime, bulletSpeed: c.bulletSpeed, zombieFearRadius: c.zombieFearRadius,
   enrageRadius: c.enrageRadius, enrageTime: c.enrageTime,

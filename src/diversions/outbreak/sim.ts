@@ -24,8 +24,7 @@ const TURN = 0.16 // velocity lerp toward desired heading (0..1) — smooth turn
 const CELL = 150
 const ZOMBIE_PERCEPT = 150 // hunt range for the nearest non-zombie
 const ZOMBIE_CLUMP_R = 90
-const CIV_FLEE_R = 110
-const CIV_SEEK_R = 150 // sense a nearby fighter to run toward
+const CIV_SEEK_R = 150 // a fighter's own range for spotting civilians to recruit
 const FIGHTER_FORM_R = 120 // loose huddle
 const WALL_AVOID_R = 14 // agents steer off a wall within this range — MUST stay well
 // under the corridor width (see arena.ts street fraction) or narrow streets seal shut
@@ -56,6 +55,7 @@ export interface SimConfig {
   zombieCount: number
   zombieSpeed: number
   humanSpeed: number
+  civilianSight: number
   seed: number
   arenaDensity: number
   // combat (#234)
@@ -223,10 +223,11 @@ export function stepSim(e: Ecosystem): void {
       e.hash.neighborsWithin(px, py, i, ZOMBIE_CLUMP_R, 24, e.neigh, faction, ZOMBIE)
       addCohesion(px, py, i, e.neigh, W_ZOMBIE_CLUMP, acc)
     } else if (f === CIVILIAN) {
+      const sight = e.cfg.civilianSight // adjustable eyesight — flee + seek share it
       e.neigh.length = 0
-      e.hash.neighborsWithin(px, py, i, CIV_FLEE_R, 24, e.neigh, faction, ZOMBIE)
-      addFlee(px, py, i, e.neigh, CIV_FLEE_R, W_CIV_FLEE, acc)
-      const safe = nearestOf(e, i, CIV_SEEK_R, FIGHTER)
+      e.hash.neighborsWithin(px, py, i, sight, 24, e.neigh, faction, ZOMBIE)
+      addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+      const safe = nearestOf(e, i, sight, FIGHTER)
       if (safe !== -1) addSeek(px[i], py[i], px[safe], py[safe], W_CIV_SEEK, acc)
     } else { // FIGHTER — advance on the horde to engagement range, hold, kite if overrun
       const z = nearestOf(e, i, ZOMBIE_PERCEPT, ZOMBIE)

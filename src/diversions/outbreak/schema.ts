@@ -22,6 +22,9 @@ export const outbreakSchema = z.object({
   humanSpeed: z.number().min(20).max(200).default(84)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 200, step: 1, label: 'Human speed',
             help: 'Civilians and fighters move faster than the horde — their one edge.' }),
+  civilianSight: z.number().min(30).max(150).default(90)
+    .meta({ section: 'Motion', ui: 'slider', min: 30, max: 150, step: 5, label: 'Civilian eyesight',
+            help: 'How far civilians perceive — the range at which they flee zombies and run toward fighters. Low = they only react when a threat is close (easier to ambush and corner); high = they spot danger a block away and scatter early.' }),
   fighterRange: z.number().min(60).max(150).default(128)
     .meta({ section: 'Combat', ui: 'slider', min: 60, max: 150, step: 1, label: 'Fighter range',
             help: 'How far fighters can shoot. They advance to this range, hold, and kite back if a zombie closes inside it.' }),
