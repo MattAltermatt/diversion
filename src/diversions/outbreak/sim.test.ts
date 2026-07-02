@@ -62,6 +62,23 @@ describe('conversion cycle', () => {
     expect(e.fighterAlive).toBe(2)
   })
 
+  it('a faster zombie runs down a FLEEING civilian (separation never shields prey)', () => {
+    // The regression: personal-space (7px) once exceeded bite range (5px), so a chasing
+    // zombie was pushed off its target and could never catch anyone. Same-faction-only
+    // separation fixes it. Zombie 90 > civilian 84, starting 24px apart in the open.
+    const e = createSim(cfg({
+      civilianCount: 1, fighterCount: 0, zombieCount: 1,
+      zombieSpeed: 90, humanSpeed: 84, civilianSight: 120, arenaDensity: 0,
+    }))
+    e.px[0] = 800; e.py[0] = 450; e.px[1] = 824; e.py[1] = 450 // zombie chasing from behind
+    let caught = false
+    for (let i = 0; i < 600 && !caught; i++) {
+      stepSim(e)
+      if (e.infecting[1] || e.faction[1] === ZOMBIE) caught = true
+    }
+    expect(caught).toBe(true)
+  })
+
   it('resolves to a horde win when no humans remain', () => {
     const e = createSim(cfg({ civilianCount: 0, fighterCount: 0, zombieCount: 3 }))
     stepSim(e)

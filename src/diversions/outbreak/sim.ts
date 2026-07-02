@@ -260,11 +260,12 @@ export function stepSim(e: Ecosystem): void {
       e.hash.neighborsWithin(px, py, i, FIGHTER_FORM_R, 16, e.neigh, faction, FIGHTER)
       addCohesion(px, py, i, e.neigh, W_FIGHTER_FORM, acc)
     }
-    // Separation + wall avoidance — skipped for a RESTING civilian (sees no zombie or
-    // fighter) so it settles still instead of jittering away at full speed.
+    // Separation is SAME-FACTION only — each crowd keeps its volume, but a zombie is
+    // never pushed off the prey it's biting (personal space > bite range would otherwise
+    // make it impossible to catch anyone). Skipped for a RESTING civilian so it holds still.
     if (f !== CIVILIAN || civAlert) {
       e.neigh.length = 0
-      e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh)
+      e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh, faction, f)
       addSeparation(px, py, i, e.neigh, W_SEP, acc)
       addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
     }
