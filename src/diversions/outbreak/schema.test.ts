@@ -23,6 +23,11 @@ describe('outbreak schema', () => {
     }
   })
 
+  it('arenaDensity help describes the procgen maze', () => {
+    const m = readMeta(outbreakSchema.shape.arenaDensity as any)
+    expect(String(m?.help ?? '').toLowerCase()).toMatch(/maze|plaza|warren|corridor/)
+  })
+
   it('seed is a pin-only randomizeOnFreshLoad field', () => {
     const m = readMeta(outbreakSchema.shape.seed as any)
     expect(m?.randomizeOnFreshLoad).toBe(true)

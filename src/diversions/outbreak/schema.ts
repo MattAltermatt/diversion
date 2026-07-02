@@ -15,7 +15,7 @@ export const outbreakSchema = z.object({
             help: 'The starting horde. Slow but relentless; each bite grows it.' }),
   arenaDensity: z.number().min(0).max(1).default(0.35)
     .meta({ section: 'Arena', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Arena density',
-            help: 'Procgen city blocks. 0 is a wide-open field (sweeping engagements); 1 is a dense office maze of tight corridors and chokepoints that trap and funnel. Changing it rebuilds the arena.' }),
+            help: 'Procgen maze, rebuilt from the seed. 0 is a wide-open field (sweeping engagements); low values give vast plazas with a couple of walls; high values tighten into a warren of corridors, dead ends and chokepoints just wide enough for ~3 abreast — funnels that trap and split the crowd. Changing it rebuilds the arena.' }),
   zombieSpeed: z.number().min(20).max(140).default(90)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 140, step: 1, label: 'Zombie speed',
             help: 'A touch faster than the humans so the relentless horde slowly runs stragglers down; enraged zombies surge well past it.' }),

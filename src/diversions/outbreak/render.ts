@@ -19,12 +19,20 @@ export function drawScene(
   const oy = (size.height - WORLD_H * scale) / 2
   const r = Math.max(0.8, cfg.agentRadius * scale)
 
-  // Arena: buildings (filled) + a border so the bounds read even in an open field.
+  // Arena: maze walls drawn translucent (so a bite / last-stand behind a corner stays
+  // legible under the whole-arena view) with a faint solid outline to keep the walls
+  // reading as structure. A border frames the bounds even in an open field.
   ctx.fillStyle = cfg.wallColor
+  ctx.globalAlpha = 0.5
   for (const w of e.arena.walls) {
     ctx.fillRect(ox + w.x * scale, oy + w.y * scale, w.w * scale, w.h * scale)
   }
+  ctx.globalAlpha = 1
   ctx.strokeStyle = cfg.wallColor
+  ctx.lineWidth = Math.max(0.5, scale)
+  for (const w of e.arena.walls) {
+    ctx.strokeRect(ox + w.x * scale, oy + w.y * scale, w.w * scale, w.h * scale)
+  }
   ctx.lineWidth = Math.max(1, scale * 2)
   ctx.strokeRect(ox, oy, WORLD_W * scale, WORLD_H * scale)
 
