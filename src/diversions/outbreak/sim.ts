@@ -192,6 +192,21 @@ function nearestOf(e: Ecosystem, i: number, r: number, want: number, want2?: num
   return da <= db ? a : b
 }
 
+/** Nearest living human (civilian or fighter) to i, scanning the WHOLE arena — the
+ *  long-range fallback so a zombie with no prey in local perception still advances on
+ *  the brains instead of idling. Returns -1 only if no humans remain. */
+function nearestHumanGlobal(e: Ecosystem, i: number): number {
+  let best = -1, bestD2 = Infinity
+  const xi = e.px[i], yi = e.py[i]
+  for (let j = 0; j < e.n; j++) {
+    if (!e.alive[j] || e.faction[j] === ZOMBIE) continue
+    const dx = e.px[j] - xi, dy = e.py[j] - yi
+    const d2 = dx * dx + dy * dy
+    if (d2 < bestD2) { bestD2 = d2; best = j }
+  }
+  return best
+}
+
 export function stepSim(e: Ecosystem): void {
   const { px, py, vx, vy, faction, alive, infecting, infectTimer, acc } = e
   e.hash.rebuild(px, py, e.n, alive)
@@ -214,9 +229,9 @@ export function stepSim(e: Ecosystem): void {
           addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
           const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER)
           if (fgt !== -1) addAvoid(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_FEAR, acc)
-        } else { // no easy prey → commit to the soldiers (drop the fear), forcing the endgame
-          const fgt = nearestOf(e, i, ZOMBIE_PERCEPT, FIGHTER)
-          if (fgt !== -1) addSeek(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_HUNT, acc)
+        } else { // nothing in sight → hunt the nearest human ANYWHERE (never idle)
+          const far = nearestHumanGlobal(e, i)
+          if (far !== -1) addSeek(px[i], py[i], px[far], py[far], W_ZOMBIE_HUNT, acc)
         }
       }
       e.neigh.length = 0
