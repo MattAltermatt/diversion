@@ -3,7 +3,7 @@ import { createSim, stepSim, ZOMBIE, type SimConfig } from './sim'
 
 const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
   civilianCount: 0, fighterCount: 1, zombieCount: 1,
-  zombieSpeed: 52, humanSpeed: 88, seed: 7,
+  zombieSpeed: 52, humanSpeed: 88, seed: 7, arenaDensity: 0,
   fighterRange: 128, fireCooldown: 1 / 3.2, magazine: 9, reloadTime: 2.1,
   bulletSpeed: 660, zombieFearRadius: 120, enrageRadius: 80, enrageTime: 4.5, ...over,
 })

@@ -7,6 +7,7 @@ import { mulberry32 } from '../../framework/rng'
 import { SpatialHash } from './spatialHash'
 import { addSeek, addAvoid, addFlee, addCohesion, addSeparation } from './steering'
 import { fireStep, bulletStep } from './combat'
+import { generateArena, insideWall, resolveWall, addWallAvoid, type Arena } from './arena'
 
 export const CIVILIAN = 0
 export const FIGHTER = 1
@@ -26,6 +27,8 @@ const ZOMBIE_CLUMP_R = 90
 const CIV_FLEE_R = 110
 const CIV_SEEK_R = 150 // sense a nearby fighter to run toward
 const FIGHTER_FORM_R = 120 // loose huddle
+const WALL_AVOID_R = 26 // agents start steering off a wall within this range
+const W_WALL_AVOID = 2.2 // strong — agents should skirt buildings, not clip them
 const SEP_R = 7 // personal space — tight so crowds pack densely (still not a point)
 const BITE_R = 5 // a zombie must be nearly on top of prey to bite
 const RECRUIT_R = 14 // a fighter must be close to pull a civilian in
@@ -53,6 +56,7 @@ export interface SimConfig {
   zombieSpeed: number
   humanSpeed: number
   seed: number
+  arenaDensity: number
   // combat (#234)
   fighterRange: number
   fireCooldown: number // seconds between shots (= 1 / fireRate)
@@ -90,6 +94,7 @@ export interface Ecosystem {
   brange: Float32Array
   balive: Uint8Array
   bulletCursor: number
+  arena: Arena
   hash: SpatialHash
   rng: () => number
   simTime: number
@@ -120,6 +125,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
   const fireT = new Float32Array(n)
   const enrageT = new Float32Array(n)
   const bulletCap = Math.max(1024, n)
+  const arena = generateArena(cfg.seed, cfg.arenaDensity, WORLD_W, WORLD_H)
 
   const seedHeading = (i: number, speed: number) => {
     const a = rng() * Math.PI * 2
@@ -146,8 +152,13 @@ export function createSim(cfg: SimConfig): Ecosystem {
   // Civilians scattered through the interior.
   for (let k = 0; k < cfg.civilianCount; k++, i++) {
     faction[i] = CIVILIAN
-    px[i] = 280 + rng() * (WORLD_W - 560)
-    py[i] = 60 + rng() * (WORLD_H - 120)
+    let x = 800, y = 450
+    for (let t = 0; t < 16; t++) { // resample out of buildings
+      x = 280 + rng() * (WORLD_W - 560)
+      y = 60 + rng() * (WORLD_H - 120)
+      if (!insideWall(arena, x, y)) break
+    }
+    px[i] = x; py[i] = y
     seedHeading(i, cfg.humanSpeed)
   }
 
@@ -157,6 +168,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
     bx: new Float32Array(bulletCap), by: new Float32Array(bulletCap),
     bvx: new Float32Array(bulletCap), bvy: new Float32Array(bulletCap),
     brange: new Float32Array(bulletCap), balive: new Uint8Array(bulletCap), bulletCursor: 0,
+    arena,
     hash: new SpatialHash(WORLD_W, WORLD_H, CELL, n),
     rng, simTime: 0, lastEventTime: 0,
     civAlive: cfg.civilianCount, fighterAlive: cfg.fighterCount, zombieAlive: cfg.zombieCount,
@@ -233,6 +245,7 @@ export function stepSim(e: Ecosystem): void {
     e.neigh.length = 0
     e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh)
     addSeparation(px, py, i, e.neigh, W_SEP, acc)
+    addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
     let maxSpeed = f === ZOMBIE ? zspeed : hspeed
     if (f === ZOMBIE && e.enrageT[i] > 0) maxSpeed *= ENRAGE_SPEED_MULT // adrenaline surge
     const m = Math.hypot(acc[0], acc[1])
@@ -257,6 +270,12 @@ export function stepSim(e: Ecosystem): void {
     else if (px[i] > WORLD_W - 6) { px[i] = WORLD_W - 6; vx[i] = -vx[i] * 0.5 }
     if (py[i] < 6) { py[i] = 6; vy[i] = -vy[i] * 0.5 }
     else if (py[i] > WORLD_H - 6) { py[i] = WORLD_H - 6; vy[i] = -vy[i] * 0.5 }
+    const wall = insideWall(e.arena, px[i], py[i])
+    if (wall) {
+      const [nx, ny, ax] = resolveWall(wall, px[i], py[i])
+      px[i] = nx; py[i] = ny
+      if (ax === 0) vx[i] = -vx[i] * 0.3; else vy[i] = -vy[i] * 0.3
+    }
   }
 
   // ── Combat: rebuild the hash on post-move positions, then fighters fire and bullets

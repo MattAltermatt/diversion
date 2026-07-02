@@ -15,6 +15,7 @@ interface State {
 const toSimConfig = (c: OutbreakConfig): SimConfig => ({
   civilianCount: c.civilianCount, fighterCount: c.fighterCount, zombieCount: c.zombieCount,
   zombieSpeed: c.zombieSpeed, humanSpeed: c.humanSpeed, seed: c.seed,
+  arenaDensity: c.arenaDensity,
   fighterRange: c.fighterRange, fireCooldown: 1 / c.fireRate, magazine: c.magazine,
   reloadTime: c.reloadTime, bulletSpeed: c.bulletSpeed, zombieFearRadius: c.zombieFearRadius,
   enrageRadius: c.enrageRadius, enrageTime: c.enrageTime,
@@ -51,6 +52,7 @@ const outbreak = defineDiversion({
     if (cfg.civilianCount !== state.sim.cfg.civilianCount ||
         cfg.fighterCount !== state.sim.cfg.fighterCount ||
         cfg.zombieCount !== state.sim.cfg.zombieCount ||
+        cfg.arenaDensity !== state.sim.cfg.arenaDensity || // rebuilds the arena
         cfg.seed !== state.sim.cfg.seed) return false
     // live: speeds + look apply without reallocating the population
     state.cfg = cfg

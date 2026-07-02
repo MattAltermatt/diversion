@@ -19,6 +19,15 @@ export function drawScene(
   const oy = (size.height - WORLD_H * scale) / 2
   const r = Math.max(0.8, cfg.agentRadius * scale)
 
+  // Arena: buildings (filled) + a border so the bounds read even in an open field.
+  ctx.fillStyle = cfg.wallColor
+  for (const w of e.arena.walls) {
+    ctx.fillRect(ox + w.x * scale, oy + w.y * scale, w.w * scale, w.h * scale)
+  }
+  ctx.strokeStyle = cfg.wallColor
+  ctx.lineWidth = Math.max(1, scale * 2)
+  ctx.strokeRect(ox, oy, WORLD_W * scale, WORLD_H * scale)
+
   const paint = (want: number, color: string) => {
     ctx.fillStyle = color
     ctx.beginPath()

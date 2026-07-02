@@ -13,6 +13,9 @@ export const outbreakSchema = z.object({
   zombieCount: z.number().int().min(2).max(400).default(40)
     .meta({ section: 'Population', ui: 'slider', min: 2, max: 400, step: 1, label: 'Zombies',
             help: 'The starting horde. Slow but relentless; each bite grows it.' }),
+  arenaDensity: z.number().min(0).max(1).default(0.35)
+    .meta({ section: 'Arena', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Arena density',
+            help: 'Procgen city blocks. 0 is a wide-open field (sweeping engagements); 1 is a dense office maze of tight corridors and chokepoints that trap and funnel. Changing it rebuilds the arena.' }),
   zombieSpeed: z.number().min(20).max(140).default(68)
     .meta({ section: 'Motion', ui: 'slider', min: 20, max: 140, step: 1, label: 'Zombie speed',
             help: 'Slow-but-relentless is the classic feel — a bit below human speed. Enraged zombies surge past it.' }),
@@ -55,6 +58,8 @@ export const outbreakSchema = z.object({
     .meta({ section: 'Look', ui: 'color', label: 'Zombie color', help: 'The horde. Sickly green pops against the neutral crowd.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0b0d10')
     .meta({ section: 'Look', ui: 'color', label: 'Background' }),
+  wallColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1b2530')
+    .meta({ section: 'Look', ui: 'color', label: 'Walls', help: 'Buildings / arena border. A muted slate reads as structure without stealing focus from the agents.' }),
   speed: z.number().min(0.1).max(4).default(0.5)
     .meta({ section: 'Motion', ui: 'slider', min: 0.1, max: 4, step: 0.05, label: 'Speed',
             help: 'Playback rate. Below 1 is slow-motion (0.1 is a very slow, meditative watch); above 1 fast-forwards. Only changes how fast you watch, never the outcome.' }),
