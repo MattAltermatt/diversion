@@ -95,6 +95,19 @@ export const DEFAULT_RANGES: GenomeRanges = {
   suspTravelMin: 0.03, suspTravelMax: 0.09, // non-zero floor (else shock → buzz); short ceiling = stays attached
 }
 
+// 🎚️ Evolution ceilings: the mutation clamp table. Identical to the birth table
+// EXCEPT the three genes measured to bind a fast car (torque / motorSpeed / wheel
+// radius) get raised ceilings — so a car BORN tame can still EVOLVE far more
+// powerful. randomGenome keeps drawing from DEFAULT_RANGES (slow, junky gen-1);
+// only mutate()'s clamp uses this in the live GA. grip is untouched (it evolves
+// DOWN — measured), and the anti-jitter suspension bands are untouched.
+export const EVOLVE_RANGES: GenomeRanges = {
+  ...DEFAULT_RANGES,
+  torqueMax: 500,
+  motorSpeedMax: 60,
+  wheelRMax: 0.85,
+}
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 

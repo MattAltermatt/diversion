@@ -14,11 +14,11 @@ import {
   type WorldId,
   type BodyId,
 } from './physics'
-import { buildCar, carCentroid, capturePose, staticCarShape, type CarBodies } from './car'
+import { buildCar, carCentroid, capturePose, staticCarShape, isExploded, type CarBodies } from './car'
 import { updateLeaderboard, championLabel, type Champion } from './leaderboard'
 import { makeGhostTrack, type GhostTrack } from './ghost'
 import { breedGeneration, type Scored } from './ga'
-import { randomGenome, DEFAULT_RANGES, type Genome } from './genome'
+import { randomGenome, EVOLVE_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
 import { makeRubbleLayout, type RubbleLayout } from './rubble'
 import { drawScene } from './render'
@@ -319,7 +319,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
         // anneal: cfg.mutationRate is the gen-1 peak, cooling toward a floor as
         // the population converges (state.generation = the gen that just bred).
         mutationRate: annealedRate(state.cfg.mutationRate, state.generation),
-        ranges: DEFAULT_RANGES,
+        ranges: EVOLVE_RANGES,
       },
       state.rng,
     )
@@ -362,6 +362,7 @@ function stepCar(state: BoxCarState): void {
   stepWorld(state.world, 1)
   state.stepsThisCar++
   const x = carCentroid(state.current).x
+  if (isExploded(x, state.spawnX)) { endCurrentCar(state, false); return } // cull blow-ups
   if (x > state.maxXThisCar) state.maxXThisCar = x // furthest reached (fitness + flag)
   const dist = x - state.spawnX
   if (dist > state.furthestMeters) state.furthestMeters = dist // pre-record flag + ribbon

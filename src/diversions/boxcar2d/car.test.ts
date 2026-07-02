@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { simulateCar, buildCar, carCentroid, staticCarShape } from './car'
+import { simulateCar, buildCar, carCentroid, staticCarShape, isExploded, SANE_DIST_CAP } from './car'
 import { randomGenome } from './genome'
 import { makeTerrain, terrainPoints } from './terrain'
 import { createWorld, destroyWorld, buildTerrainBody, stepWorld, getBodyPosition } from './physics'
@@ -8,6 +8,20 @@ import { triangulateEdges } from './triangulate'
 
 const TERRAIN = terrainPoints(makeTerrain(1, 0.5), 0, 300, 1.5)
 const CFG = { gravity: -10, maxSteps: 1200, stallSteps: 180, progressEps: 0.1, spawnX: 2, spawnY: 3 }
+
+describe('isExploded (sanity clamp)', () => {
+  it('flags non-finite and astronomically-far positions', () => {
+    expect(isExploded(6.5e244, 0)).toBe(true)
+    expect(isExploded(Infinity, 0)).toBe(true)
+    expect(isExploded(NaN, 0)).toBe(true)
+    expect(isExploded(100 + SANE_DIST_CAP + 5, 100)).toBe(true)
+  })
+  it('passes normal in-range positions', () => {
+    expect(isExploded(500, 100)).toBe(false) // a 400 m run
+    expect(isExploded(-3, 0)).toBe(false) // small backward drift
+    expect(isExploded(100 + SANE_DIST_CAP - 1, 100)).toBe(false) // just under the cap
+  })
+})
 
 describe('buildCar', () => {
   it('creates one body per active node, one member per Delaunay edge, one body per active wheel', () => {

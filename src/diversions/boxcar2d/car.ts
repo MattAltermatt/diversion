@@ -18,6 +18,14 @@ import { triangulateEdges } from './triangulate'
 
 export const CAR_GROUP = -1
 
+// A car that flings to astronomical distance (rare with the raised motor ceilings —
+// measured 6.5e244 m) would poison distance-mode fitness/selection totals. This cap
+// is ~200× any real goal, so it never clips a legit run; it only catches blow-ups.
+export const SANE_DIST_CAP = 100_000
+export function isExploded(px: number, spawnX: number): boolean {
+  return !Number.isFinite(px) || px - spawnX > SANE_DIST_CAP
+}
+
 // 🎚️ mechanism constants (not user balance). Node size/friction and wheel
 // suspension (hertz/damping/axis/travel) are now per-car GENES (genome.ts) — only
 // the truss-member spring bounds stay fixed here (pinned to the 60Hz-substep buzz
@@ -165,6 +173,7 @@ export function simulateCar(g: Genome, terrain: Vec2[], cfg: SimCfg): SimResult 
   for (let i = 0; i < cfg.maxSteps; i++) {
     stepWorld(world, 1)
     const px = carCentroid(car).x
+    if (isExploded(px, cfg.spawnX)) break // do NOT let a blow-up (6.5e244) become fitness
     if (px > maxX + cfg.progressEps) { maxX = px; stall = 0 }
     else if (++stall >= cfg.stallSteps) break
   }

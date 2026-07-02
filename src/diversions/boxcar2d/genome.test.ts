@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   randomGenome, crossover, mutate, repair, pairIndex,
-  MAX_NODES, MIN_NODES, MAX_WHEELS, MIN_WHEELS, N_PAIRS, DEFAULT_RANGES,
+  MAX_NODES, MIN_NODES, MAX_WHEELS, MIN_WHEELS, N_PAIRS, DEFAULT_RANGES, EVOLVE_RANGES,
 } from './genome'
 import { mulberry32 } from '../../framework/rng'
 
@@ -42,6 +42,38 @@ describe('randomGenome', () => {
 
   it('is deterministic for a given seed', () => {
     expect(randomGenome(mulberry32(7))).toEqual(randomGenome(mulberry32(7)))
+  })
+})
+
+describe('EVOLVE_RANGES (split ceiling)', () => {
+  it('lets mutation push torque/motorSpeed/wheelRadius above the birth ceiling', () => {
+    // Seed a genome at the birth ceiling, then mutate hard under EVOLVE_RANGES.
+    let g = randomGenome(mulberry32(7))
+    for (const w of g.wheels) {
+      w.torque = DEFAULT_RANGES.torqueMax
+      w.motorSpeed = DEFAULT_RANGES.motorSpeedMax
+      w.radius = DEFAULT_RANGES.wheelRMax
+    }
+    let sawAboveBirth = false
+    const rng = mulberry32(99)
+    for (let i = 0; i < 200 && !sawAboveBirth; i++) {
+      g = mutate(g, 1, rng, EVOLVE_RANGES) // rate 1 = every gene jitters
+      sawAboveBirth = g.wheels.some(w =>
+        w.torque > DEFAULT_RANGES.torqueMax ||
+        w.motorSpeed > DEFAULT_RANGES.motorSpeedMax ||
+        w.radius > DEFAULT_RANGES.wheelRMax)
+    }
+    expect(sawAboveBirth).toBe(true)
+  })
+
+  it('birth genomes never exceed the birth ceiling (randomGenome stays tame)', () => {
+    for (let s = 1; s <= 40; s++) {
+      for (const w of randomGenome(mulberry32(s)).wheels) {
+        expect(w.torque).toBeLessThanOrEqual(DEFAULT_RANGES.torqueMax)
+        expect(w.motorSpeed).toBeLessThanOrEqual(DEFAULT_RANGES.motorSpeedMax)
+        expect(w.radius).toBeLessThanOrEqual(DEFAULT_RANGES.wheelRMax)
+      }
+    }
   })
 })
 
