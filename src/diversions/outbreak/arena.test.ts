@@ -10,6 +10,16 @@ describe('arena generation', () => {
     expect(generateArena(1, 0.02, W, H).walls).toHaveLength(0)
   })
 
+  it('never leaves the whole arena wall-free above the escape hatch (#240)', () => {
+    // The root region must always divide at least once, or an unlucky plaza early-stop
+    // nukes the entire maze into an open field — the reseed-empties-the-arena bug (#240).
+    for (const d of [0.05, 0.35, 0.65, 1]) {
+      for (let s = 0; s < 500; s++) {
+        expect(generateArena(s, d, W, H).walls.length, `seed ${s} density ${d}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
   it('denser arenas have more walls', () => {
     const sparse = generateArena(5, 0.1, W, H).walls.length
     const dense = generateArena(5, 1, W, H).walls.length

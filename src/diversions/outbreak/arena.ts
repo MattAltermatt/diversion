@@ -36,28 +36,31 @@ export function generateArena(seed: number, density: number, worldW: number, wor
   const PBRAID = 0.30                       // fraction of walls that get a 2nd doorway (loops)
   const x0 = ARENA_MX, y0 = ARENA_MY, x1 = worldW - ARENA_MX, y1 = worldH - ARENA_MY
 
-  const divide = (rx0: number, ry0: number, rx1: number, ry1: number): void => {
+  const divide = (rx0: number, ry0: number, rx1: number, ry1: number, depth: number): void => {
     const w = rx1 - rx0, h = ry1 - ry0
     const canV = w >= minRegion // a vertical wall (split along x)
     const canH = h >= minRegion // a horizontal wall (split along y)
     if (!canV && !canH) return // leaf: a room / corridor / dead-end pocket
-    if (rng() < pPlaza) return // early stop → a big open plaza leaf
+    // The plaza early-stop leaves a big open room as a leaf — but NEVER at the root
+    // (depth 0), or an unlucky roll makes the whole arena one plaza (zero walls, the
+    // reseed-empties-the-maze bug #240). The root always splits at least once.
+    if (depth > 0 && rng() < pPlaza) return
     const vertical = canV && canH ? w >= h : canV
     if (vertical) {
       const lo = rx0 + cw, hi = rx1 - cw - wt
       const wallX = lo + rng() * (hi - lo)
       addGappedWall(walls, true, wallX, ry0, ry1, wt, cw, PBRAID, rng)
-      divide(rx0, ry0, wallX, ry1)
-      divide(wallX + wt, ry0, rx1, ry1)
+      divide(rx0, ry0, wallX, ry1, depth + 1)
+      divide(wallX + wt, ry0, rx1, ry1, depth + 1)
     } else {
       const lo = ry0 + cw, hi = ry1 - cw - wt
       const wallY = lo + rng() * (hi - lo)
       addGappedWall(walls, false, wallY, rx0, rx1, wt, cw, PBRAID, rng)
-      divide(rx0, ry0, rx1, wallY)
-      divide(rx0, wallY + wt, rx1, ry1)
+      divide(rx0, ry0, rx1, wallY, depth + 1)
+      divide(rx0, wallY + wt, rx1, ry1, depth + 1)
     }
   }
-  divide(x0, y0, x1, y1)
+  divide(x0, y0, x1, y1, 0)
   return { walls, grid: buildWallGrid(walls, worldW, worldH) }
 }
 
