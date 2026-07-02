@@ -47,6 +47,8 @@ const W_FIGHTER_RECRUIT_SEEK = 0.4 // gentle drift toward civilians to recruit
 const W_ZOMBIE_CHARGE = 1.6 // enraged: drive at the nearest fighter
 const W_ZOMBIE_FEAR = 1.0 // calm: stand off from the guns
 const ENRAGE_SPEED_MULT = 1.5 // enraged zombies surge — briefly outrunning the humans
+const LUNGE_R = 100 // once a zombie closes within this of its target it LUNGES...
+const LUNGE_SPEED_MULT = 1.5 // ...surging to run the prey down (a 7% edge never catches a fleer)
 const W_SEP = 1.1 // personal-space shove — dominates only at genuine overlap
 
 export interface SimConfig {
@@ -218,22 +220,29 @@ export function stepSim(e: Ecosystem): void {
     acc[0] = 0; acc[1] = 0
     const f = faction[i]
     let civAlert = true // civilians only move when they've spotted a zombie or fighter
+    let lunge = false // a zombie surging in for the kill
     if (f === ZOMBIE) {
-      let charging = false
-      if (e.enrageT[i] > 0) { // enraged → drop caution, charge the nearest fighter
+      // Pick a target: enraged → nearest fighter (charge); else nearest local civilian
+      // (wary of guns); else the nearest human ANYWHERE (never idle).
+      let target = -1, targetW = W_ZOMBIE_HUNT
+      if (e.enrageT[i] > 0) {
         const fgt = nearestOf(e, i, ZOMBIE_PERCEPT, FIGHTER)
-        if (fgt !== -1) { addSeek(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_CHARGE, acc); charging = true }
+        if (fgt !== -1) { target = fgt; targetW = W_ZOMBIE_CHARGE }
       }
-      if (!charging) {
+      if (target === -1) {
         const prey = nearestOf(e, i, ZOMBIE_PERCEPT, CIVILIAN)
-        if (prey !== -1) { // easy prey nearby → hunt it, wary of the guns
-          addSeek(px[i], py[i], px[prey], py[prey], W_ZOMBIE_HUNT, acc)
-          const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER)
+        if (prey !== -1) {
+          target = prey
+          const fgt = nearestOf(e, i, e.cfg.zombieFearRadius, FIGHTER) // wary of guns near easy prey
           if (fgt !== -1) addAvoid(px[i], py[i], px[fgt], py[fgt], W_ZOMBIE_FEAR, acc)
-        } else { // nothing in sight → hunt the nearest human ANYWHERE (never idle)
-          const far = nearestHumanGlobal(e, i)
-          if (far !== -1) addSeek(px[i], py[i], px[far], py[far], W_ZOMBIE_HUNT, acc)
+        } else {
+          target = nearestHumanGlobal(e, i)
         }
+      }
+      if (target !== -1) {
+        addSeek(px[i], py[i], px[target], py[target], targetW, acc)
+        const d2 = (px[target] - px[i]) ** 2 + (py[target] - py[i]) ** 2
+        if (d2 < LUNGE_R * LUNGE_R) lunge = true // close enough to run it down
       }
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, ZOMBIE_CLUMP_R, 24, e.neigh, faction, ZOMBIE)
@@ -270,7 +279,10 @@ export function stepSim(e: Ecosystem): void {
       addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
     }
     let maxSpeed = f === ZOMBIE ? zspeed : hspeed
-    if (f === ZOMBIE && e.enrageT[i] > 0) maxSpeed *= ENRAGE_SPEED_MULT // adrenaline surge
+    if (f === ZOMBIE) { // enrage surge and the closing lunge both let a zombie outrun a fleer
+      const mult = Math.max(e.enrageT[i] > 0 ? ENRAGE_SPEED_MULT : 1, lunge ? LUNGE_SPEED_MULT : 1)
+      maxSpeed *= mult
+    }
     const m = Math.hypot(acc[0], acc[1])
     let dvx: number, dvy: number
     if (m > 1e-6) { dvx = (acc[0] / m) * maxSpeed; dvy = (acc[1] / m) * maxSpeed }
