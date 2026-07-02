@@ -1,54 +1,131 @@
-// arena.ts — procgen "city block" walls (#235). A grid of rectangular buildings with
-// streets between them, generated from the seed; density scales how many cells hold a
-// building and how narrow the streets are (0 ≈ wide-open field, 1 ≈ dense office maze).
+// arena.ts — procgen MAZE walls. Grid-aligned recursive division: the interior is
+// recursively split by thin dividing walls, each carrying a doorway gap, until regions
+// hit the corridor-width floor (or an early "plaza" stop leaves a big open room). A light
+// braiding pass punches extra doorways so the maze has loops (flanking routes), not only
+// dead ends. Density is ONE knob: low = a couple of walls around vast plazas; high = a
+// tight warren of corridors just wide enough for ~3 agents abreast, full of dead ends.
 // Pure + deterministic; uses its OWN rng stream so wall generation never shifts agent
-// spawn positions. Buildings live in the interior only — the left/right spawn corridors
-// (fighters / horde) stay clear.
+// spawns. Walls live in the interior only — the left/right spawn corridors stay clear.
 import { mulberry32 } from '../../framework/rng'
 
 export interface Rect { x: number; y: number; w: number; h: number }
-export interface Arena { walls: Rect[] }
 
-// Interior band that may hold buildings; the margins are the clear spawn corridors.
+// A static uniform grid over the whole world mapping each cell → indices of walls that
+// overlap it, so insideWall / addWallAvoid touch only nearby walls (a maze has hundreds).
+export interface WallGrid {
+  size: number; cols: number; rows: number; buckets: number[][]
+  stamp: Int32Array // per-wall visit marker (a wall spans multiple cells; dedupe per query)
+  gen: number       // incremented each dedup'd query
+}
+export interface Arena { walls: Rect[]; grid?: WallGrid }
+
+// Interior band that may hold walls; the margins are the clear spawn corridors.
 export const ARENA_MX = 280 // left/right margin (fighters spawn <220, horde >1380)
 export const ARENA_MY = 80
 
 export function generateArena(seed: number, density: number, worldW: number, worldH: number): Arena {
-  if (density <= 0.02) return { walls: [] } // wide-open field
-  const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0)
-  // A grid of cells is the skeleton, but buildings vary: some cells merge into bigger
-  // blocks (1×1 / 2×1 / 1×2 / 2×2) and every side gets its own random street inset, so
-  // streets bend and vary in width — creating avenues, alleys, funnels and dead-end
-  // pockets instead of a uniform lattice. Density adds MORE buildings (coverage), never
-  // pinches streets shut: the min inset keeps every corridor wider than the avoid radius.
-  const cols = 5 + Math.round(density * 4) // 5..9 columns
-  const rows = 3 + Math.round(density * 3) // 3..6 rows
-  const x0 = ARENA_MX, x1 = worldW - ARENA_MX, y0 = ARENA_MY, y1 = worldH - ARENA_MY
-  const gw = (x1 - x0) / cols, gh = (y1 - y0) / rows
-  const p = 0.15 + density * 0.8 // how built-up (0.15 → 0.95 of cells)
-  const MIN_INSET = 0.16, INSET_VAR = 0.22 // per-side street fraction: 0.16 → 0.38
-  const occupied = new Uint8Array(cols * rows)
   const walls: Rect[] = []
-  const free = (cx: number, cy: number) => cx < cols && cy < rows && !occupied[cy * cols + cx]
-  for (let cy = 0; cy < rows; cy++) {
-    for (let cx = 0; cx < cols; cx++) {
-      if (occupied[cy * cols + cx] || rng() >= p) continue
-      // random footprint — sometimes swallow the neighbour to the right / below
-      let sx = 1, sy = 1
-      if (free(cx + 1, cy) && rng() < 0.35) sx = 2
-      if (rng() < 0.3 && free(cx, cy + 1) && (sx === 1 || free(cx + 1, cy + 1))) sy = 2
-      for (let dy = 0; dy < sy; dy++) for (let dx = 0; dx < sx; dx++) occupied[(cy + dy) * cols + cx + dx] = 1
-      const rx = x0 + cx * gw, ry = y0 + cy * gh
-      const il = gw * (MIN_INSET + rng() * INSET_VAR), ir = gw * (MIN_INSET + rng() * INSET_VAR)
-      const it = gh * (MIN_INSET + rng() * INSET_VAR), ib = gh * (MIN_INSET + rng() * INSET_VAR)
-      walls.push({ x: rx + il, y: ry + it, w: sx * gw - il - ir, h: sy * gh - it - ib })
+  if (density <= 0.02) return { walls, grid: buildWallGrid(walls, worldW, worldH) } // wide-open field
+  const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0)
+  const d = density
+  // corridor/doorway width: wide avenues (156) at d=0 → a 3-abreast floor (42) at d=1.
+  const cw = Math.max(42, Math.min(156, 156 + (42 - 156) * d))
+  const wt = 10 + 6 * d                    // wall thickness (mostly a look knob): 10 → 16
+  const minRegion = 2 * cw + wt + 8        // a region splits only if it can hold two
+  const pPlaza = 0.20 + (0.08 - 0.20) * d  // corridors + a wall → recursion depth = openness
+  const PBRAID = 0.30                       // fraction of walls that get a 2nd doorway (loops)
+  const x0 = ARENA_MX, y0 = ARENA_MY, x1 = worldW - ARENA_MX, y1 = worldH - ARENA_MY
+
+  const divide = (rx0: number, ry0: number, rx1: number, ry1: number): void => {
+    const w = rx1 - rx0, h = ry1 - ry0
+    const canV = w >= minRegion // a vertical wall (split along x)
+    const canH = h >= minRegion // a horizontal wall (split along y)
+    if (!canV && !canH) return // leaf: a room / corridor / dead-end pocket
+    if (rng() < pPlaza) return // early stop → a big open plaza leaf
+    const vertical = canV && canH ? w >= h : canV
+    if (vertical) {
+      const lo = rx0 + cw, hi = rx1 - cw - wt
+      const wallX = lo + rng() * (hi - lo)
+      addGappedWall(walls, true, wallX, ry0, ry1, wt, cw, PBRAID, rng)
+      divide(rx0, ry0, wallX, ry1)
+      divide(wallX + wt, ry0, rx1, ry1)
+    } else {
+      const lo = ry0 + cw, hi = ry1 - cw - wt
+      const wallY = lo + rng() * (hi - lo)
+      addGappedWall(walls, false, wallY, rx0, rx1, wt, cw, PBRAID, rng)
+      divide(rx0, ry0, rx1, wallY)
+      divide(rx0, wallY + wt, rx1, ry1)
     }
   }
-  return { walls }
+  divide(x0, y0, x1, y1)
+  return { walls, grid: buildWallGrid(walls, worldW, worldH) }
 }
 
-/** The wall containing (x,y), or null. */
+/** Emit a wall along a line (vertical at coord=x spanning [a0,a1] in y, or horizontal at
+ *  coord=y spanning [a0,a1] in x) as segments split by one doorway gap of width `cw`
+ *  (and, with prob `pbraid`, a second). Doorways are inset ≥1px from the ends so a gap
+ *  never lands flush against a perpendicular wall. */
+function addGappedWall(
+  walls: Rect[], vertical: boolean, coord: number, a0: number, a1: number,
+  wt: number, cw: number, pbraid: number, rng: () => number,
+): void {
+  const gaps: [number, number][] = []
+  const minStart = a0 + 1, maxStart = a1 - cw - 1
+  if (maxStart <= minStart) {
+    gaps.push([a0, a1]) // span too short for a wall + door → leave it fully open
+  } else {
+    const g1 = minStart + rng() * (maxStart - minStart)
+    gaps.push([g1, g1 + cw])
+    if (rng() < pbraid) {
+      const g2 = minStart + rng() * (maxStart - minStart)
+      gaps.push([g2, g2 + cw])
+    }
+  }
+  gaps.sort((p, q) => p[0] - q[0])
+  let cur = a0
+  const push = (s: number, e: number) => {
+    if (e - s <= 0.5) return
+    walls.push(vertical ? { x: coord, y: s, w: wt, h: e - s } : { x: s, y: coord, w: e - s, h: wt })
+  }
+  for (const [gs, ge] of gaps) {
+    push(cur, Math.min(gs, a1))
+    cur = Math.max(cur, ge)
+  }
+  push(cur, a1)
+}
+
+/** Build the static wall-index grid. Cell size ~120px so the 14px avoid radius spans at
+ *  most a 3×3 block; each wall is registered in every cell its AABB overlaps. */
+export function buildWallGrid(walls: Rect[], worldW: number, worldH: number): WallGrid {
+  const size = 120
+  const cols = Math.max(1, Math.ceil(worldW / size))
+  const rows = Math.max(1, Math.ceil(worldH / size))
+  const buckets: number[][] = Array.from({ length: cols * rows }, () => [])
+  for (let i = 0; i < walls.length; i++) {
+    const r = walls[i]
+    const cx0 = clampi(Math.floor(r.x / size), 0, cols - 1)
+    const cx1 = clampi(Math.floor((r.x + r.w) / size), 0, cols - 1)
+    const cy0 = clampi(Math.floor(r.y / size), 0, rows - 1)
+    const cy1 = clampi(Math.floor((r.y + r.h) / size), 0, rows - 1)
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) buckets[cy * cols + cx].push(i)
+  }
+  return { size, cols, rows, buckets, stamp: new Int32Array(walls.length), gen: 0 }
+}
+
+function clampi(v: number, lo: number, hi: number): number { return v < lo ? lo : v > hi ? hi : v }
+
+/** The wall containing (x,y), or null. Uses the grid bucket when present. */
 export function insideWall(a: Arena, x: number, y: number): Rect | null {
+  const g = a.grid
+  if (g) {
+    const cx = clampi(Math.floor(x / g.size), 0, g.cols - 1)
+    const cy = clampi(Math.floor(y / g.size), 0, g.rows - 1)
+    for (const i of g.buckets[cy * g.cols + cx]) {
+      const r = a.walls[i]
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r
+    }
+    return null
+  }
   for (const r of a.walls) {
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r
   }
@@ -67,12 +144,13 @@ export function resolveWall(r: Rect, x: number, y: number): [number, number, 0 |
 }
 
 /** Repel (x,y) from every wall within `radius` (closest-point on the rect), accumulating
- *  a steering contribution into `out`. Closer walls push harder (linear falloff). */
+ *  a steering contribution into `out`. Closer walls push harder (linear falloff). Queries
+ *  only the grid's 3×3 block around (x,y) when the grid is present. */
 export function addWallAvoid(
   a: Arena, x: number, y: number, radius: number, w: number, out: Float32Array,
 ): void {
   const r2 = radius * radius
-  for (const r of a.walls) {
+  const consider = (r: Rect) => {
     const cxp = x < r.x ? r.x : x > r.x + r.w ? r.x + r.w : x
     const cyp = y < r.y ? r.y : y > r.y + r.h ? r.y + r.h : y
     const dx = x - cxp, dy = y - cyp
@@ -83,4 +161,23 @@ export function addWallAvoid(
       out[0] += (dx / d) * f; out[1] += (dy / d) * f
     }
   }
+  const g = a.grid
+  if (g) {
+    const cx = clampi(Math.floor(x / g.size), 0, g.cols - 1)
+    const cy = clampi(Math.floor(y / g.size), 0, g.rows - 1)
+    const gen = ++g.gen // dedupe: a long wall spans multiple cells in the 3×3 block
+    for (let yy = cy - 1; yy <= cy + 1; yy++) {
+      if (yy < 0 || yy >= g.rows) continue
+      for (let xx = cx - 1; xx <= cx + 1; xx++) {
+        if (xx < 0 || xx >= g.cols) continue
+        for (const i of g.buckets[yy * g.cols + xx]) {
+          if (g.stamp[i] === gen) continue
+          g.stamp[i] = gen
+          consider(a.walls[i])
+        }
+      }
+    }
+    return
+  }
+  for (const r of a.walls) consider(r)
 }
