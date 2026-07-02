@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createSim, stepSim, isResolved, CIVILIAN, FIGHTER, ZOMBIE, WORLD_W, WORLD_H, type SimConfig } from './sim'
-import { buildWallGrid } from './arena'
+import { buildWallGrid, insideWall } from './arena'
 import { createNavGrid } from './navField'
 
 const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
@@ -36,6 +36,17 @@ describe('createSim / determinism', () => {
     expect(e.civAlive).toBe(10)
     expect(e.fighterAlive).toBe(3)
     expect(e.zombieAlive).toBe(5)
+  })
+
+  it('resamples spawns out of walls now the maze fills the whole arena', () => {
+    // spawnClear should keep all but a negligible fraction of agents off the walls,
+    // even in a dense maze — otherwise agents start trapped and never move.
+    for (const seed of [1, 2, 3, 7]) {
+      const e = createSim(cfg({ arenaDensity: 0.65, seed }))
+      let stuck = 0
+      for (let i = 0; i < e.n; i++) if (insideWall(e.arena, e.px[i], e.py[i])) stuck++
+      expect(stuck / e.n, `seed ${seed}`).toBeLessThan(0.02)
+    }
   })
 })
 

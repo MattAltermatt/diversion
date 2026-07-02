@@ -5,7 +5,8 @@
 // dead ends. Density is ONE knob: low = a couple of walls around vast plazas; high = a
 // tight warren of corridors just wide enough for ~3 agents abreast, full of dead ends.
 // Pure + deterministic; uses its OWN rng stream so wall generation never shifts agent
-// spawns. Walls live in the interior only — the left/right spawn corridors stay clear.
+// spawns. The maze fills the whole arena edge-to-edge (only a thin border is kept clear);
+// agents resample out of any wall they'd spawn in (see sim.ts spawnClear).
 import { mulberry32 } from '../../framework/rng'
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -19,9 +20,10 @@ export interface WallGrid {
 }
 export interface Arena { walls: Rect[]; grid?: WallGrid }
 
-// Interior band that may hold walls; the margins are the clear spawn corridors.
-export const ARENA_MX = 280 // left/right margin (fighters spawn <220, horde >1380)
-export const ARENA_MY = 80
+// The maze fills the arena to a thin border (walls extend edge-to-edge). Agents
+// spawn anywhere and resample out of walls, so no wide clear corridors are reserved.
+export const ARENA_MX = 24 // left/right border kept wall-free
+export const ARENA_MY = 24 // top/bottom border kept wall-free
 
 export function generateArena(seed: number, density: number, worldW: number, worldH: number): Arena {
   const walls: Rect[] = []

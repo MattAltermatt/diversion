@@ -141,33 +141,36 @@ export function createSim(cfg: SimConfig): Ecosystem {
     vx[i] = Math.cos(a) * speed * 0.5
     vy[i] = Math.sin(a) * speed * 0.5
   }
+  // The maze now fills the whole arena, so every spawn band overlaps walls. Sample a
+  // clear point in [bx,bx+bw]×[by,by+bh]; fall back to (fx,fy) if the band is packed.
+  const spawnClear = (i: number, bx: number, by: number, bw: number, bh: number, fx: number, fy: number) => {
+    let x = fx, y = fy
+    for (let t = 0; t < 24; t++) {
+      x = bx + rng() * bw
+      y = by + rng() * bh
+      if (!insideWall(arena, x, y)) break
+    }
+    px[i] = x; py[i] = y
+  }
 
   let i = 0
   // Fighters cluster on the left edge.
   for (let k = 0; k < cfg.fighterCount; k++, i++) {
     faction[i] = FIGHTER
     ammo[i] = cfg.magazine
-    px[i] = 40 + rng() * 180
-    py[i] = 80 + rng() * (WORLD_H - 160)
+    spawnClear(i, 40, 80, 180, WORLD_H - 160, 130, WORLD_H / 2)
     seedHeading(i, cfg.humanSpeed)
   }
   // Zombies cluster on the right edge.
   for (let k = 0; k < cfg.zombieCount; k++, i++) {
     faction[i] = ZOMBIE
-    px[i] = WORLD_W - 220 + rng() * 180
-    py[i] = 80 + rng() * (WORLD_H - 160)
+    spawnClear(i, WORLD_W - 220, 80, 180, WORLD_H - 160, WORLD_W - 130, WORLD_H / 2)
     seedHeading(i, cfg.zombieSpeed)
   }
   // Civilians scattered through the interior.
   for (let k = 0; k < cfg.civilianCount; k++, i++) {
     faction[i] = CIVILIAN
-    let x = 800, y = 450
-    for (let t = 0; t < 16; t++) { // resample out of buildings
-      x = 280 + rng() * (WORLD_W - 560)
-      y = 60 + rng() * (WORLD_H - 120)
-      if (!insideWall(arena, x, y)) break
-    }
-    px[i] = x; py[i] = y
+    spawnClear(i, 280, 60, WORLD_W - 560, WORLD_H - 120, 800, 450)
     seedHeading(i, cfg.humanSpeed)
   }
 
