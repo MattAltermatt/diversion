@@ -14,6 +14,7 @@ function blob(over: Partial<RunBlob> = {}): RunBlob {
     generation: 12,
     bestDistMeters: 250,
     bestTimeSec: 48.5,
+    bestSplits: [12.1, 24.8, 37.0],
     trackSeed: cfg.seed,
     ...over,
   }
@@ -31,6 +32,7 @@ describe('boxcar2d persistence', () => {
     expect(got!.bestDistMeters).toBe(250)
     expect(got!.bestTimeSec).toBe(48.5)
     expect(got!.trackSeed).toBe(cfg.seed)
+    expect(got!.bestSplits).toEqual([12.1, 24.8, 37.0])
     expect(got!.population).toHaveLength(4)
     // genome geometry survives the JSON round-trip
     expect(got!.population[0]).toEqual(b.population[0])
@@ -62,6 +64,14 @@ describe('boxcar2d persistence', () => {
   it('returns null on a structurally invalid blob (bad config / population)', () => {
     localStorage.setItem(RUN_STORAGE_KEY, JSON.stringify({ v: 1, config: { seed: 'nope' }, population: 'x' }))
     expect(loadRun()).toBeNull()
+  })
+
+  it('tolerates a blob written before bestSplits existed (defaults to [])', () => {
+    saveRun(blob())
+    const raw = JSON.parse(localStorage.getItem(RUN_STORAGE_KEY)!)
+    delete raw.bestSplits
+    localStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(raw))
+    expect(loadRun()!.bestSplits).toEqual([])
   })
 
   it('clearRun removes the saved run', () => {

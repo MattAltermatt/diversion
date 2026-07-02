@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import diversion, { annealedRate } from './index'
+import diversion, { annealedRate, splitFlashEvent, finishFlashEvent } from './index'
 import { boxcar2dSchema, type BoxCar2DConfig } from './schema'
 
 // Reset both module-level persistence decisions before every test (localStorage
@@ -36,6 +36,8 @@ function fakeCtx(): CanvasRenderingContext2D {
     translate: noop,
     rotate: noop,
     fillText: noop,
+    strokeText: noop,
+    measureText: () => ({ width: 0 }),
     fillStyle: '',
     strokeStyle: '',
     font: '',
@@ -53,6 +55,33 @@ describe('annealedRate', () => {
     expect(annealedRate(peak, 5)).toBeLessThan(peak)          // monotonically cooling
     expect(annealedRate(peak, 5)).toBeGreaterThan(peak * 0.25)
     expect(annealedRate(peak, 20)).toBeCloseTo(peak * 0.25, 6) // clamps at the floor
+  })
+})
+
+describe('race-feedback flash text (#221/#230)', () => {
+  it('split with no record shows mark + time, marked ahead', () => {
+    expect(splitFlashEvent(100, 12.34)).toEqual({ text: '100 m · 12.3s', ahead: true })
+  })
+  it('split ahead of the record → negative delta, green', () => {
+    const f = splitFlashEvent(200, 24.0, 25.2)
+    expect(f.ahead).toBe(true)
+    expect(f.text).toBe('200 m · 24.0s (-1.2s)')
+  })
+  it('split behind the record → positive delta, red', () => {
+    const f = splitFlashEvent(300, 26.4, 25.2)
+    expect(f.ahead).toBe(false)
+    expect(f.text).toBe('300 m · 26.4s (+1.2s)')
+  })
+  it('first finish (no prior record) → ahead', () => {
+    expect(finishFlashEvent(48.5, Infinity)).toEqual({ text: 'Finished 48.5s', ahead: true })
+  })
+  it('finish beating the record → new best, green', () => {
+    const f = finishFlashEvent(46.2, 48.5)
+    expect(f.ahead).toBe(true)
+    expect(f.text).toBe('New best · -2.3s')
+  })
+  it('finish slower than the record → positive delta, red', () => {
+    expect(finishFlashEvent(58.5, 48.5)).toEqual({ text: '+10.0s', ahead: false })
   })
 })
 
@@ -218,6 +247,22 @@ describe('boxcar2d diversion', () => {
       expect(diversion.resumeConfig!(new URLSearchParams(''), true)).not.toBeNull()
       diversion.clearPersistedRun!()
       expect(diversion.resumeConfig!(new URLSearchParams(''), true)).toBeNull()
+    },
+    30000,
+  )
+
+  it(
+    'a finisher captures the record-holder split times at each 100 m mark (#221)',
+    () => {
+      // Gentle track, goal past the first 100 m mark so a finisher records ≥1 split.
+      const tcfg = boxcar2dSchema.parse({ mode: 'time', goalDistance: 200, timeCap: 60, roughness: 0.1, population: 8, speed: 8 })
+      const s = diversion.setup(fakeCtx(), tcfg, SIZE)
+      let guard = 0
+      while (guard++ < 300000 && s.bestSplits.length === 0) diversion.frame(s, fakeCtx(), guard * 16, 16)
+      diversion.teardown?.(s)
+      expect(s.bestSplits.length).toBeGreaterThanOrEqual(1) // 100 m split captured
+      expect(Number.isFinite(s.bestTimeSec)).toBe(true)
+      expect(s.furthestMeters).toBeGreaterThanOrEqual(200)
     },
     30000,
   )

@@ -26,6 +26,10 @@ export interface RunBlob {
   generation: number
   bestDistMeters: number
   bestTimeSec: number
+  /** Record-holder's per-100m split times (#221) — persisted alongside bestTimeSec so
+   *  split-vs-record deltas survive a resume (a converged run may never beat the record
+   *  again, so they can't rely on refilling). Empty when there's no finisher yet. */
+  bestSplits: number[]
   trackSeed: number
 }
 
@@ -54,6 +58,7 @@ export function saveRun(blob: RunBlob): void {
       generation: blob.generation,
       bestDistMeters: blob.bestDistMeters,
       bestTimeSec: Number.isFinite(blob.bestTimeSec) ? blob.bestTimeSec : null,
+      bestSplits: blob.bestSplits,
       trackSeed: blob.trackSeed,
     }
     localStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(onDisk))
@@ -97,6 +102,8 @@ export function loadRun(): RunBlob | null {
       generation: d.generation,
       bestDistMeters: typeof d.bestDistMeters === 'number' ? d.bestDistMeters : 0,
       bestTimeSec: typeof d.bestTimeSec === 'number' ? d.bestTimeSec : Infinity,
+      // Tolerate blobs written before bestSplits was persisted (default []).
+      bestSplits: Array.isArray(d.bestSplits) ? (d.bestSplits as number[]) : [],
       trackSeed: d.trackSeed,
     }
   } catch {

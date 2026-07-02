@@ -55,6 +55,28 @@ export function annealedRate(peak: number, generation: number): number {
   const t = Math.min(1, Math.max(0, (generation - 1) / ANNEAL_GENS))
   return peak + (floor - peak) * t
 }
+/** Signed delta in seconds, e.g. +1.2s / -0.4s (negative = ahead of the record). */
+function fmtDelta(sec: number): string {
+  return `${sec >= 0 ? '+' : '-'}${Math.abs(sec).toFixed(1)}s`
+}
+
+/** Split flash (#221): a car crossing the `mark` (m) at `time` (s), compared to the
+ *  record-holder's split at that mark if one exists. `ahead` (green) = beating the
+ *  record so far. Pure — unit-tested. */
+export function splitFlashEvent(mark: number, time: number, recordTime?: number): { text: string; ahead: boolean } {
+  if (recordTime === undefined) return { text: `${mark} m · ${time.toFixed(1)}s`, ahead: true }
+  const delta = time - recordTime
+  return { text: `${mark} m · ${time.toFixed(1)}s (${fmtDelta(delta)})`, ahead: delta < 0 }
+}
+
+/** Finish-delta flash (#230): a car finishing at `timeSec` vs the previous record
+ *  `prevBest` (Infinity if none yet). `ahead` (green) = a new record. Pure — unit-tested. */
+export function finishFlashEvent(timeSec: number, prevBest: number): { text: string; ahead: boolean } {
+  if (!Number.isFinite(prevBest)) return { text: `Finished ${timeSec.toFixed(1)}s`, ahead: true }
+  const delta = timeSec - prevBest
+  return { text: delta < 0 ? `New best · ${fmtDelta(delta)}` : `+${delta.toFixed(1)}s`, ahead: delta < 0 }
+}
+
 // Track lifespan slider at its max = never regenerate (one track, mastered forever).
 // Derived from the schema so it can never drift from the slider's actual max.
 const TRACK_LIFESPAN_MAX = readMeta(boxcar2dSchema.shape.trackLifespan)!.max!
@@ -130,6 +152,21 @@ export interface BoxCarState {
   stepsThisCar: number
   /** Best finish time this track (seconds); Infinity until a car finishes. */
   bestTimeSec: number
+  /** Record-holder's time (s) at each 100 m mark; empty until a car finishes (#221). */
+  bestSplits: number[]
+  /** Current car's time (s) at each 100 m mark reached so far; reset per car (#221). */
+  splitsThisCar: number[]
+  /** Furthest distance (m) any car has reached this track — drives the time-mode
+   *  pre-record flag and the progress ribbon's furthest marker (#221 / #229). */
+  furthestMeters: number
+  /** Transient split flash under the HUD (#221) / finish-delta flash (#230): text +
+   *  ahead(green)/behind(red) + a wall-clock expiry (ms). Set from the sim as a
+   *  `pending*` event (no clock there) and armed with an expiry in frame(), where t
+   *  is known; render draws whatever is non-null. */
+  splitFlash: { text: string; ahead: boolean; expiresAt: number } | null
+  finishFlash: { text: string; ahead: boolean; expiresAt: number } | null
+  pendingSplit: { text: string; ahead: boolean } | null
+  pendingFinish: { text: string; ahead: boolean } | null
   rubbleLayout: RubbleLayout | null
   rubbleBlocks: Map<number, { body: BodyId; size: number }>
   rubbleNextSlot: number
@@ -207,6 +244,7 @@ function spawnCar(state: BoxCarState): void {
   state.camMX = state.spawnX
   state.camMY = state.terrainHeight(state.spawnX) + 1
   state.stepsThisCar = 0
+  state.splitsThisCar = []
   resetRubble(state)
   extendRubble(state, state.spawnX) // populate the pool immediately (no 1-frame gap)
 }
@@ -223,10 +261,17 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
     timeSec,
   })
   state.scored.push({ genome: state.current.genome, fitness })
+  if (distance > state.furthestMeters) state.furthestMeters = distance
   if (state.cfg.mode === 'distance') {
     if (distance > state.bestDistMeters) state.bestDistMeters = distance
-  } else if (finished && timeSec < state.bestTimeSec) {
-    state.bestTimeSec = timeSec
+  } else if (finished) {
+    // Finish-delta flash (#230) — computed against the PREVIOUS record, then the
+    // record + its splits are updated if this car beat it (#221 splits-vs-record).
+    state.pendingFinish = finishFlashEvent(timeSec, state.bestTimeSec)
+    if (timeSec < state.bestTimeSec) {
+      state.bestTimeSec = timeSec
+      state.bestSplits = [...state.splitsThisCar]
+    }
   }
 
   // free the finished car's bodies (the long-running leak guard)
@@ -261,6 +306,8 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       state.rubbleLayout = makeRubbleLayout(state.trackSeed, state.cfg.rubbleDensity)
       state.bestDistMeters = 0 // fresh track → fresh record
       state.bestTimeSec = Infinity
+      state.bestSplits = [] // fresh track → fresh splits + furthest marker
+      state.furthestMeters = 0
     }
     // Auto-persist at the generation boundary (#226): the freshly-bred population is
     // the resumable checkpoint. Cheap (≤40 small genomes), fail-soft, once per gen.
@@ -272,6 +319,7 @@ function endCurrentCar(state: BoxCarState, finished = false): void {
       generation: state.generation,
       bestDistMeters: state.bestDistMeters,
       bestTimeSec: state.bestTimeSec,
+      bestSplits: state.bestSplits,
       trackSeed: state.trackSeed,
     })
   }
@@ -283,9 +331,23 @@ function stepCar(state: BoxCarState): void {
   state.stepsThisCar++
   const x = carCentroid(state.current).x
   if (x > state.maxXThisCar) state.maxXThisCar = x // furthest reached (fitness + flag)
+  const dist = x - state.spawnX
+  if (dist > state.furthestMeters) state.furthestMeters = dist // pre-record flag + ribbon
 
-  // Time mode: finish at the goal, or cull at the time cap.
+  // Time mode: record 100 m split crossings (splits-vs-record, #221), then finish at
+  // the goal / cull at the time cap.
   if (state.cfg.mode === 'time') {
+    // Each newly-crossed 100 m mark below the goal records this car's time and flashes
+    // it against the record-holder's split (green if ahead of the record, red behind).
+    while (
+      (state.splitsThisCar.length + 1) * 100 < state.cfg.goalDistance &&
+      dist >= (state.splitsThisCar.length + 1) * 100
+    ) {
+      const mark = (state.splitsThisCar.length + 1) * 100
+      const t = state.stepsThisCar / 60
+      state.splitsThisCar.push(t)
+      state.pendingSplit = splitFlashEvent(mark, t, state.bestSplits[state.splitsThisCar.length - 1])
+    }
     if (x >= state.spawnX + state.cfg.goalDistance) {
       endCurrentCar(state, true)
       return
@@ -372,6 +434,16 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
       trackSeed,
       stepsThisCar: 0,
       bestTimeSec: resuming ? saved!.bestTimeSec : Infinity,
+      // Race feedback (#221/#229/#230): bestSplits IS persisted (restored with the
+      // record time — a converged run may never beat it, so it can't refill). The
+      // rest (per-car splits, furthest, live flashes) is transient and recomputes.
+      bestSplits: resuming ? saved!.bestSplits : [],
+      splitsThisCar: [],
+      furthestMeters: 0,
+      splitFlash: null,
+      finishFlash: null,
+      pendingSplit: null,
+      pendingFinish: null,
       rubbleLayout: makeRubbleLayout(trackSeed, config.rubbleDensity),
       rubbleBlocks: new Map(),
       rubbleNextSlot: 0,
@@ -403,13 +475,25 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
     clearRun()
   },
 
-  frame(state, ctx, _t, dt) {
+  frame(state, ctx, t, dt) {
     // dt===0 is the framework's paused/reduced-motion static-repaint tick (a
     // resize or live config edit while frozen) — it must redraw, not advance the
     // physics sim. Normal ticks always pass a nonzero dt, so they still run
     // >=1 step.
     const steps = dt === 0 ? 0 : Math.max(1, state.cfg.speed)
     for (let i = 0; i < steps; i++) stepCar(state)
+    // Arm/expire the HUD flashes here, where the wall-clock `t` (ms) is known — the
+    // sim only sets pending events. Splits linger ~2.5 s, the finish-delta ~5 s (#230).
+    if (state.pendingSplit) {
+      state.splitFlash = { ...state.pendingSplit, expiresAt: t + 2500 }
+      state.pendingSplit = null
+    }
+    if (state.pendingFinish) {
+      state.finishFlash = { ...state.pendingFinish, expiresAt: t + 5000 }
+      state.pendingFinish = null
+    }
+    if (state.splitFlash && t >= state.splitFlash.expiresAt) state.splitFlash = null
+    if (state.finishFlash && t >= state.finishFlash.expiresAt) state.finishFlash = null
     // Flat 2D side view: lock the camera horizontally to the car (no smoothing —
     // the car stays pinned and the world scrolls). Vertically, hold the horizon
     // STILL and only pan when the car leaves a ±band, so the hills don't heave on

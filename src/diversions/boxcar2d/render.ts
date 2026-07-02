@@ -207,6 +207,100 @@ function drawSpring(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: n
   ctx.stroke()
 }
 
+/** Time-mode pre-record marker (#221②): until any car finishes, a furthest-reached
+ *  flag + a `Dist … m` readout so the progress toward the goal reads at a glance. */
+function drawFurthestFlag(
+  ctx: CanvasRenderingContext2D,
+  s: BoxCarState,
+  sx: (wx: number) => number,
+  ink: string,
+): void {
+  const { height } = s.size
+  const fx = sx(s.spawnX + s.furthestMeters)
+  ctx.strokeStyle = ink
+  ctx.globalAlpha = 0.4
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(fx, 0)
+  ctx.lineTo(fx, height)
+  ctx.stroke()
+  ctx.globalAlpha = 1
+  ctx.fillStyle = '#ff5d5d'
+  ctx.beginPath()
+  ctx.moveTo(fx, 18)
+  ctx.lineTo(fx + 15, 24)
+  ctx.lineTo(fx, 30)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = ink
+  ctx.font = 'bold 13px system-ui, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(`Dist ${s.furthestMeters.toFixed(0)} m`, fx + 6, 34)
+}
+
+/** Start→goal progress ribbon (#229): a thin always-visible bar at the top with the
+ *  current car's dot and a furthest-reached / record marker — cheaper to read than the
+ *  HUD distance number. Time mode spans 0→goal; distance mode spans 0→best-so-far. */
+function drawRibbon(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
+  const { width } = s.size
+  const pad = 14
+  const y = 1
+  const h = 4
+  const dotR = 4 // dot bottom (y + h/2 + dotR = 7) clears the HUD plate top (y = 8)
+  const x0 = pad
+  const w = width - pad * 2
+  const isTime = s.cfg.mode === 'time'
+  const span = isTime ? s.cfg.goalDistance : Math.max(1, s.bestDistMeters, s.furthestMeters)
+  const cur = Math.max(0, carCentroid(s.current).x - s.spawnX)
+  const marker = isTime ? s.furthestMeters : s.bestDistMeters
+  // track
+  ctx.fillStyle = 'rgba(255,255,255,0.20)'
+  ctx.fillRect(x0, y, w, h)
+  // furthest / record marker
+  if (marker > 0) {
+    const mx = x0 + w * Math.min(1, marker / span)
+    ctx.fillStyle = '#ff5d5d'
+    ctx.fillRect(mx - 1.5, y - 3, 3, h + 6)
+  }
+  // current car dot (white core + dark ring reads on any sky)
+  const cx = x0 + w * Math.min(1, cur / span)
+  ctx.beginPath()
+  ctx.arc(cx, y + h / 2, dotR, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+}
+
+/** One transient HUD flash (#221 splits / #230 finish delta) — a dark pill + coloured
+ *  text (green = ahead / new record, red = behind), centred under the HUD plate. */
+function drawFlash(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  flash: { text: string; ahead: boolean } | null,
+  y: number,
+  size: number,
+): void {
+  if (!flash) return
+  ctx.font = `bold ${size}px system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  const pillW = ctx.measureText(flash.text).width + 24
+  // near-opaque pill + a dark outline (halo) on every glyph, so the bright green/red
+  // text stays legible over the pill AND any sky behind it (readability, invariant #1/#5).
+  ctx.fillStyle = 'rgba(0,0,0,0.72)'
+  ctx.fillRect((width - pillW) / 2, y - 4, pillW, size + 11)
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = 3.5
+  ctx.strokeStyle = 'rgba(0,0,0,0.9)'
+  ctx.strokeText(flash.text, width / 2, y)
+  ctx.fillStyle = flash.ahead ? '#5cf08a' : '#ff8f8f'
+  ctx.fillText(flash.text, width / 2, y)
+  ctx.textAlign = 'left'
+}
+
 export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   const { width, height } = s.size
   const m2px = SCALE * ZOOM
@@ -313,6 +407,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
         ctx.fillRect(fx + c * sq, r * sq, sq, sq)
       }
     }
+    // Until any car finishes, also show the furthest-reached flag + Dist readout (#221②)
+    if (!Number.isFinite(s.bestTimeSec)) drawFurthestFlag(ctx, s, sx, ink)
   }
 
   // rubble obstacle blocks — translucent fill + outline, in a contrasting accent
@@ -406,5 +502,11 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     ctx.textAlign = 'center'
     ctx.fillText(text, plateX + plateW / 2, 15)
     ctx.textAlign = 'left'
+
+    // Race feedback, part of the HUD chrome (hidden with it): the start→goal ribbon
+    // (#229) and the transient finish-delta (#230) + split (#221) flashes under the plate.
+    drawRibbon(ctx, s)
+    drawFlash(ctx, width, s.finishFlash, 40, 17)
+    drawFlash(ctx, width, s.splitFlash, 66, 14)
   }
 }
