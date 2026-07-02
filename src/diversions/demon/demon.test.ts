@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { createDemonState, stepDemon, updateDemonState, type DemonState } from './demon'
-import type { DemonConfig } from './schema'
+import {
+  createDemonState, stepDemon, updateDemonState,
+  reseedDemon, shouldReseedDemon, type DemonState,
+} from './demon'
+import { demonSchema, type DemonConfig } from './schema'
 
 const base: DemonConfig = {
   field: 'square', colors: 6, dominanceReach: 1, threshold: 2, speed: 8, cellSize: 10,
@@ -47,5 +50,46 @@ describe('demon CA', () => {
     expect(updateDemonState(st, { ...base, speed: 20 }, { width: 200, height: 200 })).toBe(true)
     expect(st.cfg.speed).toBe(20)
     expect(updateDemonState(st, { ...base, field: 'hexagon' }, { width: 200, height: 200 })).toBe(false)
+  })
+})
+
+describe('reseed lifecycle (#194)', () => {
+  // Drive the lifecycle exactly as `frame` does: step, and reseed when quiescent.
+  const runWithReseed = (cfg: DemonConfig, w: number, h: number, gens: number) => {
+    const st = createDemonState(cfg, w, h)
+    let reseeds = 0, sawFrozen = false
+    for (let g = 0; g < gens; g++) {
+      stepDemon(st)
+      if (st.changed.length === 0) sawFrozen = true
+      if (shouldReseedDemon(st)) { reseedDemon(st); reseeds++ }
+    }
+    return { reseeds, sawFrozen }
+  }
+
+  it('brings a frozen config back to life instead of leaving a permanent dead frame', () => {
+    // hex/12/T=2 reliably reaches an absorbing state within ~20 gens; the lifecycle
+    // must detect it and reseed so the screen never stays dead.
+    const cfg = demonSchema.parse({ field: 'hexagon', colors: 12, dominanceReach: 1, threshold: 2, seed: 42 })
+    const { reseeds, sawFrozen } = runWithReseed(cfg, 1200, 900, 400)
+    expect(sawFrozen).toBe(true)          // it did freeze…
+    expect(reseeds).toBeGreaterThan(0)    // …and came back
+  })
+
+  it('never reseeds a lively T=1 config over a long run', () => {
+    const cfg = demonSchema.parse({ field: 'hexagon', colors: 8, dominanceReach: 1, threshold: 1, seed: 42 })
+    const { reseeds } = runWithReseed(cfg, 1200, 900, 500)
+    expect(reseeds).toBe(0)
+  })
+
+  it('reseedDemon re-noises with a folded seed and resets the lifecycle counters', () => {
+    const cfg = demonSchema.parse({ threshold: 2, seed: 42 })
+    const st = createDemonState(cfg, 400, 300)
+    for (let g = 0; g < 5; g++) stepDemon(st)
+    const before = Array.from(st.cur)
+    reseedDemon(st)
+    expect(st.step).toBe(0)
+    expect(st.quietSteps).toBe(0)
+    expect(st.needsClear).toBe(true)
+    expect(Array.from(st.cur)).not.toEqual(before) // a different world
   })
 })

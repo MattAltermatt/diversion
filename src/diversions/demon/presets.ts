@@ -10,9 +10,13 @@ export const palettePresets: Array<{ name: string; patch: Partial<DemonConfig> }
   { name: 'Mono', patch: { color: { hueStart: 210, hueSpan: 20, saturation: 25, lightness: 60 } as ColorGroup } },
 ]
 
+// All patterns sit in a lively regime (or a gentle settle→reseed cycle for the T=2
+// 'Broad' look, ~7s cadence via the reseed lifecycle). 'Spiral' equals the schema
+// default so the picker shows it selected on a fresh load (#38). Threshold caps at 2 —
+// higher freezes the CA (see the schema help / #140/#194).
 export const patternPresets: Array<{ name: string; patch: Partial<DemonConfig> }> = [
   { name: 'Classic', patch: { field: 'square', colors: 12, dominanceReach: 1, threshold: 1 } },
-  { name: 'Spiral', patch: { field: 'hexagon', colors: 8, dominanceReach: 1, threshold: 2 } },
+  { name: 'Spiral', patch: { field: 'hexagon', colors: 8, dominanceReach: 1, threshold: 1 } },
   { name: 'RPS', patch: { field: 'hexagon', colors: 6, dominanceReach: 2, threshold: 2 } },
-  { name: 'Broad', patch: { field: 'hexagon', colors: 10, dominanceReach: 1, threshold: 3 } },
+  { name: 'Broad', patch: { field: 'hexagon', colors: 10, dominanceReach: 1, threshold: 2 } },
 ]

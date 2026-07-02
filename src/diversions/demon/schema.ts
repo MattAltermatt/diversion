@@ -13,9 +13,9 @@ export const demonSchema = z.object({
   dominanceReach: z.number().int().min(1).max(7).default(1)
     .meta({ section: 'Rules', ui: 'slider', min: 1, max: 7, step: 1, label: 'Dominance reach',
             help: 'How many colors each one eats around the ring. 1 = classic spiral demon; 2 = rock-paper-scissors-lizard-spock. Auto-limited to under half the colors.' }),
-  threshold: z.number().int().min(1).max(6).default(2)
-    .meta({ section: 'Rules', ui: 'slider', min: 1, max: 6, step: 1, label: 'Threshold',
-            help: 'How many predator neighbors are needed before a cell flips. Higher = broader, calmer spirals. Capped at the field’s neighbor count.' }),
+  threshold: z.number().int().min(1).max(2).default(1)
+    .meta({ section: 'Rules', ui: 'slider', min: 1, max: 2, step: 1, label: 'Threshold',
+            help: 'How many predator neighbors are needed before a cell flips. 1 = lively, ever-cycling spirals (the classic demon); 2 = broader, calmer domains that occasionally settle and refresh. Higher values freeze the CA, so the range stops at 2.' }),
   speed: z.number().min(2).max(30).default(8)
     .meta({ section: 'Motion', ui: 'slider', min: 2, max: 30, step: 1, label: 'Speed',
             help: 'Cellular-automaton steps per second. Low and slow is the zen default.' }),

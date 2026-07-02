@@ -4,7 +4,8 @@
 import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { demonSchema, type DemonConfig } from './schema'
 import {
-  createDemonState, stepDemon, updateDemonState, resizeDemonState, type DemonState,
+  createDemonState, stepDemon, updateDemonState, resizeDemonState,
+  reseedDemon, shouldReseedDemon, type DemonState,
 } from './demon'
 import { palettePresets, patternPresets } from './presets'
 
@@ -42,10 +43,18 @@ const demon = defineDiversion<typeof demonSchema, DemonState, '2d'>({
     if (state.needsClear) paintAll(state, ctx)
     state.acc += state.cfg.speed * (dt / 1000)
     let steps = Math.floor(state.acc)
-    state.acc -= steps
-    if (steps > MAX_STEPS_PER_FRAME) steps = MAX_STEPS_PER_FRAME
+    if (steps > MAX_STEPS_PER_FRAME) steps = MAX_STEPS_PER_FRAME // cap executed (post-stall)
+    state.acc -= steps // carry the backlog so gen rate is frame-rate independent
+    if (state.acc > MAX_STEPS_PER_FRAME) state.acc = MAX_STEPS_PER_FRAME
     for (let s = 0; s < steps; s++) {
       stepDemon(state)
+      // Reseed lifecycle (#194): if the CA has frozen into an absorbing state, re-noise
+      // with a folded seed and repaint — so no config can leave a permanent dead frame.
+      if (shouldReseedDemon(state)) {
+        reseedDemon(state)
+        paintAll(state, ctx)
+        continue
+      }
       const { changed, tess, lut, cur } = state
       for (let c = 0; c < changed.length; c++) {
         const i = changed[c]
