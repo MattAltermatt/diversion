@@ -4,7 +4,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ## Architecture (load-bearing)
 
-- **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, update?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React.
+- **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, update?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React. **Pointer input (#9)** rides the same black-box rule: a diversion opts in with an optional `onPointer?(state, sample)` hook, and `AnimationHost` owns the canvas listeners — it normalizes each event into the diversion's own draw space (CSS px for `2d`, device px for GPU kinds, plus 0..1 `nx/ny`) and tears them down on switch/unmount. The diversion never reaches the canvas or re-derives DPR. Listeners are wired only when the hook exists.
 - **One Zod schema per diversion is the single source of truth** — it drives the config form, the URL codec, AND the `Config` type. Each field carries `.meta({ ui, label, help, min, max, step, options })`.
 - **`kind: '2d' | 'webgl'`** selects which context the host acquires. 2D contexts are DPR-scaled so sims draw in CSS pixels; WebGL gets device pixels.
 - **Registry auto-discovers** diversions via `import.meta.glob('../diversions/*/index.ts')` — a new folder is picked up with no registration.
