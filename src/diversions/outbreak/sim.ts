@@ -8,6 +8,7 @@ import { SpatialHash } from './spatialHash'
 import { addSeek, addAvoid, addFlee, addCohesion, addSeparation } from './steering'
 import { fireStep, bulletStep } from './combat'
 import { generateArena, insideWall, resolveWall, addWallAvoid, type Arena } from './arena'
+import { createNavGrid, rebuildFields, sampleField, losClear, type NavGrid } from './navField'
 
 export const CIVILIAN = 0
 export const FIGHTER = 1
@@ -50,6 +51,7 @@ const ENRAGE_SPEED_MULT = 1.5 // enraged zombies surge — briefly outrunning th
 const LUNGE_R = 100 // once a zombie closes within this of its target it LUNGES...
 const LUNGE_SPEED_MULT = 1.5 // ...surging to run the prey down (a 7% edge never catches a fleer)
 const W_SEP = 1.1 // personal-space shove — dominates only at genuine overlap
+const NAV_REBUILD = 6 // rebuild the flow fields every N sim-steps (~10Hz) — cheap, ~1 cell stale
 
 export interface SimConfig {
   civilianCount: number
@@ -98,9 +100,11 @@ export interface Ecosystem {
   balive: Uint8Array
   bulletCursor: number
   arena: Arena
+  navGrid: NavGrid
   hash: SpatialHash
   rng: () => number
   simTime: number
+  stepCount: number
   lastEventTime: number
   // live counts (recomputed each step) — HUD + terminal detection
   civAlive: number
@@ -110,6 +114,7 @@ export interface Ecosystem {
   // scratch (reused; zero per-step alloc)
   neigh: number[]
   acc: Float32Array
+  navOut: Float32Array // sampleField writes a unit direction here
 }
 
 export function createSim(cfg: SimConfig): Ecosystem {
@@ -129,6 +134,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
   const enrageT = new Float32Array(n)
   const bulletCap = Math.max(1024, n)
   const arena = generateArena(cfg.seed, cfg.arenaDensity, WORLD_W, WORLD_H)
+  const navGrid = createNavGrid(arena, WORLD_W, WORLD_H)
 
   const seedHeading = (i: number, speed: number) => {
     const a = rng() * Math.PI * 2
@@ -172,11 +178,12 @@ export function createSim(cfg: SimConfig): Ecosystem {
     bvx: new Float32Array(bulletCap), bvy: new Float32Array(bulletCap),
     brange: new Float32Array(bulletCap), balive: new Uint8Array(bulletCap), bulletCursor: 0,
     arena,
+    navGrid,
     hash: new SpatialHash(WORLD_W, WORLD_H, CELL, n),
-    rng, simTime: 0, lastEventTime: 0,
+    rng, simTime: 0, stepCount: 0, lastEventTime: 0,
     civAlive: cfg.civilianCount, fighterAlive: cfg.fighterCount, zombieAlive: cfg.zombieCount,
     outcome: null,
-    neigh: [], acc: new Float32Array(2),
+    neigh: [], acc: new Float32Array(2), navOut: new Float32Array(2),
   }
   return eco
 }
@@ -212,6 +219,10 @@ function nearestHumanGlobal(e: Ecosystem, i: number): number {
 export function stepSim(e: Ecosystem): void {
   const { px, py, vx, vy, faction, alive, infecting, infectTimer, acc } = e
   e.hash.rebuild(px, py, e.n, alive)
+  // Refresh the flow fields every NAV_REBUILD steps (keyed off stepCount so slow-mo /
+  // fast-forward stay correct). Agents route these when their target is behind a wall.
+  if (e.stepCount % NAV_REBUILD === 0) rebuildFields(e.navGrid, e, ZOMBIE)
+  e.stepCount++
   const zspeed = e.cfg.zombieSpeed, hspeed = e.cfg.humanSpeed
 
   // ── Loop 1: desired heading → velocity (reads only positions → order-independent).
@@ -240,9 +251,17 @@ export function stepSim(e: Ecosystem): void {
         }
       }
       if (target !== -1) {
-        addSeek(px[i], py[i], px[target], py[target], targetW, acc)
-        const d2 = (px[target] - px[i]) ** 2 + (py[target] - py[i]) ** 2
-        if (d2 < LUNGE_R * LUNGE_R) lunge = true // close enough to run it down
+        // Direct-seek when the prey is in sight (lunge on the straightaway); otherwise
+        // descend the human field to route around the wall between them.
+        if (losClear(e.arena, px[i], py[i], px[target], py[target])) {
+          addSeek(px[i], py[i], px[target], py[target], targetW, acc)
+          const d2 = (px[target] - px[i]) ** 2 + (py[target] - py[i]) ** 2
+          if (d2 < LUNGE_R * LUNGE_R) lunge = true // close enough to run it down
+        } else if (sampleField(e.navGrid, e.navGrid.humanDist, px[i], py[i], true, e.navOut)) {
+          acc[0] += e.navOut[0] * targetW; acc[1] += e.navOut[1] * targetW
+        } else {
+          addSeek(px[i], py[i], px[target], py[target], targetW, acc) // no gradient → best effort
+        }
       }
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, ZOMBIE_CLUMP_R, 24, e.neigh, faction, ZOMBIE)
@@ -251,17 +270,33 @@ export function stepSim(e: Ecosystem): void {
       const sight = e.cfg.civilianSight // adjustable eyesight — flee + seek share it
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, sight, 24, e.neigh, faction, ZOMBIE)
-      addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+      const nearZ = nearestOf(e, i, sight, ZOMBIE)
+      if (nearZ !== -1) {
+        // Flee directly from every visible zombie; if the nearest is behind a wall, ascend
+        // the zombie field instead so panic routes down a corridor (not into the wall).
+        if (losClear(e.arena, px[i], py[i], px[nearZ], py[nearZ])) {
+          addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+        } else if (sampleField(e.navGrid, e.navGrid.zombieDist, px[i], py[i], false, e.navOut)) {
+          acc[0] += e.navOut[0] * W_CIV_FLEE; acc[1] += e.navOut[1] * W_CIV_FLEE
+        } else {
+          addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+        }
+      }
       const safe = nearestOf(e, i, sight, FIGHTER)
       if (safe !== -1) addSeek(px[i], py[i], px[safe], py[safe], W_CIV_SEEK, acc)
-      civAlert = e.neigh.length > 0 || safe !== -1 // saw a zombie (flee) or a fighter (seek)
+      civAlert = nearZ !== -1 || safe !== -1 // saw a zombie (flee) or a fighter (seek)
     } else { // FIGHTER — advance on the horde to engagement range, hold, kite if overrun
       const z = nearestOf(e, i, ZOMBIE_PERCEPT, ZOMBIE)
       if (z !== -1) {
         const d = Math.hypot(px[z] - px[i], py[z] - py[i])
         const R = e.cfg.fighterRange
-        if (d > R * 0.75) addSeek(px[i], py[i], px[z], py[z], W_FIGHTER_ADVANCE, acc)
-        else if (d < R * 0.45) addAvoid(px[i], py[i], px[z], py[z], W_FIGHTER_KITE, acc)
+        if (d > R * 0.75) {
+          // Advance toward the horde — direct when in sight, else descend the zombie field
+          // so fighters thread corridors toward the front (and pin at a chokepoint mouth).
+          if (losClear(e.arena, px[i], py[i], px[z], py[z])) addSeek(px[i], py[i], px[z], py[z], W_FIGHTER_ADVANCE, acc)
+          else if (sampleField(e.navGrid, e.navGrid.zombieDist, px[i], py[i], true, e.navOut)) { acc[0] += e.navOut[0] * W_FIGHTER_ADVANCE; acc[1] += e.navOut[1] * W_FIGHTER_ADVANCE }
+          else addSeek(px[i], py[i], px[z], py[z], W_FIGHTER_ADVANCE, acc)
+        } else if (d < R * 0.45) addAvoid(px[i], py[i], px[z], py[z], W_FIGHTER_KITE, acc)
       }
       const civ = nearestOf(e, i, CIV_SEEK_R, CIVILIAN) // drift toward civilians to recruit
       if (civ !== -1) addSeek(px[i], py[i], px[civ], py[civ], W_FIGHTER_RECRUIT_SEEK, acc)

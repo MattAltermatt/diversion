@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { createSim, stepSim, isResolved, CIVILIAN, FIGHTER, ZOMBIE, type SimConfig } from './sim'
+import { createSim, stepSim, isResolved, CIVILIAN, FIGHTER, ZOMBIE, WORLD_W, WORLD_H, type SimConfig } from './sim'
+import { buildWallGrid } from './arena'
+import { createNavGrid } from './navField'
 
 const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
   civilianCount: 500, fighterCount: 30, zombieCount: 40,
@@ -84,5 +86,36 @@ describe('conversion cycle', () => {
     stepSim(e)
     expect(e.outcome).toBe('horde')
     expect(isResolved(e)).toBe(true)
+  })
+})
+
+describe('flow-field navigation', () => {
+  it('a zombie routes around a wall to catch an occluded fleeing civilian', () => {
+    // One vertical wall (y 300..500) sits directly between the zombie and its prey, so the
+    // straight line of sight is blocked and the zombie must thread the gap above or below.
+    // A steering-only chaser would press into the wall face and never reach the civilian.
+    const e = createSim(cfg({
+      civilianCount: 1, fighterCount: 0, zombieCount: 1,
+      zombieSpeed: 130, humanSpeed: 70, civilianSight: 120, arenaDensity: 0,
+    }))
+    const wall = { x: 780, y: 300, w: 20, h: 200 }
+    e.arena = { walls: [wall], grid: buildWallGrid([wall], WORLD_W, WORLD_H) }
+    e.navGrid = createNavGrid(e.arena, WORLD_W, WORLD_H)
+    // index 0 = zombie, index 1 = civilian (no fighters)
+    e.px[0] = 620; e.py[0] = 400; e.px[1] = 900; e.py[1] = 400
+    let caught = false
+    for (let i = 0; i < 1600 && !caught; i++) {
+      stepSim(e)
+      if (e.infecting[1] || e.faction[1] === ZOMBIE) caught = true
+    }
+    expect(caught).toBe(true)
+  })
+
+  it('same seed + maze → identical run after many steps (nav is deterministic)', () => {
+    const a = createSim(cfg({ civilianCount: 120, arenaDensity: 1 }))
+    const b = createSim(cfg({ civilianCount: 120, arenaDensity: 1 }))
+    for (let i = 0; i < 200; i++) { stepSim(a); stepSim(b) }
+    expect(Array.from(a.faction)).toEqual(Array.from(b.faction))
+    expect(Array.from(a.px)).toEqual(Array.from(b.px))
   })
 })
