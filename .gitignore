@@ -42,3 +42,4 @@ screenshots/
 tmp-*.png
 
 .verify-tmp/
+.dla-verify/
