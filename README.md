@@ -7,8 +7,9 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 - **A framework** that gives every diversion two screens for free:
   - **Config screen** — controls on the left, a live preview on the right.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
-- **Twenty-five diversions:**
+- **Twenty-six diversions:**
   - **Flow Field** (`kind: '2d'`) — particles drifting through a noise-driven vector field.
+  - **Differential Growth** (`kind: '2d'`) — a closed self-avoiding curve that slowly buckles into brain-coral / intestinal / lettuce-edge folds from purely local attraction (holds the strand together) + repulsion (buckles separate strands apart) + node insertion (grows length). An overdamped, position-based relaxation (no velocity → can't blow up) stepped on a fixed timestep for frame-rate-independent, seed-reproducible growth; a spatial hash keeps self-avoidance ~O(n). Grows to a complexity cap, breathes, then re-grows a fresh seeded world (a proper unattended-screensaver loop), staying framed under a slow-lerped autofit. Two preset axes — **Growth** (Coral / Cerebral / Kelp / Fine Weave) and **Style** (Bioluma / Ember Coral / Ink / Topographic / Porcelain) — over line / fill / membrane render styles and colour-by-age / sweep / curvature / depth (#144).
   - **Gravity Wells** (`kind: '2d'`) — particles with momentum falling through a field of transient gravity wells that appear and fade; orbits, slingshots, and push-pull churn.
   - **Plasma** (`kind: 'webgl'`) — domain-warped color fields, demoscene-style; the reference WebGL piece (proves the `webgl2` host path + context-loss recovery).
   - **Metaballs** (`kind: 'webgl'`) — gooey lava-lamp blobs that rise, merge, and split; a CPU thermal-oscillator sim feeds a fragment-shader field sum.
