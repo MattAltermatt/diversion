@@ -39,21 +39,22 @@ export function addFlee(
   }
 }
 
-/** Shove i away from every neighbour in `neigh`, direction weighted by 1/d² so the
- *  push is strong only at genuine overlap — gives a crowd VOLUME instead of collapsing
- *  to a point, without preventing it from clustering. Result normalized then ×w. */
+/** Shove i away from every neighbour in `neigh`, each push falling off LINEARLY to 0 at
+ *  `radius` (strong only at genuine overlap, near-nil at rest-packing) and ACCUMULATED —
+ *  not normalized. This gives a crowd volume without the pathology the old normalize-to-w
+ *  form had: that produced a full-strength shove whose direction flipped to the single
+ *  nearest neighbour every step, so in a dense pack the constant `w` noise (> the goal
+ *  pull) cancelled coherent motion and the clump froze. Falloff lets the goal win at rest
+ *  while still resisting real overlap. Same kernel as addFlee, kept distinct for intent. */
 export function addSeparation(
-  px: Float32Array, py: Float32Array, i: number, neigh: number[], w: number, out: Float32Array,
+  px: Float32Array, py: Float32Array, i: number, neigh: number[], radius: number, w: number, out: Float32Array,
 ): void {
   const x = px[i], y = py[i]
-  let sx = 0, sy = 0
   for (const j of neigh) {
     const dx = x - px[j], dy = y - py[j]
-    const d2 = dx * dx + dy * dy || 1e-6
-    sx += dx / d2; sy += dy / d2
+    const d = Math.hypot(dx, dy)
+    if (d > 1e-6 && d < radius) { const f = (1 - d / radius) * w; out[0] += (dx / d) * f; out[1] += (dy / d) * f }
   }
-  const m = Math.hypot(sx, sy)
-  if (m > 1e-6) { out[0] += (sx / m) * w; out[1] += (sy / m) * w }
 }
 
 /** Pull i toward the centroid of `neigh` (cohesion / clumping), weighted by w. */

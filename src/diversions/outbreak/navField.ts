@@ -10,6 +10,7 @@ import { insideWall, type Arena } from './arena'
 
 export const NAV_CELL = 10 // < the 10px min wall thickness, so a thin wall always blocks a
 // cell (a 20px grid could straddle a thin wall and route agents straight through it)
+export const RESCUE_BIN = 6 // civilian-density coarse bin, in nav cells (=60px)
 const INF = 0x3fffffff
 
 export interface NavGrid {
@@ -19,7 +20,9 @@ export interface NavGrid {
   blocked: Uint8Array // 1 = a wall covers this cell's center
   humanDist: Int32Array // BFS distance to nearest human (INF = unreachable)
   zombieDist: Int32Array // BFS distance to nearest zombie
+  rescueDist: Int32Array // BFS distance to the nearest DENSE civilian cluster (fighters descend)
   queue: Int32Array // preallocated BFS work buffer (each cell enqueued ≤ once)
+  rescueBins: Int32Array // scratch: civilian count per coarse RESCUE_BIN cell (peak detection)
 }
 
 /** Ecosystem fields the BFS reads (kept structural so tests can pass a stub). */
@@ -58,9 +61,11 @@ export function createNavGrid(arena: Arena, worldW: number, worldH: number): Nav
       blocked[cy * cols + cx] = blk
     }
   }
+  const rbcols = Math.ceil(cols / RESCUE_BIN), rbrows = Math.ceil(rows / RESCUE_BIN)
   return {
     cols, rows, cell, blocked,
-    humanDist: new Int32Array(n), zombieDist: new Int32Array(n), queue: new Int32Array(n),
+    humanDist: new Int32Array(n), zombieDist: new Int32Array(n), rescueDist: new Int32Array(n),
+    queue: new Int32Array(n), rescueBins: new Int32Array(rbcols * rbrows),
   }
 }
 
@@ -96,6 +101,50 @@ function bfs(nav: NavGrid, dist: Int32Array, e: Agents, wantZombie: boolean, zom
 export function rebuildFields(nav: NavGrid, e: Agents, zombieFaction: number): void {
   bfs(nav, nav.humanDist, e, false, zombieFaction) // sources = civilians + fighters
   bfs(nav, nav.zombieDist, e, true, zombieFaction) // sources = zombies
+}
+
+/** Rebuild `rescueDist`: a multi-source BFS whose sources are the DENSE civilian clusters,
+ *  so a fighter that DESCENDS it routes (wall-aware) toward the nearest big pocket of people
+ *  — not the closest lone straggler. Density is measured on a coarse RESCUE_BIN grid; only
+ *  bins at ≥ half the peak count seed the BFS, so several comparable clusters each become a
+ *  source and fighters split into separate pods naturally. `civFaction` passed in to keep
+ *  this module sim-free. All-INF when no civilians remain (callers fall back). */
+export function rebuildRescueField(nav: NavGrid, e: Agents, civFaction: number): void {
+  const { cols, rows, cell, blocked, queue, rescueDist, rescueBins } = nav
+  const rbcols = Math.ceil(cols / RESCUE_BIN)
+  rescueBins.fill(0)
+  for (let i = 0; i < e.n; i++) {
+    if (!e.alive[i] || e.faction[i] !== civFaction) continue
+    const cx = clampi(Math.floor(e.px[i] / cell), 0, cols - 1)
+    const cy = clampi(Math.floor(e.py[i] / cell), 0, rows - 1)
+    rescueBins[Math.floor(cy / RESCUE_BIN) * rbcols + Math.floor(cx / RESCUE_BIN)]++
+  }
+  let max = 0
+  for (let b = 0; b < rescueBins.length; b++) if (rescueBins[b] > max) max = rescueBins[b]
+  rescueDist.fill(INF)
+  if (max === 0) return // no civilians → all INF; fighters fall back to advancing on the horde
+  const thresh = Math.max(2, max * 0.5) // seed only from the DENSE clusters (density-biased)
+  let head = 0, tail = 0
+  // Seed from every civilian sitting in a dense bin — its cell is walkable (civilians resample
+  // out of walls at spawn), so seeds never land inside a wall.
+  for (let i = 0; i < e.n; i++) {
+    if (!e.alive[i] || e.faction[i] !== civFaction) continue
+    const cx = clampi(Math.floor(e.px[i] / cell), 0, cols - 1)
+    const cy = clampi(Math.floor(e.py[i] / cell), 0, rows - 1)
+    if (rescueBins[Math.floor(cy / RESCUE_BIN) * rbcols + Math.floor(cx / RESCUE_BIN)] < thresh) continue
+    const idx = cy * cols + cx
+    if (blocked[idx] || rescueDist[idx] === 0) continue
+    rescueDist[idx] = 0; queue[tail++] = idx
+  }
+  while (head < tail) {
+    const idx = queue[head++]
+    const nd = rescueDist[idx] + 1
+    const cx = idx % cols, cy = (idx / cols) | 0
+    if (cx > 0) { const j = idx - 1; if (!blocked[j] && rescueDist[j] === INF) { rescueDist[j] = nd; queue[tail++] = j } }
+    if (cx < cols - 1) { const j = idx + 1; if (!blocked[j] && rescueDist[j] === INF) { rescueDist[j] = nd; queue[tail++] = j } }
+    if (cy > 0) { const j = idx - cols; if (!blocked[j] && rescueDist[j] === INF) { rescueDist[j] = nd; queue[tail++] = j } }
+    if (cy < rows - 1) { const j = idx + cols; if (!blocked[j] && rescueDist[j] === INF) { rescueDist[j] = nd; queue[tail++] = j } }
+  }
 }
 
 /** Write a unit direction into `out` toward the 8-neighbour with the lowest (`descend`)

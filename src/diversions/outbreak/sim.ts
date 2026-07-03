@@ -8,7 +8,7 @@ import { SpatialHash } from './spatialHash'
 import { addSeek, addAvoid, addFlee, addCohesion, addSeparation } from './steering'
 import { fireStep, bulletStep } from './combat'
 import { generateArena, insideWall, resolveWall, addWallAvoid, type Arena } from './arena'
-import { createNavGrid, rebuildFields, sampleField, losClear, type NavGrid } from './navField'
+import { createNavGrid, rebuildFields, rebuildRescueField, sampleField, losClear, type NavGrid } from './navField'
 
 export const CIVILIAN = 0
 export const FIGHTER = 1
@@ -25,7 +25,7 @@ const TURN = 0.16 // velocity lerp toward desired heading (0..1) — smooth turn
 const CELL = 150
 const ZOMBIE_PERCEPT = 150 // hunt range for the nearest non-zombie
 const ZOMBIE_CLUMP_R = 90
-const CIV_SEEK_R = 150 // a fighter's own range for spotting civilians to recruit
+const RESCUE_RECRUIT_R = 90 // a fighter direct-seeks a civilian this close (else routes the field)
 const FIGHTER_FORM_R = 120 // loose huddle
 const WALL_AVOID_R = 14 // agents steer off a wall within this range — MUST stay well
 // under the corridor width (see arena.ts street fraction) or narrow streets seal shut
@@ -41,10 +41,10 @@ const W_ZOMBIE_HUNT = 1.0
 const W_ZOMBIE_CLUMP = 0.35
 const W_CIV_FLEE = 1.4
 const W_CIV_SEEK = 0.5
-const W_FIGHTER_FORM = 0.5
+const W_FIGHTER_FORM = 0.25 // loose pods — gentle, so fighters don't ball into a wedge-able knot
 const W_FIGHTER_ADVANCE = 1.0 // fighters close to engagement range
 const W_FIGHTER_KITE = 1.3 // and back off if a zombie gets inside it
-const W_FIGHTER_RECRUIT_SEEK = 0.4 // gentle drift toward civilians to recruit
+const W_FIGHTER_RESCUE = 0.8 // drive toward the densest civilian cluster (< advance, so a live fight wins)
 const W_ZOMBIE_CHARGE = 1.6 // enraged: drive at the nearest fighter
 const W_ZOMBIE_FEAR = 1.0 // calm: stand off from the guns
 const ENRAGE_SPEED_MULT = 1.5 // enraged zombies surge — briefly outrunning the humans
@@ -224,7 +224,10 @@ export function stepSim(e: Ecosystem): void {
   e.hash.rebuild(px, py, e.n, alive)
   // Refresh the flow fields every NAV_REBUILD steps (keyed off stepCount so slow-mo /
   // fast-forward stay correct). Agents route these when their target is behind a wall.
-  if (e.stepCount % NAV_REBUILD === 0) rebuildFields(e.navGrid, e, ZOMBIE)
+  if (e.stepCount % NAV_REBUILD === 0) {
+    rebuildFields(e.navGrid, e, ZOMBIE)
+    rebuildRescueField(e.navGrid, e, CIVILIAN) // fighters descend this toward dense civilian pockets
+  }
   e.stepCount++
   const zspeed = e.cfg.zombieSpeed, hspeed = e.cfg.humanSpeed
 
@@ -295,7 +298,7 @@ export function stepSim(e: Ecosystem): void {
       const safe = nearestOf(e, i, sight, FIGHTER)
       if (safe !== -1) addSeek(px[i], py[i], px[safe], py[safe], W_CIV_SEEK, acc)
       civAlert = nearZ !== -1 || safe !== -1 // saw a zombie (flee) or a fighter (seek)
-    } else { // FIGHTER — advance on the horde to engagement range, hold, kite if overrun
+    } else { // FIGHTER — engage the horde at range; else flow to the densest civilian cluster (wall-aware), in loose pods
       const z = nearestOf(e, i, ZOMBIE_PERCEPT, ZOMBIE)
       if (z !== -1) {
         const d = Math.hypot(px[z] - px[i], py[z] - py[i])
@@ -308,8 +311,16 @@ export function stepSim(e: Ecosystem): void {
           else addSeek(px[i], py[i], px[z], py[z], W_FIGHTER_ADVANCE, acc)
         } else if (d < R * 0.45) addAvoid(px[i], py[i], px[z], py[z], W_FIGHTER_KITE, acc)
       }
-      const civ = nearestOf(e, i, CIV_SEEK_R, CIVILIAN) // drift toward civilians to recruit
-      if (civ !== -1) addSeek(px[i], py[i], px[civ], py[civ], W_FIGHTER_RECRUIT_SEEK, acc)
+      // Rescue drive: head for the densest civilian pocket. A close civilian IN SIGHT is a
+      // direct recruit-seek; otherwise DESCEND the wall-aware rescue field, which routes
+      // around walls — so fighters no longer press a ball into a corner chasing someone
+      // through a wall (the old wall-ignorant recruit-seek did exactly that).
+      const civ = nearestOf(e, i, RESCUE_RECRUIT_R, CIVILIAN)
+      if (civ !== -1 && losClear(e.arena, px[i], py[i], px[civ], py[civ])) addSeek(px[i], py[i], px[civ], py[civ], W_FIGHTER_RESCUE, acc)
+      else if (sampleField(e.navGrid, e.navGrid.rescueDist, px[i], py[i], true, e.navOut)) { acc[0] += e.navOut[0] * W_FIGHTER_RESCUE; acc[1] += e.navOut[1] * W_FIGHTER_RESCUE }
+      // Loose pods: gentle cohesion so fighters bound for the same cluster travel together,
+      // but never the tight ball that used to wedge in corners. Shared destination (the
+      // rescue field) does most of the grouping; cohesion just keeps a pod from fraying.
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, FIGHTER_FORM_R, 16, e.neigh, faction, FIGHTER)
       addCohesion(px, py, i, e.neigh, W_FIGHTER_FORM, acc)
@@ -320,7 +331,7 @@ export function stepSim(e: Ecosystem): void {
     if (f !== CIVILIAN || civAlert) {
       e.neigh.length = 0
       e.hash.neighborsWithin(px, py, i, SEP_R, 12, e.neigh, faction, f)
-      addSeparation(px, py, i, e.neigh, W_SEP, acc)
+      addSeparation(px, py, i, e.neigh, SEP_R, W_SEP, acc)
       addWallAvoid(e.arena, px[i], py[i], WALL_AVOID_R, W_WALL_AVOID, acc)
     }
     let maxSpeed = f === ZOMBIE ? zspeed : hspeed

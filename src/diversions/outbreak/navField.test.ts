@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createNavGrid, rebuildFields, sampleField, losClear, NAV_CELL, type NavGrid } from './navField'
+import { createNavGrid, rebuildFields, rebuildRescueField, sampleField, losClear, NAV_CELL, type NavGrid } from './navField'
 import { generateArena, type Arena } from './arena'
 
 const W = 1600, H = 900
@@ -51,6 +51,37 @@ describe('navField', () => {
     rebuildFields(nav, eco([[300, 450, CIV]]), ZOM) // no zombies at all
     const out = new Float32Array(2)
     expect(sampleField(nav, nav.zombieDist, 600, 450, false, out)).toBe(false)
+  })
+
+  it('rescueDist routes fighters toward a dense civilian cluster', () => {
+    const a = generateArena(1, 0, W, H)
+    const nav = createNavGrid(a, W, H)
+    const pts: [number, number, number][] = []
+    for (let k = 0; k < 12; k++) pts.push([290 + (k % 3) * 3, 440 + ((k / 3) | 0) * 3, CIV]) // tight cluster ~x300
+    rebuildRescueField(nav, eco(pts), CIV)
+    const out = new Float32Array(2)
+    expect(sampleField(nav, nav.rescueDist, 700, 450, true, out)).toBe(true)
+    expect(out[0]).toBeLessThan(0) // descend toward the cluster at x≈300
+  })
+
+  it('rescueDist is density-biased: routes to the big cluster, not a lone straggler', () => {
+    const a = generateArena(1, 0, W, H)
+    const nav = createNavGrid(a, W, H)
+    const pts: [number, number, number][] = []
+    for (let k = 0; k < 12; k++) pts.push([290 + (k % 3) * 3, 440 + ((k / 3) | 0) * 3, CIV]) // dense cluster left
+    pts.push([1300, 450, CIV]) // a lone straggler to the right — below the density threshold
+    rebuildRescueField(nav, eco(pts), CIV)
+    const out = new Float32Array(2)
+    expect(sampleField(nav, nav.rescueDist, 800, 450, true, out)).toBe(true)
+    expect(out[0]).toBeLessThan(0) // toward the big cluster (left), ignoring the straggler (right)
+  })
+
+  it('rescueDist has no sources without civilians → sampleField returns false', () => {
+    const a = generateArena(1, 0, W, H)
+    const nav = createNavGrid(a, W, H)
+    rebuildRescueField(nav, eco([[300, 450, ZOM]]), CIV) // only a zombie present
+    const out = new Float32Array(2)
+    expect(sampleField(nav, nav.rescueDist, 600, 450, true, out)).toBe(false)
   })
 
   it('losClear is false through a wall and true across open space', () => {
