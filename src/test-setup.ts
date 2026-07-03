@@ -214,6 +214,8 @@ export function makeGLContext(): MockGLContext {
     uniform2f: rec('uniform2f'),
     uniform3f: rec('uniform3f'),
     uniform3fv: rec('uniform3fv'),
+    uniform4fv: rec('uniform4fv'),
+    uniform2iv: rec('uniform2iv'),
     drawArrays: rec('drawArrays'),
     viewport: rec('viewport'),
   }
