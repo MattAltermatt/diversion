@@ -43,6 +43,7 @@ export function make2DContext(): Mock2DContext {
     // path + draw
     setTransform: rec('setTransform'),
     resetTransform: rec('resetTransform'),
+    transform: rec('transform'),
     save: rec('save'),
     restore: rec('restore'),
     translate: rec('translate'),
