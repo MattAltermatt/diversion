@@ -71,6 +71,7 @@ export function make2DContext(): Mock2DContext {
     strokeRect: rec('strokeRect'),
     clearRect: rec('clearRect'),
     clip: rec('clip'),
+    setLineDash: rec('setLineDash'),
     drawImage: rec('drawImage'),
     putImageData: rec('putImageData'),
     createRadialGradient: (..._a: unknown[]) => {
