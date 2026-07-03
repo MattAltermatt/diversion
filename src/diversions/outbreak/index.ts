@@ -2,6 +2,7 @@
 // hook; delegates the sim to sim.ts and drawing to render.ts. Fixed-steps-per-frame.
 import { defineDiversion, type Size } from '../../framework/types'
 import { outbreakSchema, type OutbreakConfig } from './schema'
+import { outbreakPresets } from './presets'
 import { createSim, stepSim, isResolved, type Ecosystem, type SimConfig } from './sim'
 import { drawScene } from './render'
 
@@ -27,6 +28,7 @@ const outbreak = defineDiversion({
   description: 'A three-faction arena: fighters recruit and the horde bites, both draining a crowd of civilians. Watch who wins — then it reseeds into a fresh outbreak.',
   kind: '2d',
   schema: outbreakSchema,
+  presets: outbreakPresets,
 
   setup(_ctx, cfg, size): State {
     return { sim: createSim(toSimConfig(cfg)), cfg, size, stepAcc: 0 }
