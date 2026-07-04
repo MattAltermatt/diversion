@@ -44,6 +44,8 @@ export function make2DContext(): Mock2DContext {
     setTransform: rec('setTransform'),
     resetTransform: rec('resetTransform'),
     transform: rec('transform'),
+    // getTransform returns an identity DOMMatrix-like the code can read/pass back.
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
     save: rec('save'),
     restore: rec('restore'),
     translate: rec('translate'),
