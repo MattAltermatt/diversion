@@ -44,3 +44,6 @@ tmp-*.png
 .verify-tmp/
 .dla-verify/
 .verify/
+
+# local Chrome verification screenshots
+.verify-shots/
