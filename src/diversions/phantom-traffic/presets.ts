@@ -6,16 +6,19 @@ import type { PhantomTrafficConfig } from './schema'
 // Palette swaps the speed-color ramp.
 export const phantomPresets: PresetGroup<PhantomTrafficConfig>[] = [
   {
-    // Every option patches the SAME key-set (layout, density, dawdle, fadeTrails,
-    // trailLength, carSize) so matchPresets can flip to "Custom" on any manual drift.
+    // Every option patches the SAME key-set (layout, roadLength, density, dawdle,
+    // fadeTrails, trailLength, carSize, carStyle, laneDirection) so matchPresets can flip
+    // to "Custom" on any manual drift. Arc scenes use a short road → few cells → chunky blocks.
     label: 'Scene',
     options: [
-      { name: 'Ring road', patch: { layout: 'rings', density: 0.16, dawdle: 0.25, fadeTrails: true, trailLength: 78, carSize: 3 } },
-      { name: 'Night highway', patch: { layout: 'highway', density: 0.18, dawdle: 0.25, fadeTrails: true, trailLength: 88, carSize: 2.5 } },
-      { name: 'Phase transition', patch: { layout: 'highway', density: 0.12, dawdle: 0.3, fadeTrails: true, trailLength: 70, carSize: 3 } },
-      { name: 'Gridlock', patch: { layout: 'rings', density: 0.42, dawdle: 0.2, fadeTrails: true, trailLength: 60, carSize: 3 } },
-      { name: 'Free flow', patch: { layout: 'rings', density: 0.06, dawdle: 0.12, fadeTrails: true, trailLength: 82, carSize: 3 } },
-      { name: 'Crisp dots', patch: { layout: 'rings', density: 0.16, dawdle: 0.25, fadeTrails: false, trailLength: 78, carSize: 3.5 } },
+      { name: 'Ring road', patch: { layout: 'rings', roadLength: 260, density: 0.16, dawdle: 0.25, fadeTrails: true, trailLength: 78, carSize: 3, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Night highway', patch: { layout: 'highway', roadLength: 260, density: 0.18, dawdle: 0.25, fadeTrails: true, trailLength: 88, carSize: 2.5, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Phase transition', patch: { layout: 'highway', roadLength: 260, density: 0.12, dawdle: 0.3, fadeTrails: true, trailLength: 70, carSize: 3, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Gridlock', patch: { layout: 'rings', roadLength: 260, density: 0.42, dawdle: 0.2, fadeTrails: true, trailLength: 60, carSize: 3, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Free flow', patch: { layout: 'rings', roadLength: 260, density: 0.06, dawdle: 0.12, fadeTrails: true, trailLength: 82, carSize: 3, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Crisp dots', patch: { layout: 'rings', roadLength: 260, density: 0.16, dawdle: 0.25, fadeTrails: false, trailLength: 78, carSize: 3.5, carStyle: 'dots', laneDirection: 'uniform' } },
+      { name: 'Arc rings', patch: { layout: 'rings', roadLength: 90, density: 0.24, dawdle: 0.25, fadeTrails: false, trailLength: 78, carSize: 4, carStyle: 'arcs', laneDirection: 'uniform' } },
+      { name: 'Counter-rotate', patch: { layout: 'rings', roadLength: 90, density: 0.26, dawdle: 0.25, fadeTrails: false, trailLength: 78, carSize: 4, carStyle: 'arcs', laneDirection: 'alternate' } },
     ],
   },
   {

@@ -18,11 +18,19 @@ export const phantomTrafficSchema = z.object({
                 + 'own traffic, so more lanes = more simultaneous jams to watch.' }),
   roadLength: z.number().int().min(60).max(600).default(260)
     .meta({ section: 'Road', ui: 'slider', min: 60, max: 600, step: 10, label: 'Road length',
-            help: 'Cells per lane. Longer roads fit more cars and longer jam waves.' }),
+            help: 'Cells per lane (outermost ring; inner rings scale down). Longer roads fit more '
+                + 'cars and longer jam waves. With the Arcs car style, fewer cells = bigger cells '
+                + '= chunkier blocks — drop this to ~90 for the fat Binary-Ring look.' }),
   density: z.number().min(0.02).max(0.6).default(0.16)
     .meta({ section: 'Road', ui: 'slider', min: 0.02, max: 0.6, step: 0.01, label: 'Density',
             help: 'Fraction of the road filled with cars. Below the critical density (~0.1–0.15) '
                 + 'traffic flows free; above it, stop-and-go jams spontaneously appear.' }),
+  laneDirection: z.enum(['uniform', 'alternate']).default('uniform')
+    .meta({ section: 'Road', ui: 'segmented', options: ['uniform', 'alternate'], label: 'Lane direction',
+            help: 'Uniform: every lane runs the same way. Alternate: neighbouring lanes counter-rotate '
+                + '(ring 0 clockwise, ring 1 anticlockwise…; on the highway, lanes flow right / left / '
+                + 'right — opposing traffic). Purely which way a lane is drawn; the traffic itself is '
+                + 'unchanged, so each jam still crawls backward against its own lane.' }),
 
   maxSpeed: z.number().int().min(1).max(8).default(5)
     .meta({ section: 'Traffic', ui: 'slider', min: 1, max: 8, step: 1, label: 'Max speed',
@@ -36,9 +44,20 @@ export const phantomTrafficSchema = z.object({
     .meta({ section: 'Traffic', ui: 'slider', min: 1, max: 24, step: 0.5, label: 'Sim speed',
             help: 'Traffic ticks per second. Lower is calmer and more hypnotic.' }),
 
+  carStyle: z.enum(['dots', 'arcs']).default('dots')
+    .meta({ section: 'Look', ui: 'segmented', options: ['dots', 'arcs'], label: 'Car style',
+            help: 'Dots: each car is a round glyph. Arcs: each car is a thick rounded segment swept '
+                + 'along its lane, so bumper-to-bumper cars fuse into one solid band — a jam reads as '
+                + 'a fat arc, free flow as spaced segments.' }),
   carSize: z.number().min(1).max(8).default(3)
     .meta({ section: 'Look', ui: 'slider', min: 1, max: 8, step: 0.5, label: 'Car size',
-            help: 'Radius of each car glyph, in pixels.' }),
+            help: 'Radius of each dot, in pixels (Dots style). Arc blocks size themselves to fill '
+                + 'the disc, so this only affects Dots.' }),
+  blockFill: z.number().min(0.3).max(1).default(0.82)
+    .meta({ section: 'Look', ui: 'slider', min: 0.3, max: 1, step: 0.02, label: 'Block fill',
+            help: 'How much of each car’s slot its block fills (Arcs style only). Blocks never '
+                + 'overlap — 1.0 = bumper-to-bumper blocks touch, lower leaves a clean gap between '
+                + 'cars. Block size itself follows Road length: fewer cells = chunkier blocks.' }),
   colorBySpeed: z.boolean().default(true)
     .meta({ section: 'Look', ui: 'toggle', label: 'Color by speed',
             help: 'On: cars are colored fast→slow so jams light up. Off: every car is the '

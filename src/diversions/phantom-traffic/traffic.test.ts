@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mulberry32 } from '../../framework/rng'
 import { phantomTrafficSchema } from './schema'
-import { advance, createTrafficState, stepLane, buildLut } from './traffic'
+import { advance, createTrafficState, stepLane, buildLut, laneDir } from './traffic'
 
 const cfg = (over = {}) => phantomTrafficSchema.parse({ ...over })
 
@@ -21,9 +21,18 @@ describe('phantom-traffic determinism', () => {
     expect(flat(a)).not.toEqual(flat(b))
   })
 
-  it('car count per lane ≈ density × road length', () => {
-    const s = createTrafficState(cfg({ seed: 3, density: 0.2, roadLength: 200 }), 800, 600)
-    for (const lane of s.lanes) expect(lane.cars.length).toBe(40)
+  it('rings: inner ring-roads are shorter, with proportional (uniform-density) car counts', () => {
+    const s = createTrafficState(cfg({ seed: 3, density: 0.2, roadLength: 200, lanes: 5, layout: 'rings' }), 800, 600)
+    // Ring length grows strictly outward; outermost keeps the full road length.
+    for (let i = 1; i < s.lanes.length; i++) expect(s.lanes[i].ring).toBeGreaterThan(s.lanes[i - 1].ring)
+    expect(s.lanes[s.lanes.length - 1].ring).toBe(200)
+    // Linear density stays constant: each lane holds ≈ density × its own ring length.
+    for (const lane of s.lanes) expect(Math.abs(lane.cars.length - 0.2 * lane.ring)).toBeLessThanOrEqual(1)
+  })
+
+  it('highway: every lane is the full road length', () => {
+    const s = createTrafficState(cfg({ seed: 3, density: 0.2, roadLength: 200, lanes: 5, layout: 'highway' }), 800, 600)
+    for (const lane of s.lanes) expect(lane.ring).toBe(200)
   })
 })
 
@@ -71,6 +80,21 @@ describe('Nagel–Schreckenberg rules', () => {
     advance(s, 350) // 10 ticks/s → ~3 ticks
     expect(s.meanFlow).toBeGreaterThanOrEqual(0)
     expect(s.meanFlow).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('lane direction', () => {
+  it('uniform → every lane forward', () => {
+    const c = cfg({ laneDirection: 'uniform' })
+    for (let i = 0; i < 6; i++) expect(laneDir(i, c)).toBe(1)
+  })
+
+  it('alternate → odd lanes reversed, even lanes forward', () => {
+    const c = cfg({ laneDirection: 'alternate' })
+    expect(laneDir(0, c)).toBe(1)
+    expect(laneDir(1, c)).toBe(-1)
+    expect(laneDir(2, c)).toBe(1)
+    expect(laneDir(3, c)).toBe(-1)
   })
 })
 

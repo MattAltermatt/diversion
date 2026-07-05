@@ -25,6 +25,8 @@ export interface TrafficState {
   w: number
   h: number
   lanes: Lane[]
+  rngs: (() => number)[] // one persistent RNG stream per lane — advances continuously so
+  // the dawdle noise keeps evolving; a jam nucleates AND dissolves, never freezing in place
   tickAccum: number // ms accumulated toward the next tick
   tickMs: number // ms per tick (derived from cfg.simSpeed)
   lut: string[] // speed → color, length maxSpeed+1
@@ -74,20 +76,38 @@ function buildLane(ring: number, count: number, maxSpeed: number, rng: () => num
   return { ring, cars }
 }
 
+// Concentric bands fill the disc between these radius fractions of the smaller side.
+// The sim reads them too: an inner ring-road is physically shorter, so it holds fewer
+// cars — keeping linear density (and thus block spacing) uniform across every ring.
+const RING_INNER_FRAC = 0.13
+const RING_OUTER_FRAC = 0.49
+/** Mid-radius fraction of lane `i` of `n` — used for both ring length and rendering. */
+function ringRadiusFrac(i: number, n: number): number {
+  return RING_INNER_FRAC + ((i + 0.5) * (RING_OUTER_FRAC - RING_INNER_FRAC)) / n
+}
+
 export function createTrafficState(cfg: PhantomTrafficConfig, w: number, h: number): TrafficState {
-  const ring = cfg.roadLength
-  const perLane = Math.round(cfg.density * ring)
+  const n = cfg.lanes
+  const outerMid = ringRadiusFrac(n - 1, n) // outermost lane keeps the full road length
+  const proportional = cfg.layout === 'rings' && n > 1 // parallel highway lanes stay equal-length
   const lanes: Lane[] = []
-  for (let i = 0; i < cfg.lanes; i++) {
-    // Distinct seed per lane so each ring-road jams differently.
+  const rngs: (() => number)[] = []
+  for (let i = 0; i < n; i++) {
+    const scale = proportional ? ringRadiusFrac(i, n) / outerMid : 1
+    const ring = Math.max(20, Math.round(cfg.roadLength * scale))
+    const count = Math.max(1, Math.round(cfg.density * ring))
+    // Distinct seed per lane so each ring-road jams differently. The same stream then
+    // drives the per-tick dawdle (kept in state.rngs), so randomness evolves over time.
     const rng = mulberry32((cfg.seed | 0) + i * 9973)
-    lanes.push(buildLane(ring, perLane, cfg.maxSpeed, rng))
+    lanes.push(buildLane(ring, count, cfg.maxSpeed, rng))
+    rngs.push(rng)
   }
   return {
     cfg,
     w,
     h,
     lanes,
+    rngs,
     tickAccum: 0,
     tickMs: 1000 / cfg.simSpeed,
     lut: buildLut(cfg),
@@ -143,8 +163,7 @@ export function advance(state: TrafficState, dt: number): void {
     let moved = 0
     let total = 0
     for (let i = 0; i < state.lanes.length; i++) {
-      const rng = mulberry32(((cfg.seed | 0) + i * 9973 + Math.floor(state.tickAccum) + budget * 131) >>> 0)
-      moved += stepLane(state.lanes[i], cfg, rng)
+      moved += stepLane(state.lanes[i], cfg, state.rngs[i])
       total += state.lanes[i].cars.length
     }
     state.meanFlow = total > 0 ? moved / (total * maxV) : 0
@@ -158,6 +177,17 @@ export function advance(state: TrafficState, dt: number): void {
 function renderPos(c: Car, alpha: number): number {
   return c.prev + c.speed * alpha
 }
+
+/** Which way lane `i` is drawn: +1 forward, −1 reversed. `alternate` counter-rotates
+ *  odd lanes (a pure render flip — the simulation is direction-agnostic). */
+export function laneDir(i: number, cfg: PhantomTrafficConfig): number {
+  return cfg.laneDirection === 'alternate' && (i & 1) ? -1 : 1
+}
+
+// Arc glyph: each car is a filled annular wedge (rings) / rounded bar (highway) — a
+// chunky ring-segment block, not a thin stroke. A block fills up to one cell (never
+// overlapping its neighbour); its radial thickness comes from packing all lanes edge-to-
+// edge across the disc. Chunkiness follows Road length — fewer cells = larger cells.
 
 export function render(state: TrafficState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h } = state
@@ -175,45 +205,96 @@ export function render(state: TrafficState, ctx: CanvasRenderingContext2D): void
 
   const alpha = state.tickMs > 0 ? Math.min(1, state.tickAccum / state.tickMs) : 0
   const r = cfg.carSize
+  const arcs = cfg.carStyle === 'arcs'
+  const lanes = state.lanes.length
 
   if (cfg.layout === 'rings') {
     const cx = w / 2
     const cy = h / 2
-    const outer = Math.min(w, h) * 0.46
-    const inner = Math.min(w, h) * 0.12
-    const lanes = state.lanes.length
-    for (let i = 0; i < lanes; i++) {
-      const lane = state.lanes[i]
-      const rad = lanes === 1 ? (outer + inner) / 2
-        : inner + (outer - inner) * (i / (lanes - 1))
-      for (const c of lane.cars) {
-        const p = renderPos(c, alpha)
-        const theta = (p / lane.ring) * Math.PI * 2
-        const x = cx + Math.cos(theta) * rad
-        const y = cy + Math.sin(theta) * rad
-        ctx.fillStyle = state.lut[c.speed]
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.fill()
+    const minDim = Math.min(w, h)
+    if (arcs) {
+      // Wedge blocks: pack every lane edge-to-edge from near-centre to the rim so the
+      // whole disc fills, and draw each car as a filled annular sector of that band.
+      const outerR = minDim * RING_OUTER_FRAC
+      const innerR = minDim * RING_INNER_FRAC
+      const band = (outerR - innerR) / lanes
+      const gap = Math.min(band * 0.26, 7) // thin dark ring between bands
+      for (let i = 0; i < lanes; i++) {
+        const lane = state.lanes[i]
+        const dir = laneDir(i, cfg)
+        const r0 = innerR + i * band + gap * 0.5
+        const r1 = innerR + (i + 1) * band - gap * 0.5
+        // Each block fills up to one cell of angle, so blocks never overlap; because inner
+        // ring-roads are proportionally shorter, one cell is the same pixel size everywhere.
+        const dTheta = (cfg.blockFill * Math.PI) / lane.ring
+        for (const c of lane.cars) {
+          const p = renderPos(c, alpha)
+          const theta = dir * (p / lane.ring) * Math.PI * 2
+          ctx.beginPath()
+          ctx.arc(cx, cy, r1, theta - dTheta, theta + dTheta)
+          ctx.arc(cx, cy, r0, theta + dTheta, theta - dTheta, true)
+          ctx.closePath()
+          ctx.fillStyle = state.lut[c.speed]
+          ctx.fill()
+        }
+      }
+    } else {
+      // Dots sit at the same band mid-radii the arc bands (and proportional ring lengths)
+      // are derived from, so inner-ring spacing stays uniform in both styles.
+      for (let i = 0; i < lanes; i++) {
+        const lane = state.lanes[i]
+        const dir = laneDir(i, cfg)
+        const rad = minDim * ringRadiusFrac(i, lanes)
+        for (const c of lane.cars) {
+          const p = renderPos(c, alpha)
+          const theta = dir * (p / lane.ring) * Math.PI * 2
+          ctx.beginPath()
+          ctx.fillStyle = state.lut[c.speed]
+          ctx.arc(cx + Math.cos(theta) * rad, cy + Math.sin(theta) * rad, r, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
     }
   } else {
-    // highway: stacked horizontal lanes, flow left→right, jams slide left.
-    const lanes = state.lanes.length
+    // highway: stacked horizontal lanes, flow left→right (or right→left when reversed).
     const margin = Math.min(48, h * 0.08)
     const usable = h - margin * 2
     const spacing = lanes === 1 ? 0 : usable / (lanes - 1)
     const y0 = lanes === 1 ? h / 2 : margin
-    for (let i = 0; i < lanes; i++) {
-      const lane = state.lanes[i]
-      const y = y0 + spacing * i
-      for (const c of lane.cars) {
-        const p = renderPos(c, alpha) % lane.ring
-        const x = (p / lane.ring) * w
-        ctx.fillStyle = state.lut[c.speed]
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.fill()
+    if (arcs) {
+      // Bar blocks: fill most of each lane's vertical band so stacked lanes tile the frame.
+      const bandH = lanes === 1 ? Math.min(usable, 90) : spacing
+      const halfH = Math.max(3, bandH * 0.5 - 3)
+      for (let i = 0; i < lanes; i++) {
+        const lane = state.lanes[i]
+        const dir = laneDir(i, cfg)
+        const y = y0 + spacing * i
+        const halfLen = cfg.blockFill * 0.5 * (w / lane.ring) // ≤ one cell wide → no overlap
+        for (const c of lane.cars) {
+          const p = renderPos(c, alpha) % lane.ring
+          const frac = p / lane.ring
+          const x = (dir > 0 ? frac : 1 - frac) * w
+          ctx.beginPath()
+          ctx.rect(x - halfLen, y - halfH, halfLen * 2, halfH * 2)
+          ctx.fillStyle = state.lut[c.speed]
+          ctx.fill() // no outline: packed jam cars merge into a solid bar
+        }
+      }
+    } else {
+      const spacingY = spacing
+      for (let i = 0; i < lanes; i++) {
+        const lane = state.lanes[i]
+        const dir = laneDir(i, cfg)
+        const y = y0 + spacingY * i
+        for (const c of lane.cars) {
+          const p = renderPos(c, alpha) % lane.ring
+          const frac = p / lane.ring
+          const x = (dir > 0 ? frac : 1 - frac) * w
+          ctx.beginPath()
+          ctx.fillStyle = state.lut[c.speed]
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
     }
   }
