@@ -105,13 +105,15 @@ describe('simulation stability', () => {
   it('runs many frames without NaN and prunes spent ripples (no unbounded growth)', () => {
     const st = createState(hexadropSchema.parse({ dropRate: 5, decay: 0.6 }), 900, 600)
     let maxRipples = 0
+    let allFinite = true
     for (let f = 0; f < 600; f++) {
       stepRipples(st, 33)
       maxRipples = Math.max(maxRipples, st.ripples.length)
       for (let i = 0; i < st.intensity.length; i++) {
-        expect(Number.isFinite(st.intensity[i])).toBe(true)
+        if (!Number.isFinite(st.intensity[i])) { allFinite = false; break }
       }
     }
+    expect(allFinite).toBe(true)
     // rings die off, so the active set stays bounded well under the hard ceiling
     expect(maxRipples).toBeLessThan(80)
     expect(st.cells.length).toBeGreaterThan(0)

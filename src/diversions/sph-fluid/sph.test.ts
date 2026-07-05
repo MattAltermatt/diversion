@@ -35,10 +35,11 @@ describe('sph-fluid determinism', () => {
 
 describe('sph-fluid headline: stable, bounded, cohesive pool', () => {
   it('settles into a pool — no explosion, stays in the tank, denser at the bottom', () => {
-    const count = 1200
+    const count = 900
     const fluid = createFluid(count, 4218, boxW, BOX_H)
     // Level tank (tiltAngle 0) so it truly settles; run well past the splash.
-    stepFluidFixed(fluid, DEFAULT_PARAMS, 2200)
+    // (Kept modest so the SPH loop stays well under the 5s CI test timeout.)
+    stepFluidFixed(fluid, DEFAULT_PARAMS, 1500)
 
     // (1) no NaN / Inf anywhere.
     let nan = 0
