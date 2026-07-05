@@ -25,6 +25,7 @@ export type IsingState = {
   elapsed: number // ms since setup, drives the sweep phase
   rng: () => number
   reseeds: number
+  stepAccum: number // fractional sweeps carried between frames (speed < 1 → sweep every few frames)
   frozenRun: number // consecutive near-frozen sweeps (fixed mode)
   up: RGB
   down: RGB
@@ -103,6 +104,7 @@ export function createIsingState(cfg: IsingConfig, w: number, h: number): IsingS
     elapsed: 0,
     rng: mulberry32(cfg.seed),
     reseeds: 0,
+    stepAccum: 0,
     frozenRun: 0,
     up: hexRGB(cfg.colorUp),
     down: hexRGB(cfg.colorDown),
@@ -168,14 +170,24 @@ export function magnetization(st: IsingState): number {
   return sum / spins.length
 }
 
-/** Advance the model by `steps` sweeps at the given temperature, refreshing the
- *  acceptance table first. In fixed mode, re-noise a lattice that has frozen into a
- *  single domain (absolute flip threshold) so a sub-critical run never dead-ends. */
-export function advanceIsing(st: IsingState, T: number, steps: number): void {
+/** Advance the model by `sweeps` Metropolis sweeps at the given temperature, refreshing
+ *  the acceptance table first. `sweeps` is fractional: it accumulates across frames, so a
+ *  speed below 1 fires one whole sweep only every few frames (the calm default) — the
+ *  accumulator gates WHEN a sweep runs, never the sweep itself, so N frames at speed 1/N
+ *  are bit-identical to one frame at speed 1. In fixed mode, re-noise a lattice that has
+ *  frozen into a single domain (absolute flip threshold) so a sub-critical run never
+ *  dead-ends. */
+export function advanceIsing(st: IsingState, T: number, sweeps: number): void {
   st.T = T
   buildAccept(st, T)
-  for (let s = 0; s < steps; s++) {
+  st.stepAccum += sweeps
+  let ran = 0
+  // Epsilon so 0.1 accumulated ten times (float-sums to 0.9999999999999999) still fires
+  // on the tenth frame, not the eleventh — keeps the long-run rate exactly `speed`/frame.
+  while (st.stepAccum >= 1 - 1e-9) {
+    st.stepAccum -= 1
     const flips = stepIsing(st)
+    ran++
     if (st.cfg.tempMode === 'fixed') {
       st.frozenRun = flips <= FROZEN_FLIPS ? st.frozenRun + 1 : 0
       if (st.frozenRun >= FROZEN_SWEEPS) {
@@ -184,7 +196,9 @@ export function advanceIsing(st: IsingState, T: number, steps: number): void {
       }
     }
   }
-  st.needBlit = true
+  // Only a frame that actually stepped the lattice changed the picture — skip the blit
+  // on the fractional in-between frames so a slow speed doesn't repaint an identical board.
+  if (ran > 0) st.needBlit = true
 }
 
 /** Rebuild the colour cache from config (a live palette / mode edit — keeps the lattice). */

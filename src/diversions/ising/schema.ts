@@ -46,10 +46,11 @@ export const isingSchema = z.object({
     .meta({ section: 'Dynamics', ui: 'slider', min: -0.5, max: 0.5, step: 0.01, label: 'External field',
             help: 'A magnetic bias toward one spin. 0 is balanced (both colours equally likely); '
                 + 'push it either way and that colour tends to win the whole lattice.' }),
-  stepsPerFrame: z.number().int().min(1).max(12).default(4)
-    .meta({ section: 'Dynamics', ui: 'slider', min: 1, max: 12, step: 1, label: 'Speed',
-            help: 'Monte-Carlo sweeps of the whole lattice per frame. Higher churns and coarsens '
-                + 'faster; lower is a calmer, more watchable simmer.' }),
+  speed: z.number().min(0.02).max(4).default(0.1)
+    .meta({ section: 'Dynamics', ui: 'slider', min: 0.02, max: 4, step: 0.02, label: 'Speed',
+            help: 'Monte-Carlo sweeps of the whole lattice per frame. Fractional values (below 1) '
+                + 'run one sweep every few frames for a slow, watchable simmer — the calm default. '
+                + 'Raise it to churn and coarsen faster.' }),
 
   // ── Color ──
   colorUp: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f4f1e6')

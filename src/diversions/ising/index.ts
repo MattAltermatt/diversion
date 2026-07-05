@@ -28,7 +28,7 @@ const ising = defineDiversion<typeof isingSchema, IsingState, '2d'>({
 
   frame(state, ctx, _t, dt) {
     state.elapsed += dt
-    advanceIsing(state, currentTemperature(state), state.cfg.stepsPerFrame)
+    advanceIsing(state, currentTemperature(state), state.cfg.speed)
     if (state.needBlit) renderIsing(state, ctx)
   },
 

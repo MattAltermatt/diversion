@@ -27,6 +27,17 @@ export function AnimationHost({
   const wrapRef = useRef<HTMLDivElement>(null)
   const loopRef = useRef<Loop | null>(null)
   const runRef = useRef<{ ctx: RenderContext; state: unknown; size: Size } | null>(null)
+  // A pending "hand the WebGL context back" scheduled by the setup effect's cleanup,
+  // tagged with the canvas it belongs to. Deferred (not called inline in cleanup) so
+  // that a re-run which REUSES the SAME canvas — React StrictMode's dev double-mount,
+  // or a same-kind diversion swap — cancels it before it fires. loseContext() permanently
+  // loses the canvas's context, and getContext() on that canvas then returns the lost
+  // one, so an inline release would poison the very context the immediate re-setup
+  // reuses (symptom: every WebGL diversion "shader compile failed: null" in dev). The
+  // canvas tag matters: a KIND change remounts the canvas (key={diversion.kind}), so the
+  // re-run's canvas differs and the OLD context must still be freed — cancelling then
+  // would leak it. A real unmount has no re-run, so the timer fires. See the cleanup below.
+  const releaseTimerRef = useRef<{ timer: ReturnType<typeof setTimeout>; canvas: HTMLCanvasElement } | null>(null)
   const lastConfigRef = useRef<unknown>(null)
   const pauseRef = useRef<PauseSources>({
     manual: false,
@@ -58,6 +69,15 @@ export function AnimationHost({
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    // If the prior run scheduled a context release, decide by canvas identity: this run
+    // on the SAME canvas is a genuine reuse (StrictMode remount / same-kind swap) — cancel
+    // the release to keep the still-valid context. A DIFFERENT canvas means a kind change
+    // remounted it, so let the old release fire — cancelling would leak the old context.
+    const pending = releaseTimerRef.current
+    if (pending) {
+      releaseTimerRef.current = null
+      if (pending.canvas === canvas) clearTimeout(pending.timer)
+    }
     const ctx = (
       diversion.kind === 'webgl'
         ? canvas.getContext('webgl2', {
@@ -93,6 +113,20 @@ export function AnimationHost({
       return
     }
 
+    // Deterministically hand the WebGL context back to the browser. Browsers keep
+    // only ~16 active WebGL contexts and evict the OLDEST when a new one is created
+    // past that — so in a 100-tile gallery every context that isn't released the
+    // instant its host is done leaks a live slot, and once the leaks reach 16 the
+    // browser starts force-losing tiles that are still on screen (a cascade). This
+    // MUST run on EVERY teardown path, including the setup()-failed early return
+    // below — otherwise a tile that fails to start (e.g. lost the context race) would
+    // leak the context it did acquire, making the next tile's failure more likely.
+    const releaseContext = () => {
+      if (diversion.kind === 'webgl') {
+        ;(ctx as WebGL2RenderingContext).getExtension('WEBGL_lose_context')?.loseContext?.()
+      }
+    }
+
     const sizeOf = (): Size => {
       const r = canvas.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -113,6 +147,7 @@ export function AnimationHost({
     try {
       state = diversion.setup(ctx, config, size)
     } catch (e) {
+      releaseContext() // don't leak the context this failed host acquired (cascade guard)
       setSetupError(() => {
         throw e
       })
@@ -319,6 +354,12 @@ export function AnimationHost({
       loopRef.current = null
       runRef.current = null
       diversion.teardown?.(run.state)
+      // Defer the context release to a macrotask (listeners already removed above). If
+      // this cleanup is a REUSE — StrictMode's dev remount or a same-kind swap — the
+      // very next setup run (synchronous, same commit) clears this timer before it
+      // fires, keeping the context alive for reuse. On a real unmount nothing re-runs,
+      // so the timer fires and the slot is genuinely freed (the gallery relies on this).
+      releaseTimerRef.current = { timer: setTimeout(releaseContext, 0), canvas }
     }
   }, [diversion])
 
