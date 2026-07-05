@@ -169,6 +169,7 @@ export function makeGLContext(): MockGLContext {
     },
     bindTexture: rec('bindTexture'),
     texImage2D: rec('texImage2D'),
+    texSubImage2D: rec('texSubImage2D'),
     texParameteri: rec('texParameteri'),
     generateMipmap: rec('generateMipmap'),
     pixelStorei: rec('pixelStorei'),
