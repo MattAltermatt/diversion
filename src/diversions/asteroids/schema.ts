@@ -47,9 +47,13 @@ export const asteroidsSchema = z.object({
   sizeScale: z.number().min(0.4).max(2).default(1)
     .meta({ section: 'Asteroids', ui: 'slider', min: 0.4, max: 2, step: 0.05, label: 'Size',
             help: 'Overall size of the asteroids (a mix of boulders and specks either way).' }),
-  jaggedness: z.number().min(0).max(1).default(0.45)
+  jaggedness: z.number().min(0).max(1).default(0.55)
     .meta({ section: 'Asteroids', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Jaggedness',
             help: 'How craggy and irregular the rock outlines are. Low = smooth pebbles.' }),
+  mottle: z.number().min(0).max(1).default(0.7)
+    .meta({ section: 'Asteroids', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Surface texture',
+            help: 'Gritty value-noise mottling and pitting across each rock face, so the lit side '
+                + 'reads as pitted stone instead of a smooth ball. 0 = clean gradient.' }),
   tumble: z.number().min(0).max(1).default(0.4)
     .meta({ section: 'Asteroids', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Tumble',
             help: 'How fast each rock slowly rotates. 0 = frozen.' }),
@@ -82,8 +86,13 @@ export const asteroidsSchema = z.object({
             help: 'Color stops of the nebula gradient, dark → light.' }),
   sunColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffcf99')
     .meta({ section: 'Color', ui: 'color', label: 'Sun' }),
-  rockColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#080610')
-    .meta({ section: 'Color', ui: 'color', label: 'Rock' }),
+  rockColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#14100c')
+    .meta({ section: 'Color', ui: 'color', label: 'Rock (shadow)',
+            help: 'The dark, shadowed base of each rock.' }),
+  rockLit: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8a8073')
+    .meta({ section: 'Color', ui: 'color', label: 'Rock (lit)',
+            help: 'The sunlit stone tone. Keep it a low-saturation grey-brown so rocks read as '
+                + 'stone, not warm clay.' }),
   rimColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffb877')
     .meta({ section: 'Color', ui: 'color', label: 'Rim light' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a1a')

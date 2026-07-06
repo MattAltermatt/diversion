@@ -5,11 +5,19 @@ import type { AsteroidsConfig } from './schema'
 const TAU = Math.PI * 2
 export type Pt = [number, number]
 
+/** Scale an RGB by a brightness factor (per-rock tone), clamped to 0–255. */
+function shade(c: RGB, k: number): RGB {
+  return { r: Math.min(255, c.r * k), g: Math.min(255, c.g * k), b: Math.min(255, c.b * k) }
+}
+
 // ── Field generation (all seeded, deterministic) ────────────────────────────
 export interface Crater { x: number; y: number; r: number }   // rock-local (radius ≈ 1)
+export interface Mottle { x: number; y: number; r: number; v: number }  // value blotch, v∈[-1,1]
 export interface Asteroid {
   verts: Pt[]      // unit-ish lumpy outline (mean radius ≈ 1)
   craters: Crater[]        // surface pits, rock-local
+  mottles: Mottle[]        // value-noise blotches (light/dark stone patches), rock-local
+  tone: number     // per-rock brightness multiplier (darker/lighter stone; rare icy-bright)
   wx: number; wy: number   // world placement (units of half-viewport-height)
   radius: number   // world units
   depth: number    // parallax rate (bigger/nearer → larger)
@@ -20,29 +28,66 @@ export interface Star { wx: number; wy: number; b: number }
 export interface Mote { wx: number; wy: number; r: number; ph: number }
 export interface Field { asteroids: Asteroid[]; stars: Star[]; motes: Mote[] }
 
-/** A lumpy rock outline: control points at gently-jittered radii around the
- *  circle. Rendered through smooth curves (see render), so these are lump
- *  centres — kept mild so the silhouette stays rounded, never spiky. */
+/** A lumpy rock outline: control points at jittered radii around the circle,
+ *  plus a low harmonic and an anisotropic stretch so rocks read as irregular
+ *  elongated potatoes, not circles. Rendered through smooth curves (see render),
+ *  so these are lump centres — craggy but never needle-spiky. */
 function rockOutline(rnd: () => number, jag: number): Pt[] {
-  const n = 8 + Math.floor(rnd() * 4)   // 8–11 lumps
+  const n = 9 + Math.floor(rnd() * 4)   // 9–12 lumps
+  const phase = rnd() * TAU
+  const h2 = 0.5 + rnd() * 0.5          // low-harmonic weight (broad asymmetry)
   const verts: Pt[] = []
   for (let k = 0; k < n; k++) {
     const a = (k / n) * TAU
-    const r = 1 + (rnd() - 0.5) * 0.5 * jag   // gentle: ~0.78..1.22 at jag=1
+    // Craggier than before: wider per-lump jitter + a broad 2-lobe undulation.
+    const r = 1 + (rnd() - 0.5) * 0.62 * jag + Math.sin(a * 2 + phase) * 0.14 * jag * h2
     verts.push([Math.cos(a) * r, Math.sin(a) * r])
+  }
+  // Elongate along a random axis (perpendicular unchanged) → oblong rocks.
+  const axis = rnd() * TAU, e = 1 + rnd() * 0.4    // stretch 1.0–1.4×
+  const ax = Math.cos(axis), ay = Math.sin(axis)
+  for (const v of verts) {
+    const d = v[0] * ax + v[1] * ay
+    v[0] += ax * d * (e - 1)
+    v[1] += ay * d * (e - 1)
   }
   return verts
 }
 
-/** A few surface pits scattered inside the rock (rock-local coords). */
+/** A few surface pits scattered inside the rock (rock-local coords). Kept small
+ *  and sparse so they read as pits, not clustered rings. */
 function makeCraters(rnd: () => number): Crater[] {
-  const n = 3 + Math.floor(rnd() * 4)
+  const n = 3 + Math.floor(rnd() * 3)
   const craters: Crater[] = []
   for (let i = 0; i < n; i++) {
-    const ang = rnd() * TAU, dist = Math.sqrt(rnd()) * 0.62
-    craters.push({ x: Math.cos(ang) * dist, y: Math.sin(ang) * dist, r: 0.1 + rnd() * 0.22 })
+    const ang = rnd() * TAU, dist = Math.sqrt(rnd()) * 0.66
+    craters.push({ x: Math.cos(ang) * dist, y: Math.sin(ang) * dist, r: 0.08 + rnd() * 0.16 })
   }
   return craters
+}
+
+/** Value-noise blotches — light and dark stone patches spread across the face,
+ *  so the lit side is mottled rock rather than a clean gradient. A handful of
+ *  broad patches plus a scatter of fine grain (small r, low amplitude). */
+function makeMottles(rnd: () => number): Mottle[] {
+  const mottles: Mottle[] = []
+  const broad = 6 + Math.floor(rnd() * 5)      // 6–10 broad patches
+  for (let i = 0; i < broad; i++) {
+    const ang = rnd() * TAU, dist = Math.sqrt(rnd()) * 0.95
+    mottles.push({
+      x: Math.cos(ang) * dist, y: Math.sin(ang) * dist,
+      r: 0.22 + rnd() * 0.42, v: rnd() * 2 - 1,
+    })
+  }
+  const grain = 14 + Math.floor(rnd() * 10)    // 14–23 fine specks
+  for (let i = 0; i < grain; i++) {
+    const ang = rnd() * TAU, dist = Math.sqrt(rnd()) * 1.0
+    mottles.push({
+      x: Math.cos(ang) * dist, y: Math.sin(ang) * dist,
+      r: 0.05 + rnd() * 0.11, v: (rnd() * 2 - 1) * 0.7,
+    })
+  }
+  return mottles
 }
 
 export function generateField(cfg: AsteroidsConfig): Field {
@@ -54,9 +99,14 @@ export function generateField(cfg: AsteroidsConfig): Field {
     const t = rnd()
     const radius = (0.025 + t * t * t * 0.2) * cfg.sizeScale
     const depth = 0.18 + (radius / (0.23 * cfg.sizeScale)) * 0.62   // bigger ⇒ nearer ⇒ more parallax
+    const verts = rockOutline(rnd, cfg.jaggedness)
+    const craters = makeCraters(rnd)
+    const mottles = makeMottles(rnd)
+    // Per-rock stone tone: most sit 0.74–1.2, a rare few icy-bright.
+    let tone = 0.74 + rnd() * 0.46
+    if (rnd() < 0.09) tone += 0.34
     asteroids.push({
-      verts: rockOutline(rnd, cfg.jaggedness),
-      craters: makeCraters(rnd),
+      verts, craters, mottles, tone,
       wx: (rnd() - 0.5) * 4.0,
       wy: (rnd() - 0.5) * 2.4,
       radius,
@@ -164,12 +214,54 @@ export function buildDustData(cfg: AsteroidsConfig, w = DUST_W, h = DUST_H): Uin
   return data
 }
 
+// ── Per-rock surface-detail sprites (grayscale, rock-local, light-independent) ─
+// Baked once per field. Each is overlay-blended onto the lit body at draw time
+// and rotates WITH the rock, so the sunlit face carries mottling + pitting that
+// tumbles like real surface — the fix for the "smooth ball" read. Neutral grey
+// (128) = no change; lighter/darker texels lighten/darken the body.
+const SPRITE = 128
+const SPRITE_EXT = 1.25   // rock-local half-extent the sprite spans (unit radius ≈ 1)
+
+function bakeRockDetail(a: Asteroid): HTMLCanvasElement {
+  const cv = document.createElement('canvas')
+  cv.width = SPRITE; cv.height = SPRITE
+  const c = cv.getContext('2d')!
+  const H = SPRITE / 2
+  const s = H / SPRITE_EXT            // rock-local unit → sprite px
+  c.fillStyle = 'rgb(128,128,128)'    // neutral base
+  c.fillRect(0, 0, SPRITE, SPRITE)
+  // Value-noise mottling — soft light/dark stone patches. Strong enough to
+  // break the smooth-sphere read under an overlay blend.
+  for (const m of a.mottles) {
+    const px = H + m.x * s, py = H + m.y * s, pr = m.r * s
+    const g = Math.max(0, Math.min(255, 128 + m.v * 96))   // toward light/dark
+    const rg = c.createRadialGradient(px, py, 0, px, py, pr)
+    rg.addColorStop(0, `rgba(${g | 0},${g | 0},${g | 0},0.9)`)
+    rg.addColorStop(1, `rgba(${g | 0},${g | 0},${g | 0},0)`)
+    c.fillStyle = rg
+    c.fillRect(px - pr, py - pr, pr * 2, pr * 2)
+  }
+  // Craters — soft dark depressions (no bright ring; the ring read as bubbles).
+  // A faint sliver of shadow at the centre gives a little depth.
+  for (const cr of a.craters) {
+    const px = H + cr.x * s, py = H + cr.y * s, pr = cr.r * s * 1.5
+    const rg = c.createRadialGradient(px, py, 0, px, py, pr)
+    rg.addColorStop(0, 'rgba(52,52,52,0.7)')
+    rg.addColorStop(0.6, 'rgba(78,78,78,0.34)')
+    rg.addColorStop(1, 'rgba(128,128,128,0)')
+    c.fillStyle = rg
+    c.fillRect(px - pr, py - pr, pr * 2, pr * 2)
+  }
+  return cv
+}
+
 // ── Runtime state ───────────────────────────────────────────────────────────
 export interface AsteroidsState {
   cfg: AsteroidsConfig
   w: number; h: number
   t: number
   field: Field
+  details: HTMLCanvasElement[]   // one per field.asteroids entry, same order
   neb: HTMLCanvasElement
   dust: HTMLCanvasElement
   nebSig: string; dustSig: string; fieldSig: string
@@ -206,8 +298,9 @@ export function createState(cfg: AsteroidsConfig, w: number, h: number): Asteroi
   neb.width = NEB_W; neb.height = NEB_H
   const dust = document.createElement('canvas')
   dust.width = DUST_W; dust.height = DUST_H
+  const field = generateField(cfg)
   const s: AsteroidsState = {
-    cfg, w, h, t: 0, field: generateField(cfg), neb, dust,
+    cfg, w, h, t: 0, field, details: field.asteroids.map(bakeRockDetail), neb, dust,
     nebSig: '', dustSig: '', fieldSig: fieldSignature(cfg),
   }
   bakeNebula(s)
@@ -317,9 +410,11 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   // 5 · Asteroids (back→front) — lit rock: sunlit face → shadow terminator,
   //     cool nebula ambient on the dark side, pitted with craters.
   const rockC = parseHex6(cfg.rockColor)
+  const rockLit = parseHex6(cfg.rockLit)
   const rim = parseHex6(cfg.rimColor)
   const cool = { r: 44, g: 50, b: 78 }   // faint nebula bounce so shadow isn't dead black
-  for (const a of s.field.asteroids) {
+  for (let ai = 0; ai < s.field.asteroids.length; ai++) {
+    const a = s.field.asteroids[ai]
     const cx = w / 2 + (a.wx - cam.x * a.depth) * unit
     const cy = h / 2 + (a.wy - cam.y * a.depth) * unit
     const rad = a.radius * unit
@@ -342,38 +437,50 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
       ctx.quadraticCurveTo(px[k], py[k], nx, ny)
     }
     ctx.closePath()
-    // Body shading: bright rock on the sun edge → dark on the far side.
+    // Body shading: grey-brown stone, bright on the sun edge → dark far side,
+    // scaled by this rock's tone. Crisper terminator than a plain 3-stop ramp.
     const dirx = sx - cx, diry = sy - cy
     const dl = Math.hypot(dirx, diry) || 1
     const ux = dirx / dl, uy = diry / dl
-    const litMix = 0.28 + cfg.rimLight * 0.5
-    const lit = mix(rockC, rim, litMix)
-    const shadow = mix(rockC, cool, 0.2)
-    const mid = mix(shadow, lit, 0.32)
-    const body = ctx.createLinearGradient(cx + ux * rad, cy + uy * rad, cx - ux * rad * 0.9, cy - uy * rad * 0.9)
+    const lit = shade(rockLit, a.tone)
+    const shadow = shade(mix(rockC, cool, 0.22), a.tone * 0.92)
+    const mid = mix(shadow, lit, 0.42)
+    const body = ctx.createLinearGradient(cx + ux * rad, cy + uy * rad, cx - ux * rad * 0.95, cy - uy * rad * 0.95)
     body.addColorStop(0, rgba(lit, 1))
-    body.addColorStop(0.5, rgba(mid, 1))
+    body.addColorStop(0.34, rgba(mix(mid, lit, 0.5), 1))
+    body.addColorStop(0.52, rgba(mid, 1))
+    body.addColorStop(0.64, rgba(mix(mid, shadow, 0.72), 1))   // sharp drop = terminator
     body.addColorStop(1, rgba(shadow, 1))
     ctx.fillStyle = body
     ctx.fill()
-    // Surface craters (soft dark pits), clipped to the rock.
-    if (a.craters.length) {
+
+    // Surface detail (mottling + pits) + warm rim, clipped to the rock.
+    ctx.save()
+    ctx.clip()
+    // Overlay the baked grayscale detail sprite, rotated with the rock so the
+    // texture tumbles. Neutral grey = no change; blotches modulate the body.
+    if (cfg.mottle > 0) {
       ctx.save()
-      ctx.clip()
-      const pit = mix(shadow, { r: 0, g: 0, b: 0 }, 0.55)
-      for (const cr of a.craters) {
-        const lx = cr.x * rad, ly = cr.y * rad
-        const qx = cx + lx * ca - ly * sa, qy = cy + lx * sa + ly * ca
-        const crr = cr.r * rad
-        const cg = ctx.createRadialGradient(qx, qy, 0, qx, qy, crr)
-        cg.addColorStop(0, rgba(pit, 0.5))
-        cg.addColorStop(0.7, rgba(pit, 0.18))
-        cg.addColorStop(1, rgba(pit, 0))
-        ctx.fillStyle = cg
-        ctx.fillRect(qx - crr, qy - crr, crr * 2, crr * 2)
-      }
+      ctx.globalCompositeOperation = 'overlay'
+      ctx.globalAlpha = cfg.mottle
+      ctx.translate(cx, cy)
+      ctx.rotate(ang)
+      const S = SPRITE_EXT * rad
+      ctx.drawImage(s.details[ai], -S, -S, S * 2, S * 2)
       ctx.restore()
     }
+    // Thin warm rim-light crescent kissing the sun-facing edge.
+    if (cfg.rimLight > 0) {
+      ctx.globalCompositeOperation = 'screen'
+      const ex = cx + ux * rad, ey = cy + uy * rad
+      const rg = ctx.createRadialGradient(ex, ey, 0, ex, ey, rad * 0.95)
+      rg.addColorStop(0, rgba(rim, 0.5 * cfg.rimLight))
+      rg.addColorStop(0.5, rgba(rim, 0.12 * cfg.rimLight))
+      rg.addColorStop(1, rgba(rim, 0))
+      ctx.fillStyle = rg
+      ctx.fillRect(cx - rad * 2, cy - rad * 2, rad * 4, rad * 4)
+    }
+    ctx.restore()
   }
 
   // 6 · Dust motes (nearest, faint twinkle)
@@ -397,7 +504,11 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
 export function applyUpdate(s: AsteroidsState, cfg: AsteroidsConfig): void {
   const pNeb = s.nebSig, pDust = s.dustSig, pField = s.fieldSig
   s.cfg = cfg
-  if (fieldSignature(cfg) !== pField) { s.field = generateField(cfg); s.fieldSig = fieldSignature(cfg) }
+  if (fieldSignature(cfg) !== pField) {
+    s.field = generateField(cfg)
+    s.details = s.field.asteroids.map(bakeRockDetail)
+    s.fieldSig = fieldSignature(cfg)
+  }
   if (nebSignature(cfg) !== pNeb) bakeNebula(s)
   if (dustSignature(cfg) !== pDust) bakeDust(s)
 }

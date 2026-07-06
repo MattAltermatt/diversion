@@ -40,18 +40,18 @@ export const scenePresets: { name: string; patch: SceneKeys }[] = [
 export const palettePresets: PresetOption<AsteroidsConfig>[] = [
   { name: 'Homeworld', patch: {
     nebula: ['#1a1440', '#2a1a4a', '#3a2260', '#22407a', '#2e6a8a'],
-    sunColor: '#ffcf99', rimColor: '#ffb877', rockColor: '#080610', background: '#0a0a1a',
+    sunColor: '#ffcf99', rimColor: '#ffb877', rockColor: '#14100c', rockLit: '#8a8073', background: '#0a0a1a',
   } },
   { name: 'Ember', patch: {
     nebula: ['#2a0e10', '#5a1a1e', '#8a3a24', '#b8602a', '#e0a24a'],
-    sunColor: '#bfe0ff', rimColor: '#ffd08a', rockColor: '#0c0605', background: '#160806' },
+    sunColor: '#bfe0ff', rimColor: '#ffd08a', rockColor: '#16100c', rockLit: '#95836f', background: '#160806' },
   },
   { name: 'Ice', patch: {
     nebula: ['#0a1e2a', '#124055', '#1e6a7a', '#3aa0a8', '#bfe8e0'],
-    sunColor: '#fff2d6', rimColor: '#d8f4ff', rockColor: '#050c10', background: '#06121a' },
+    sunColor: '#fff2d6', rimColor: '#d8f4ff', rockColor: '#0d1114', rockLit: '#84898f', background: '#06121a' },
   },
   { name: 'Void', patch: {
     nebula: ['#0e0e1a', '#1c1c34', '#2e2e52', '#4a4a78', '#8a8ab0'],
-    sunColor: '#e8e0ff', rimColor: '#c8c0ff', rockColor: '#050508', background: '#08080f' },
+    sunColor: '#e8e0ff', rimColor: '#c8c0ff', rockColor: '#0e0e12', rockLit: '#828088', background: '#08080f' },
   },
 ]
