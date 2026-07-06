@@ -38,7 +38,7 @@ describe('gravity-wells presets', () => {
     const groups = [
       { label: 'Motion', options: motionPresets.map((p) => ({ name: p.name, patch: p.motion })) },
       {
-        label: 'Color',
+        label: 'Palette',
         options: colorPresets.map((p) => ({
           name: p.name,
           patch: { background: p.background, blend: p.blend, color: p.color },

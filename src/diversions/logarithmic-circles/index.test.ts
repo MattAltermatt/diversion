@@ -10,9 +10,9 @@ describe('logarithmic-circles diversion contract', () => {
     expect(typeof logCircles.teardown).toBe('function')
     expect(logCircles.schema).toBeDefined()
   })
-  it('declares Look and Motion preset groups', () => {
+  it('declares Palette and Motion preset groups', () => {
     const labels = (logCircles.presets ?? []).map((g) => g.label)
-    expect(labels).toContain('Look')
+    expect(labels).toContain('Palette')
     expect(labels).toContain('Motion')
   })
 })

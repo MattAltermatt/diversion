@@ -68,7 +68,7 @@ export const epicycleSchema = z.object({
     .meta({ section: 'Advanced', ui: 'slider', min: 1, max: 8, step: 0.5, label: 'Fade time',
             help: 'Seconds the finished curve takes to fade out before the next one begins.' }),
   seed: z.number().int().default(7361)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regenerates the same sequence of curves. A fresh '
                 + 'visit rolls a new one.' }),
 })

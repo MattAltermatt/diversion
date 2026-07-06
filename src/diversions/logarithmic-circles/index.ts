@@ -15,7 +15,7 @@ type LogCirclesState = {
 }
 
 const presets: PresetGroup<LogCirclesConfig>[] = [
-  { label: 'Look', options: lookPresets },
+  { label: 'Palette', options: lookPresets },
   { label: 'Motion', options: motionPresets },
 ]
 
