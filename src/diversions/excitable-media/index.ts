@@ -27,9 +27,9 @@ const excitableMedia = defineDiversion<typeof excitableMediaSchema, ExcitableSta
     return { gl, res: initGL(gl, cfg, size.width, size.height), cfg }
   },
 
-  frame(state, gl, _t, _dt) {
+  frame(state, gl, _t, dt) {
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-    render(gl, state.res, state.cfg)
+    render(gl, state.res, state.cfg, dt)
   },
 
   // resize is a no-op: the display pass samples the field in normalized UV and

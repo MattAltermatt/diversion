@@ -9,7 +9,7 @@ describe('excitableMediaSchema', () => {
     expect(cfg.k1).toBe(3)
     expect(cfg.k2).toBe(3)
     expect(cfg.g).toBe(20)
-    expect(cfg.simSpeed).toBe(2)
+    expect(cfg.simSpeed).toBe(0.03)
     expect(cfg.stops.length).toBeGreaterThanOrEqual(2)
   })
   it('every slider field carries min/max meta', () => {

@@ -7,10 +7,18 @@ const FERROIN = ['#060310', '#5c1250', '#e8481f', '#ffe6a0']
 
 export const excitableMediaSchema = z.object({
   // ── Simulation ──
-  simSpeed: z.number().min(0.1).max(10).default(2)
-    .meta({ section: 'Simulation', ui: 'slider', min: 0.1, max: 10, step: 0.1, label: 'Sim speed',
-            help: 'How fast the reaction evolves, in sub-steps per frame. Below 1 runs a step every '
-                + 'few frames for a slow, meditative drift; above 1 runs several steps per frame.' }),
+  simSpeed: z.number().min(0.01).max(2).default(0.03)
+    .meta({ section: 'Simulation', ui: 'slider', min: 0.01, max: 2, step: 0.01, label: 'Sim speed',
+            help: 'How fast the reaction evolves, in sub-steps per frame. The default is a slow crawl — '
+                + 'the dish ticks gently and, with smoothing, drifts glassily instead of flickering. '
+                + 'Raise it to organize faster (the low end takes a while to settle); even 1 is brisk '
+                + 'and the ceiling of 2 flickers fast.' }),
+  persistence: z.number().min(0).max(1).default(0.6)
+    .meta({ section: 'Simulation', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Smoothing',
+            help: 'Phosphor-style trailing that fades each cell between its discrete rest→crest '
+                + 'jumps instead of snapping — this is what tames the white flicker in the turbulent, '
+                + 'non-spiral patches. 0 is the raw hard-edged automaton; higher is a smoother, '
+                + 'more liquid glow (too high smears the crisp spiral fronts).' }),
   seed: z.number().int().default(1)
     .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always restarts the dish the same way. A shared '

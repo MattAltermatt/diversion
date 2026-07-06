@@ -57,6 +57,26 @@ void main() {
   fragColor = vec4(ns, ns / q, 0.0, 1.0);
 }`
 
+// PERSIST: phosphor-decay smoothing of the display field. The sim's intensity flips
+// in discrete jumps (a cell snaps rest→crest in one step), which strobes as a white
+// flash — worst in the turbulent (non-spiral) regime. This eases a persistent display
+// texture toward the live field each frame by a dt-scaled factor, so a jump fades over
+// a fixed wall-time (~persistence·τ) instead of snapping. Runs at sim resolution, 1:1.
+const PERSIST_FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D u_field;   // live sim state (intensity in .y)
+uniform sampler2D u_prev;    // last frame's smoothed display (.x)
+uniform vec2  u_texel;       // 1/simSize
+uniform float u_k;           // ease factor 0..1 toward the field this frame
+out vec4 fragColor;
+void main() {
+  vec2 uv = gl_FragCoord.xy * u_texel;
+  float field = texture(u_field, uv).y;
+  float prev  = texture(u_prev, uv).x;
+  float v = prev + (field - prev) * u_k;
+  fragColor = vec4(v, v, v, 1.0);
+}`
+
 // DISPLAY: sample the intensity channel (LINEAR-smoothed), gamma-shape it, index
 // the gradient LUT. Opaque to screen.
 const DISPLAY_FRAG = `#version 300 es
@@ -123,17 +143,23 @@ function fboFor(gl: WebGL2RenderingContext, tex: WebGLTexture): WebGLFramebuffer
 
 export type ExcitableGL = {
   simProg: WebGLProgram
+  persistProg: WebGLProgram
   displayProg: WebGLProgram
   vao: WebGLVertexArrayObject
   stateTex: [WebGLTexture, WebGLTexture]
   stateFbo: [WebGLFramebuffer, WebGLFramebuffer]
+  dispTex: [WebGLTexture, WebGLTexture] // ping-ponged phosphor-decay display field
+  dispFbo: [WebGLFramebuffer, WebGLFramebuffer]
   lutTex: WebGLTexture
   simW: number
   simH: number
   cur: number
+  dispCur: number
+  dispReady: boolean // false until the first frame seeds dispTex from the field (k=1)
   stepAcc: number
   locs: {
     sim: Record<string, WebGLUniformLocation | null>
+    persist: Record<string, WebGLUniformLocation | null>
     display: Record<string, WebGLUniformLocation | null>
   }
 }
@@ -147,6 +173,7 @@ export function initGL(gl: WebGL2RenderingContext, cfg: ExcitableMediaConfig, w:
   // incomplete and every sample reads 0 (dead field). NEAREST fallback works too.
   const stateFilter = gl.getExtension('OES_texture_float_linear') ? gl.LINEAR : gl.NEAREST
   const simProg = link(gl, TRI_VERT, SIM_FRAG)
+  const persistProg = link(gl, TRI_VERT, PERSIST_FRAG)
   const displayProg = link(gl, TRI_VERT, DISPLAY_FRAG)
   const vao = gl.createVertexArray()!
 
@@ -158,6 +185,12 @@ export function initGL(gl: WebGL2RenderingContext, cfg: ExcitableMediaConfig, w:
     makeTex(gl, simW, simH, gl.RGBA32F, gl.RGBA, gl.FLOAT, stateFilter, gl.REPEAT, null),
   ]
   const stateFbo: [WebGLFramebuffer, WebGLFramebuffer] = [fboFor(gl, stateTex[0]), fboFor(gl, stateTex[1])]
+  // Ping-ponged phosphor-decay display field, same resolution as the sim.
+  const dispTex: [WebGLTexture, WebGLTexture] = [
+    makeTex(gl, simW, simH, gl.RGBA32F, gl.RGBA, gl.FLOAT, stateFilter, gl.REPEAT, null),
+    makeTex(gl, simW, simH, gl.RGBA32F, gl.RGBA, gl.FLOAT, stateFilter, gl.REPEAT, null),
+  ]
+  const dispFbo: [WebGLFramebuffer, WebGLFramebuffer] = [fboFor(gl, dispTex[0]), fboFor(gl, dispTex[1])]
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
   const lutTex = makeTex(gl, 256, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, gl.CLAMP_TO_EDGE, buildLUT(cfg.stops))
@@ -166,9 +199,13 @@ export function initGL(gl: WebGL2RenderingContext, cfg: ExcitableMediaConfig, w:
     Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]))
   const locs = {
     sim: u(simProg, ['u_state', 'u_texel', 'u_q', 'u_k1', 'u_k2', 'u_g']),
+    persist: u(persistProg, ['u_field', 'u_prev', 'u_texel', 'u_k']),
     display: u(displayProg, ['u_state', 'u_lut', 'u_texel', 'u_gamma']),
   }
-  return { simProg, displayProg, vao, stateTex, stateFbo, lutTex, simW, simH, cur: 0, stepAcc: 0, locs }
+  return {
+    simProg, persistProg, displayProg, vao, stateTex, stateFbo, dispTex, dispFbo,
+    lutTex, simW, simH, cur: 0, dispCur: 0, dispReady: false, stepAcc: 0, locs,
+  }
 }
 
 export function uploadLUT(gl: WebGL2RenderingContext, res: ExcitableGL, stops: string[]): void {
@@ -177,10 +214,10 @@ export function uploadLUT(gl: WebGL2RenderingContext, res: ExcitableGL, stops: s
 }
 
 export function disposeGL(gl: WebGL2RenderingContext, res: ExcitableGL): void {
-  for (const p of [res.simProg, res.displayProg]) gl.deleteProgram(p)
+  for (const p of [res.simProg, res.persistProg, res.displayProg]) gl.deleteProgram(p)
   gl.deleteVertexArray(res.vao)
-  for (const t of [...res.stateTex, res.lutTex]) gl.deleteTexture(t)
-  for (const f of res.stateFbo) gl.deleteFramebuffer(f)
+  for (const t of [...res.stateTex, ...res.dispTex, res.lutTex]) gl.deleteTexture(t)
+  for (const f of [...res.stateFbo, ...res.dispFbo]) gl.deleteFramebuffer(f)
 }
 
 function fullscreen(gl: WebGL2RenderingContext, res: ExcitableGL) {
@@ -206,16 +243,43 @@ export function step(gl: WebGL2RenderingContext, res: ExcitableGL, cfg: Excitabl
   res.cur = dst
 }
 
-/** Advance cfg.simSpeed steps-per-frame (fractional carries forward), then display. */
-export function render(gl: WebGL2RenderingContext, res: ExcitableGL, cfg: ExcitableMediaConfig): void {
+// Longest phosphor time-constant, at persistence = 1 (ms). The ease factor is
+// dt-scaled off this, so the fade lasts a fixed wall-time regardless of fps or how
+// many sim sub-steps a frame ran.
+const PERSIST_TAU_MAX = 300
+
+/** Advance cfg.simSpeed steps-per-frame (fractional carries forward), smooth the
+ *  display field toward the new state (phosphor decay), then display. `dt` is ms. */
+export function render(gl: WebGL2RenderingContext, res: ExcitableGL, cfg: ExcitableMediaConfig, dt: number): void {
   res.stepAcc += cfg.simSpeed
   const steps = Math.floor(res.stepAcc)
   res.stepAcc -= steps
   for (let i = 0; i < steps; i++) step(gl, res, cfg)
+
+  // ── Persistence pass: ease dispTex toward the live intensity. A discrete rest→crest
+  // jump now fades over ~persistence·τ instead of snapping (kills the white strobe).
+  const tau = cfg.persistence * PERSIST_TAU_MAX
+  let k = tau <= 0 ? 1 : 1 - Math.exp(-dt / tau)
+  if (!res.dispReady) { k = 1; res.dispReady = true } // frame 1: seed disp straight from the field
+  const dsrc = res.dispCur, ddst = dsrc ^ 1
+  gl.disable(gl.BLEND)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, res.dispFbo[ddst])
+  gl.viewport(0, 0, res.simW, res.simH)
+  gl.useProgram(res.persistProg)
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, res.stateTex[res.cur])
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, res.dispTex[dsrc])
+  gl.uniform1i(res.locs.persist.u_field, 0)
+  gl.uniform1i(res.locs.persist.u_prev, 1)
+  gl.uniform2f(res.locs.persist.u_texel, 1 / res.simW, 1 / res.simH)
+  gl.uniform1f(res.locs.persist.u_k, k)
+  fullscreen(gl, res)
+  res.dispCur = ddst
+
+  // ── Display pass from the smoothed field.
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
   gl.useProgram(res.displayProg)
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, res.stateTex[res.cur])
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, res.dispTex[res.dispCur])
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, res.lutTex)
   gl.uniform1i(res.locs.display.u_state, 0)
   gl.uniform1i(res.locs.display.u_lut, 1)
