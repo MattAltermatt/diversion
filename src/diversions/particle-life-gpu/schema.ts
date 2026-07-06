@@ -52,6 +52,13 @@ export const particleLifeGpuSchema = z.object({
   palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
     .meta({ section: 'Look', ui: 'select', options: [...PALETTE_NAMES], label: 'Palette',
             help: 'Species colors are spaced evenly across this palette for maximum contrast.' }),
+  colorBy: z.enum(['Species', 'Velocity']).default('Species')
+    .meta({ section: 'Look', ui: 'segmented', options: ['Species', 'Velocity'], label: 'Color by',
+            help: 'Species = each kind keeps its own palette colour (the classic view). Velocity = tint each species by its OWN speed — slow particles sit dark, fast ones flare bright within their colour — so the flow shows without losing who is who.' }),
+  heatScale: z.number().min(20).max(600).default(150)
+    .meta({ section: 'Look', ui: 'slider', min: 20, max: 600, step: 10, label: 'Speed scale',
+            showWhen: { field: 'colorBy', equals: 'Velocity' },
+            help: 'The speed that reads as fully bright. Lower makes more of the field flare; higher keeps only the fastest particles bright. Only used in the Velocity view.' }),
   dotSize: z.number().min(1).max(5).default(2.5)
     .meta({ section: 'Look', ui: 'slider', min: 1, max: 5, step: 0.5, label: 'Particle size',
             help: 'Radius of each particle in pixels.' }),
@@ -61,6 +68,15 @@ export const particleLifeGpuSchema = z.object({
   trailFade: z.number().min(0).max(0.6).default(0.15)
     .meta({ section: 'Look', ui: 'slider', min: 0, max: 0.6, step: 0.01, label: 'Trail length',
             help: 'How slowly the previous frame fades. Higher = longer, dreamier motion trails. 0 = crisp, no trails.' }),
+  bloom: z.boolean().default(false)
+    .meta({ section: 'Look', ui: 'toggle', label: 'Bloom',
+            help: 'A soft film-glow post pass — bright clusters bleed light into their surroundings for a luminous, cinematic look. Off by default; layers on top of Glow.' }),
+  bloomIntensity: z.number().min(0).max(1.5).default(0.7)
+    .meta({ section: 'Look', ui: 'slider', min: 0, max: 1.5, step: 0.05, label: 'Bloom strength',
+            help: 'How much of the blurred glow is added back over the frame. Only used while Bloom is on.' }),
+  bloomThreshold: z.number().min(0).max(1).default(0.5)
+    .meta({ section: 'Look', ui: 'slider', min: 0, max: 1, step: 0.02, label: 'Bloom threshold',
+            help: 'How bright a pixel must be to bloom. Lower = more of the field glows; higher = only the brightest cores. Only used while Bloom is on.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
     .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this color. Dark reads best.' }),
 

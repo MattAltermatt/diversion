@@ -35,7 +35,7 @@ const WORKGROUP = 64
 // namespaces, so we spell the bits out locally instead of adding an @webgpu/types
 // dependency that would duplicate the lib's interface declarations.
 const BUF = { UNIFORM: 0x40, STORAGE: 0x80, COPY_DST: 0x08 } as const
-const TEX = { COPY_SRC: 0x01, COPY_DST: 0x02, RENDER_ATTACHMENT: 0x10 } as const
+const TEX = { COPY_SRC: 0x01, COPY_DST: 0x02, TEXTURE_BINDING: 0x04, RENDER_ATTACHMENT: 0x10 } as const
 const STAGE = { VERTEX: 0x1, FRAGMENT: 0x2, COMPUTE: 0x4 } as const
 
 const COMPUTE_WGSL = /* wgsl */ `
@@ -114,11 +114,13 @@ const RENDER_WGSL = /* wgsl */ `
 struct View {
   scale: f32, viewCx: f32, viewCy: f32, worldW: f32, worldH: f32,
   viewW: f32, viewH: f32, coreR: f32, haloR: f32,
+  colorBy: f32, heatScale: f32,
 }
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> positions: array<vec2f>;
 @group(0) @binding(2) var<storage, read> species: array<u32>;
 @group(0) @binding(3) var<storage, read> colors: array<vec4f>;
+@group(0) @binding(4) var<storage, read> velocities: array<vec2f>;
 
 struct VSOut {
   @builtin(position) pos: vec4f,
@@ -144,7 +146,16 @@ fn buildVertex(vi: u32, ii: u32, radius: f32) -> VSOut {
   var out: VSOut;
   out.pos = vec4f(sx / view.viewW * 2.0 - 1.0, 1.0 - sy / view.viewH * 2.0, 0.0, 1.0);
   out.uv = corner;
-  out.color = colors[species[ii]];
+  // colour by species palette (default), or tint each species by its OWN speed (#210):
+  // slow particles sit dark, fast ones flare bright (with a hot highlight toward white)
+  // — the flow shows without losing which species is which.
+  if (view.colorBy > 0.5) {
+    let base = colors[species[ii]].rgb;
+    let t = 1.0 - exp(-length(velocities[ii]) / max(1.0, view.heatScale));
+    out.color = vec4f(base * mix(0.28, 1.25, t) + t * t * 0.25, 1.0);
+  } else {
+    out.color = colors[species[ii]];
+  }
   return out;
 }
 @vertex fn vs_core(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VSOut {
@@ -177,6 +188,52 @@ const FS = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0)
 }
 @fragment fn fs_fade() -> @location(0) vec4f {
   return vec4f(fade.r, fade.g, fade.b, fade.a);
+}
+
+// ---- bloom post (#212): bright-extract → separable blur → additive composite ----
+// A real film-bloom: threshold the composited frame, blur it (2-pass separable at
+// half-res), add it back over the trail composite. All off unless cfg.bloom.
+@group(0) @binding(0) var bsamp: sampler;
+@group(0) @binding(1) var bsrc: texture_2d<f32>;
+struct BloomU {
+  threshold: f32, intensity: f32,   // intensity unused by bright/blur (see composite)
+  dstTexelX: f32, dstTexelY: f32,   // 1 / destination size → uv from @builtin(position)
+  dirX: f32, dirY: f32,             // blur step (unit dir × source texel); 0 for extract
+}
+@group(0) @binding(2) var<uniform> bu: BloomU;
+
+@fragment fn fs_bright(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv = pos.xy * vec2f(bu.dstTexelX, bu.dstTexelY);
+  let c = textureSampleLevel(bsrc, bsamp, uv, 0.0).rgb;
+  let luma = dot(c, vec3f(0.2126, 0.7152, 0.0722));
+  let k = max(0.0, luma - bu.threshold) / max(0.0001, 1.0 - bu.threshold);
+  return vec4f(c * k, 1.0);
+}
+
+const BW = array<f32, 5>(0.227027, 0.194594, 0.121622, 0.054054, 0.016216);
+@fragment fn fs_blur(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv = pos.xy * vec2f(bu.dstTexelX, bu.dstTexelY);
+  let dir = vec2f(bu.dirX, bu.dirY);
+  var sum = textureSampleLevel(bsrc, bsamp, uv, 0.0).rgb * BW[0];
+  for (var i = 1; i < 5; i = i + 1) {
+    let o = dir * f32(i);
+    sum = sum + textureSampleLevel(bsrc, bsamp, uv + o, 0.0).rgb * BW[i];
+    sum = sum + textureSampleLevel(bsrc, bsamp, uv - o, 0.0).rgb * BW[i];
+  }
+  return vec4f(sum, 1.0);
+}
+
+// composite reads TWO textures: the full-res trail composite + the blurred bloom
+@group(0) @binding(0) var csamp: sampler;
+@group(0) @binding(1) var cbase: texture_2d<f32>;
+@group(0) @binding(2) var cbloom: texture_2d<f32>;
+struct CompU { intensity: f32, dstTexelX: f32, dstTexelY: f32, pad: f32 }
+@group(0) @binding(3) var<uniform> cu: CompU;
+@fragment fn fs_composite(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv = pos.xy * vec2f(cu.dstTexelX, cu.dstTexelY);
+  let base = textureSampleLevel(cbase, csamp, uv, 0.0).rgb;
+  let bloom = textureSampleLevel(cbloom, csamp, uv, 0.0).rgb;
+  return vec4f(base + bloom * cu.intensity, 1.0);
 }
 `
 
@@ -214,6 +271,27 @@ export interface GpuResources {
   texH: number
   needsClear: boolean
   bg: { r: number; g: number; b: number }
+  // bloom post (#212) — half-res ping-pong + pipelines; bind groups rebuilt on resize
+  bloomSampler: GPUSampler
+  bloomBGL: GPUBindGroupLayout
+  compBGL: GPUBindGroupLayout
+  brightPipe: GPURenderPipeline
+  blurPipe: GPURenderPipeline
+  compositePipe: GPURenderPipeline
+  brightBuf: GPUBuffer
+  blurHBuf: GPUBuffer
+  blurVBuf: GPUBuffer
+  compBuf: GPUBuffer
+  bloomA: GPUTexture
+  bloomB: GPUTexture
+  bloomAView: GPUTextureView
+  bloomBView: GPUTextureView
+  brightBind: GPUBindGroup
+  blurHBind: GPUBindGroup
+  blurVBind: GPUBindGroup
+  compBind: GPUBindGroup
+  bloomW: number
+  bloomH: number
 }
 
 const ALPHA_BLEND: GPUBlendState = {
@@ -229,8 +307,51 @@ function makeAccum(device: GPUDevice, format: GPUTextureFormat, w: number, h: nu
   return device.createTexture({
     size: [Math.max(1, w), Math.max(1, h)],
     format,
-    usage: TEX.RENDER_ATTACHMENT | TEX.COPY_SRC,
+    // TEXTURE_BINDING so the bloom bright/composite passes can sample it (#212)
+    usage: TEX.RENDER_ATTACHMENT | TEX.COPY_SRC | TEX.TEXTURE_BINDING,
   })
+}
+
+// half-res bloom ping-pong target: rendered into and sampled from
+function makeBloomTex(device: GPUDevice, format: GPUTextureFormat, w: number, h: number): GPUTexture {
+  return device.createTexture({
+    size: [Math.max(1, w), Math.max(1, h)],
+    format,
+    usage: TEX.RENDER_ATTACHMENT | TEX.TEXTURE_BINDING,
+  })
+}
+const bloomDims = (w: number, h: number) => ({ bw: Math.max(1, Math.ceil(w / 2)), bh: Math.max(1, Math.ceil(h / 2)) })
+
+/** (Re)write the bloom pass uniforms — threshold/intensity (config) + per-pass
+ *  destination texel + blur step (size-derived). Not per-frame; call on init /
+ *  resize / bloom-config change. */
+export function writeBloom(res: GpuResources, cfg: ParticleLifeGpuConfig): void {
+  const q = res.device.queue
+  const dtx = 1 / res.bloomW, dty = 1 / res.bloomH
+  const th = cfg.bloomThreshold, inten = cfg.bloomIntensity
+  q.writeBuffer(res.brightBuf, 0, new Float32Array([th, inten, dtx, dty, 0, 0]))
+  q.writeBuffer(res.blurHBuf, 0, new Float32Array([th, inten, dtx, dty, dtx, 0]))
+  q.writeBuffer(res.blurVBuf, 0, new Float32Array([th, inten, dtx, dty, 0, dty]))
+  q.writeBuffer(res.compBuf, 0, new Float32Array([inten, 1 / res.texW, 1 / res.texH, 0]))
+}
+
+/** Rebuild the four bloom bind groups from the current texture views. Called on init
+ *  and after a resize recreates accum / bloomA / bloomB. */
+function buildBloomBinds(res: GpuResources): void {
+  const { device, bloomBGL, compBGL, bloomSampler } = res
+  const u = (b: GPUBuffer) => ({ buffer: b })
+  res.brightBind = device.createBindGroup({ layout: bloomBGL, entries: [
+    { binding: 0, resource: bloomSampler }, { binding: 1, resource: res.accumView }, { binding: 2, resource: u(res.brightBuf) },
+  ] })
+  res.blurHBind = device.createBindGroup({ layout: bloomBGL, entries: [
+    { binding: 0, resource: bloomSampler }, { binding: 1, resource: res.bloomAView }, { binding: 2, resource: u(res.blurHBuf) },
+  ] })
+  res.blurVBind = device.createBindGroup({ layout: bloomBGL, entries: [
+    { binding: 0, resource: bloomSampler }, { binding: 1, resource: res.bloomBView }, { binding: 2, resource: u(res.blurVBuf) },
+  ] })
+  res.compBind = device.createBindGroup({ layout: compBGL, entries: [
+    { binding: 0, resource: bloomSampler }, { binding: 1, resource: res.accumView }, { binding: 2, resource: res.bloomAView }, { binding: 3, resource: u(res.compBuf) },
+  ] })
 }
 
 export function initGPU(
@@ -308,6 +429,7 @@ export function initGPU(
       { binding: 1, visibility: STAGE.VERTEX, buffer: { type: 'read-only-storage' } },
       { binding: 2, visibility: STAGE.VERTEX, buffer: { type: 'read-only-storage' } },
       { binding: 3, visibility: STAGE.VERTEX, buffer: { type: 'read-only-storage' } },
+      { binding: 4, visibility: STAGE.VERTEX, buffer: { type: 'read-only-storage' } }, // velocities (#210 heat)
     ],
   })
   const renderLayout = device.createPipelineLayout({ bindGroupLayouts: [renderBGL] })
@@ -340,6 +462,7 @@ export function initGPU(
       { binding: 1, resource: { buffer: posBuf } },
       { binding: 2, resource: { buffer: speciesBuf } },
       { binding: 3, resource: { buffer: colorBuf } },
+      { binding: 4, resource: { buffer: velBuf } }, // #210 speed → heat ramp
     ],
   })
   const fadeBind = device.createBindGroup({
@@ -351,13 +474,54 @@ export function initGPU(
   const texH = Math.max(1, size.height)
   const accum = makeAccum(device, format, texW, texH)
 
+  // --- bloom post (#212): sampler + half-res ping-pong + 3 fullscreen pipelines ---
+  const bloomSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' })
+  const bloomBGL = device.createBindGroupLayout({
+    entries: [
+      { binding: 0, visibility: STAGE.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 1, visibility: STAGE.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 2, visibility: STAGE.FRAGMENT, buffer: { type: 'uniform' } },
+    ],
+  })
+  const compBGL = device.createBindGroupLayout({
+    entries: [
+      { binding: 0, visibility: STAGE.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 1, visibility: STAGE.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 2, visibility: STAGE.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 3, visibility: STAGE.FRAGMENT, buffer: { type: 'uniform' } },
+    ],
+  })
+  const bloomLayout = device.createPipelineLayout({ bindGroupLayouts: [bloomBGL] })
+  const compLayout = device.createPipelineLayout({ bindGroupLayouts: [compBGL] })
+  const fs = (entryPoint: string, layout: GPUPipelineLayout) => device.createRenderPipeline({
+    layout,
+    vertex: { module: renderMod, entryPoint: 'vs_fullscreen' },
+    fragment: { module: renderMod, entryPoint, targets: [{ format }] },
+    primitive: { topology: 'triangle-list' },
+  })
+  const brightPipe = fs('fs_bright', bloomLayout)
+  const blurPipe = fs('fs_blur', bloomLayout)
+  const compositePipe = fs('fs_composite', compLayout)
+  const brightBuf = mk(32, U), blurHBuf = mk(32, U), blurVBuf = mk(32, U), compBuf = mk(16, U)
+  const { bw, bh } = bloomDims(texW, texH)
+  const bloomA = makeBloomTex(device, format, bw, bh)
+  const bloomB = makeBloomTex(device, format, bw, bh)
+
   const res: GpuResources = {
     device, ctx, format, count, colors, dpr, worldW, worldH,
     paramsBuf, viewBuf, fadeBuf, speciesBuf, matrixBuf, posBuf, velBuf, colorBuf,
     forcesPipe, integratePipe, computeBind, haloPipe, corePipe, fadePipe, renderBind, fadeBind,
     accum, accumView: accum.createView(), texW, texH, needsClear: true,
     bg: { r: 0, g: 0, b: 0 },
+    bloomSampler, bloomBGL, compBGL, brightPipe, blurPipe, compositePipe,
+    brightBuf, blurHBuf, blurVBuf, compBuf,
+    bloomA, bloomB, bloomAView: bloomA.createView(), bloomBView: bloomB.createView(),
+    brightBind: null as unknown as GPUBindGroup, blurHBind: null as unknown as GPUBindGroup,
+    blurVBind: null as unknown as GPUBindGroup, compBind: null as unknown as GPUBindGroup,
+    bloomW: bw, bloomH: bh,
   }
+  buildBloomBinds(res)
+  writeBloom(res, cfg)
   writeFade(res, cfg)
   return res
 }
@@ -403,6 +567,17 @@ export function resizeGPU(
   res.texW = w
   res.texH = h
   res.needsClear = true
+  // resize the bloom ping-pong to the new half-res, rewrite its texel uniforms, and
+  // rebuild the bind groups (they reference the just-recreated texture views). #212
+  const { bw, bh } = bloomDims(w, h)
+  res.bloomA.destroy(); res.bloomB.destroy()
+  res.bloomA = makeBloomTex(res.device, res.format, bw, bh)
+  res.bloomB = makeBloomTex(res.device, res.format, bw, bh)
+  res.bloomAView = res.bloomA.createView()
+  res.bloomBView = res.bloomB.createView()
+  res.bloomW = bw; res.bloomH = bh
+  writeBloom(res, cfg)
+  buildBloomBinds(res)
 }
 
 /** Advance `steps` sim steps then composite one frame. One command encoder, one
@@ -435,16 +610,33 @@ export function runFrame(res: GpuResources, cfg: ParticleLifeGpuConfig, steps: n
   pass.setPipeline(res.corePipe); pass.setBindGroup(0, res.renderBind); pass.draw(6, res.count)
   pass.end()
 
-  // blit accumulation → swapchain (getCurrentTexture is fresh every frame)
   const swap = res.ctx.getCurrentTexture()
-  enc.copyTextureToTexture({ texture: res.accum }, { texture: swap }, [res.texW, res.texH])
+  if (cfg.bloom) {
+    // #212: bright-extract accum → bloomA, blur H → bloomB, blur V → bloomA, then
+    // composite (accum + blurred bloom) into the swapchain. Each pass ends before the
+    // next, so reading the prior pass's target as a texture is a valid sync boundary.
+    const fsPass = (view: GPUTextureView, pipe: GPURenderPipeline, bind: GPUBindGroup) => {
+      const p = enc.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', clearValue: { r: 0, g: 0, b: 0, a: 1 }, storeOp: 'store' }] })
+      p.setPipeline(pipe); p.setBindGroup(0, bind); p.draw(3); p.end()
+    }
+    fsPass(res.bloomAView, res.brightPipe, res.brightBind)
+    fsPass(res.bloomBView, res.blurPipe, res.blurHBind)
+    fsPass(res.bloomAView, res.blurPipe, res.blurVBind)
+    fsPass(swap.createView(), res.compositePipe, res.compBind)
+  } else {
+    // blit accumulation → swapchain (getCurrentTexture is fresh every frame)
+    enc.copyTextureToTexture({ texture: res.accum }, { texture: swap }, [res.texW, res.texH])
+  }
   res.device.queue.submit([enc.finish()])
 }
 
 export function disposeGPU(res: GpuResources): void {
   // NB: never res.device.destroy() — the device is the shared framework singleton.
-  for (const b of [res.paramsBuf, res.viewBuf, res.fadeBuf, res.speciesBuf, res.matrixBuf, res.posBuf, res.velBuf, res.colorBuf]) {
+  for (const b of [res.paramsBuf, res.viewBuf, res.fadeBuf, res.speciesBuf, res.matrixBuf, res.posBuf, res.velBuf, res.colorBuf,
+    res.brightBuf, res.blurHBuf, res.blurVBuf, res.compBuf]) {
     b.destroy()
   }
   res.accum.destroy()
+  res.bloomA.destroy()
+  res.bloomB.destroy()
 }

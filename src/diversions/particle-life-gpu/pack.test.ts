@@ -182,6 +182,18 @@ describe('particle-life-gpu pack', () => {
       expect(dv.getFloat32(8, true)).toBeCloseTo(WORLD_H / 2 - 50) // viewCy + panY
     })
 
+    // #210: colorBy 0 = species palette (default, render unchanged); 1 = heat ramp.
+    it('defaults to species colour (colorBy 0) and carries the heat scale', () => {
+      const dv = new DataView(packView({ dotSize: 2.5 }, { width: 1920, height: 1080 }, 2, DEFAULT_CAMERA))
+      expect(dv.getFloat32(36, true)).toBe(0) // species → identical to before
+      expect(dv.getFloat32(40, true)).toBeCloseTo(150) // default heat scale
+    })
+    it('flags velocity colouring (colorBy 1) with the given heat scale', () => {
+      const dv = new DataView(packView({ dotSize: 2.5, colorBy: 'Velocity', heatScale: 300 }, { width: 1920, height: 1080 }, 2, DEFAULT_CAMERA))
+      expect(dv.getFloat32(36, true)).toBe(1)
+      expect(dv.getFloat32(40, true)).toBeCloseTo(300)
+    })
+
     it('a bigger world lowers the cover-fit scale (shows more arena)', () => {
       const { w, h } = worldDims(4)
       const dv = new DataView(packView({ dotSize: 2.5 }, { width: 1920, height: 1080 }, 2, DEFAULT_CAMERA, w, h))

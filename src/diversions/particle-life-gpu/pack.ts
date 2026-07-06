@@ -120,15 +120,17 @@ export function packParams(
   return buf
 }
 
-export const VIEW_SIZE = 48 // 9 × 4 = 36 → round up to 16 = 48
+export const VIEW_SIZE = 48 // 11 × 4 = 44 → round up to 16 = 48
 
 /** View uniform for the render shaders. Carries the view CENTER in world coords +
  *  the arena size, so the vertex shader can place each particle at its nearest
  *  toroidal image of the center — panning across the wrap edge is then seamless with
  *  one instance per particle. `zoom` multiplies the cover-fit scale (1 = whole world).
- *  `dpr` converts CSS-pixel dotSize into device pixels (webgpu draws device pixels). */
+ *  `dpr` converts CSS-pixel dotSize into device pixels (webgpu draws device pixels).
+ *  `colorBy`/`heatScale` (#210) pick the render colour: 0 = species palette (default),
+ *  1 = speed→heat ramp normalised by `heatScale`. */
 export function packView(
-  cfg: { dotSize: number },
+  cfg: { dotSize: number; colorBy?: string; heatScale?: number },
   size: { width: number; height: number },
   dpr: number,
   cam: Camera,
@@ -152,5 +154,7 @@ export function packView(
   dv.setFloat32(24, size.height, true)
   dv.setFloat32(28, core, true)
   dv.setFloat32(32, halo, true)
+  dv.setFloat32(36, cfg.colorBy === 'Velocity' ? 1 : 0, true) // 0 species (default), 1 heat
+  dv.setFloat32(40, cfg.heatScale ?? 150, true) // speed that reads as fully hot
   return buf
 }

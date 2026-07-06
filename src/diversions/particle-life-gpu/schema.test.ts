@@ -12,6 +12,16 @@ describe('particle-life-gpu schema', () => {
     expect(c.seed).toBe(1337)
   })
 
+  // The default-unchanged invariant: every optional enhancement ships OFF, so a fresh
+  // load renders exactly the classic piece (#205/#210/#212/#213).
+  it('every optional enhancement defaults to its current-behavior (off) state', () => {
+    const c = particleLifeGpuSchema.parse({})
+    expect(c.matrixSeed).toBe(0) // 0 = follow the soup seed (identical matrix)
+    expect(c.breathe).toBe(false)
+    expect(c.colorBy).toBe('Species')
+    expect(c.bloom).toBe(false)
+  })
+
   it('enforces the particle-count ceiling (all-pairs 60fps headroom)', () => {
     expect(() => particleLifeGpuSchema.parse({ count: 25000 })).not.toThrow()
     expect(() => particleLifeGpuSchema.parse({ count: 25001 })).toThrow()

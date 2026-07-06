@@ -17,7 +17,7 @@ import { reconcileMatrix } from './reconcile'
 import { worldDims, DT, type Camera } from './pack'
 import {
   initGPU, runFrame, resizeGPU, writeParams, writeColors, writeMatrix, writeView, writeFade,
-  disposeGPU, type GpuResources,
+  writeBloom, disposeGPU, type GpuResources,
 } from './gpu'
 
 interface State {
@@ -201,7 +201,8 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
     if (cfg.symmetry !== prev.symmetry || cfg.attractBias !== prev.attractBias || cfg.matrix !== prev.matrix || cfg.matrixSeed !== prev.matrixSeed) writeMatrix(state.res, cfg)
     if (cfg.palette !== prev.palette) writeColors(state.res, cfg)
     if (cfg.background !== prev.background || cfg.trailFade !== prev.trailFade) writeFade(state.res, cfg)
-    if (cfg.dotSize !== prev.dotSize) writeView(state.res, cfg, size, state.cam)
+    if (cfg.bloom !== prev.bloom || cfg.bloomIntensity !== prev.bloomIntensity || cfg.bloomThreshold !== prev.bloomThreshold) writeBloom(state.res, cfg)
+    if (cfg.dotSize !== prev.dotSize || cfg.colorBy !== prev.colorBy || cfg.heatScale !== prev.heatScale) writeView(state.res, cfg, size, state.cam)
     return true
   },
 
