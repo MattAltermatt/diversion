@@ -1,13 +1,19 @@
 import { z } from 'zod'
 
-// Intensity → color ramp. Index 0 is the resting (healthy) background; index 1 is
-// the peak of an excited wave; the tail sweeps the ramp in between. Default:
-// "Ferroin" — the classic red-orange BZ indicator dye.
-const FERROIN = ['#060310', '#5c1250', '#e8481f', '#ffe6a0']
+// Intensity → color ramp. Index 0 is the resting (healthy) background; the last is
+// the peak of an excited wave; the tail sweeps the ramp in between. Default: "Aurora"
+// — a 16-stop perceptual ramp (deep navy → blue → cyan → icy white) with even
+// luminance steps, so the now-smoothed intensity reads as a rich continuous gradient
+// rather than a few hard bands. (Other palettes, incl. the classic red-orange Ferroin
+// BZ dye, live in presets.ts.)
+const DEFAULT_STOPS = [
+  '#04070f', '#061530', '#08214a', '#0a2f63', '#0c3d7d', '#0e4d93', '#105ea8', '#1372bb',
+  '#1787cc', '#1e9dd8', '#2ab3e2', '#3fc7ea', '#63d6f0', '#93e4f5', '#c3f2fa', '#eafcff',
+]
 
 export const excitableMediaSchema = z.object({
   // ── Simulation ──
-  simSpeed: z.number().min(0.01).max(2).default(0.03)
+  simSpeed: z.number().min(0.01).max(2).default(0.05)
     .meta({ section: 'Simulation', ui: 'slider', min: 0.01, max: 2, step: 0.01, label: 'Sim speed',
             help: 'How fast the reaction evolves, in sub-steps per frame. The default is a slow crawl — '
                 + 'the dish ticks gently and, with smoothing, drifts glassily instead of flickering. '
@@ -45,8 +51,8 @@ export const excitableMediaSchema = z.object({
     .meta({ section: 'Color', ui: 'slider', min: 0.3, max: 3, step: 0.1, label: 'Tail contrast',
             help: 'Higher makes the bright wave crest thinner and the trailing recovery darker; '
                 + 'lower spreads the glow across the whole wave.' }),
-  stops: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(8).default(FERROIN)
-    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Wave colors',
+  stops: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(16).default(DEFAULT_STOPS)
+    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 16, label: 'Wave colors',
             help: 'The lowest color is the resting background; the highest is the wave crest. '
                 + 'The recovering tail fades down through the ramp between them.' }),
 })

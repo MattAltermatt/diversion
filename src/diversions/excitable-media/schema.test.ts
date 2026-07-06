@@ -3,14 +3,14 @@ import { excitableMediaSchema } from './schema'
 import { patternPresets, colorPresets } from './presets'
 
 describe('excitableMediaSchema', () => {
-  it('parses to defaults (100 states, Ferroin palette)', () => {
+  it('parses to defaults (100 states, Aurora palette)', () => {
     const cfg = excitableMediaSchema.parse({})
     expect(cfg.states).toBe(100)
     expect(cfg.k1).toBe(3)
     expect(cfg.k2).toBe(3)
     expect(cfg.g).toBe(20)
-    expect(cfg.simSpeed).toBe(0.03)
-    expect(cfg.stops.length).toBeGreaterThanOrEqual(2)
+    expect(cfg.simSpeed).toBe(0.05)
+    expect(cfg.stops.length).toBe(16)
   })
   it('every slider field carries min/max meta', () => {
     const shape = excitableMediaSchema.shape
@@ -37,10 +37,10 @@ describe('excitable-media presets', () => {
       expect(() => excitableMediaSchema.parse(p.patch)).not.toThrow()
     }
   })
-  it('every color preset supplies 2..8 valid hex stops', () => {
+  it('every color preset supplies 2..16 valid hex stops', () => {
     for (const p of colorPresets) {
       expect(p.patch.stops.length).toBeGreaterThanOrEqual(2)
-      expect(p.patch.stops.length).toBeLessThanOrEqual(8)
+      expect(p.patch.stops.length).toBeLessThanOrEqual(16)
       for (const s of p.patch.stops) expect(s).toMatch(/^#[0-9a-fA-F]{6}$/)
     }
   })
