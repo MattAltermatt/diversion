@@ -24,18 +24,18 @@ export const sandStrokeSchema = z.object({
             help: 'Alpha at the dense spine of a column; grains feather toward ~0 at the band edges.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f4efe4')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground colour. The painting is never cleared, so this is painted once.' }),
+            help: 'The ground color. The painting is never cleared, so this is painted once.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
-              help: 'Palette: each sweep picks one random colour. '
-                  + 'Gradient: colour is sampled along a source (lane or progress).' }),
+              help: 'Palette: each sweep picks one random color. '
+                  + 'Gradient: color is sampled along a source (lane or progress).' }),
     colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
       .default(DEFAULT_PALETTE_COLORS)
       .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'palette' },
-              help: 'Each sweep picks one colour at random per pass. A colour’s alpha multiplies '
-                  + 'the grain falloff — leave at ff for the faithful look, lower it to thin a colour.' }),
+              help: 'Each sweep picks one color at random per pass. A color’s alpha multiplies '
+                  + 'the grain falloff — leave at ff for the faithful look, lower it to thin a color.' }),
     source: z.enum(['y', 'x']).default('y')
       .meta({ ui: 'segmented', options: ['y', 'x'], label: 'Gradient source',
               showWhen: { field: 'mode', equals: 'gradient' },
@@ -53,10 +53,10 @@ export const sandStrokeSchema = z.object({
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   colorDrift: z.number().int().min(0).max(100).default(21)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 100, step: 1, label: 'Color drift',
-            help: 'Chance a sweep recolours mid-pass near a flat point (palette mode). 0 = one colour per pass.' }),
+            help: 'Chance a sweep recolors mid-pass near a flat point (palette mode). 0 = one color per pass.' }),
   seed: z.number().int().default(4823)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
-            help: 'Any integer. The same seed regenerates the same lanes, colours and wave character. A fresh visit rolls a new one.' }),
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. The same seed regenerates the same lanes, colors and wave character. A fresh visit rolls a new one.' }),
 })
 
 export type SandStrokeConfig = z.infer<typeof sandStrokeSchema>

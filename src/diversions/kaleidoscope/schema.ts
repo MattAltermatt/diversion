@@ -34,16 +34,16 @@ export const kaleidoscopeSchema = z.object({
             help: 'How fast each shape spins on its own axis. 0 = no self-rotation.' }),
   palette: z.enum(PALETTE_NAMES).default('jewel')
     .meta({ section: 'Color', ui: 'segmented', options: [...PALETTE_NAMES], label: 'Palette',
-            help: 'The jewel-tone colour set the shapes draw from.' }),
+            help: 'The jewel-tone color set the shapes draw from.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#080510')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The dark ground the shards sit on. Darker = more contrast and glow.' }),
   outline: z.boolean().default(true)
     .meta({ section: 'Color', ui: 'toggle', label: 'Leading',
             help: 'Draw dark stained-glass leading around each shape. On = crisp jewel facets; '
-                + 'off = soft, blended colour washes.' }),
+                + 'off = soft, blended color washes.' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same source layout; a fresh visit '
                 + 'rolls a new one for a new kaleidoscope every time.' }),
 })

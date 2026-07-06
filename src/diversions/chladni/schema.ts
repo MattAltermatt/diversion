@@ -47,16 +47,16 @@ export const chladniSchema = z.object({
 
   grainColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f4ead2')
     .meta({ section: 'Color', ui: 'color', label: 'Grain color',
-            help: 'Colour of the sand. A warm off-white on a dark plate reads as delicate filigree.' }),
+            help: 'Color of the sand. A warm off-white on a dark plate reads as delicate filigree.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a10')
-    .meta({ section: 'Color', ui: 'color', label: 'Plate (background)' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Background' }),
   afterglow: z.number().min(0).max(0.9).default(0)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 0.9, step: 0.05, label: 'Afterglow',
             help: 'Motion-trail persistence. 0 = crisp (each frame wiped clean); higher leaves '
                 + 'a soft comet-tail as grains migrate, so the flow toward the nodes is visible.' }),
 
   seed: z.number().int().default(7331)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Fixes the grain scatter and the auto-cycle mode order. '
                 + 'A fresh visit rolls a new one.' }),
 })

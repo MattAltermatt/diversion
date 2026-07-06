@@ -23,13 +23,13 @@ export const auroraSchema = z.object({
             help: 'Strength of the vertical hanging-ray striations within each curtain. '
                 + '0 = smooth sheets; 1 = crisp, fibrous rays.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Aurora', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Offsets the noise field, so every fresh visit shows a different night. '
                 + 'A shared link is seedless; an explicit seed reproduces one exactly.' }),
   // ── Sky ──
   skyZenith: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#02030a')
     .meta({ section: 'Sky', ui: 'color', label: 'Zenith',
-            help: 'The near-black colour directly overhead.' }),
+            help: 'The near-black color directly overhead.' }),
   skyHorizon: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a1230')
     .meta({ section: 'Sky', ui: 'color', label: 'Horizon',
             help: 'The faint dark-blue glow low on the horizon.' }),
@@ -39,7 +39,7 @@ export const auroraSchema = z.object({
   // ── Color ──
   paletteStops: z.array(hex6).min(2).max(8).default(CLASSIC_GREEN)
     .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Palette (base → tip)',
-            help: 'The colour ramp along each curtain — first stop is the bright base, last is the '
+            help: 'The color ramp along each curtain — first stop is the bright base, last is the '
                 + 'high tip. Real aurora runs green at the base up to magenta / red at altitude.' }),
 })
 

@@ -20,14 +20,14 @@ export const kuramotoSchema = z.object({
             help: 'How fast the oscillators advance, in sub-steps per frame. Lower is a slow, '
                 + 'meditative drift.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Sets the initial phases + natural frequencies. A shared link is '
                 + 'seedless — every visit self-organizes a different field.' }),
   // ── Color ──
   stops: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(8).default(AURORA)
     .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Phase colors',
             help: 'Each oscillator’s phase maps around this color wheel (it wraps end-to-start), '
-                + 'so a synced region glows one colour and defects swirl through the spectrum.' }),
+                + 'so a synced region glows one color and defects swirl through the spectrum.' }),
 })
 
 export type KuramotoConfig = z.infer<typeof kuramotoSchema>

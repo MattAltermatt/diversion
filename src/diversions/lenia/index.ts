@@ -13,7 +13,7 @@ type LeniaState = {
 // structural kernel; Color patches the field→color ramp. simSpeed/seed stay outside.
 const presets: PresetGroup<LeniaConfig>[] = [
   { label: 'Pattern', options: patternPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const lenia = defineDiversion<typeof leniaSchema, LeniaState, 'webgl'>({

@@ -52,7 +52,7 @@ export const sugarscapeSchema = z.object({
             help: 'On: the sugar field is smoothly blurred into glowing hills. Off: crisp cells.' }),
   land: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0704')
-      .meta({ ui: 'color', label: 'Barren' }),
+      .meta({ ui: 'color', label: 'Background' }),
     low: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#5c3410')
       .meta({ ui: 'color', label: 'Sugar (low)' }),
     high: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffd27a')
@@ -72,7 +72,7 @@ export const sugarscapeSchema = z.object({
             help: 'Overlay live population and mean wealth.' }),
 
   seed: z.number().int().default(11)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same world. A fresh visit rolls a new one.' }),
 })
 

@@ -11,7 +11,7 @@ export const grayScottSchema = z.object({
                 + 'step every few frames for a slow, meditative drift (0.1 ≈ a step every '
                 + '10 frames); above 1 runs several steps per frame for faster growth.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always restarts the chemical field the same way. '
                 + 'A shared link is seedless — every fresh visit grows a different pattern.' }),
   // ── Advanced ── raw feed/kill, clamped to the thin viable band.

@@ -17,7 +17,7 @@ const WRAP = Math.round(1e4 / (20 * Math.PI)) * 20 * Math.PI
 
 const presets: PresetGroup<JuliaMorphConfig>[] = [
   { label: 'Family', options: familyPresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const juliaMorph = defineDiversion<typeof juliaMorphSchema, JuliaState, 'webgl'>({

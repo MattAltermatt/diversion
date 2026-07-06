@@ -61,9 +61,9 @@ export const pursuitEvasionSchema = z.object({
     fast: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6ff0ff')
       .meta({ ui: 'color', label: 'Prey (fast)' }),
   }).default({ slow: '#2a6cff', fast: '#6ff0ff' })
-    .meta({ section: 'Look', ui: 'group', label: 'Prey colours' }),
+    .meta({ section: 'Look', ui: 'group', label: 'Prey colors' }),
   predatorColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff5030')
-    .meta({ section: 'Look', ui: 'color', label: 'Predator colour' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Predator color' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#080a12')
     .meta({ section: 'Look', ui: 'color', label: 'Background' }),
   trailFade: z.number().min(0).max(0.95).default(0.82)
@@ -81,7 +81,7 @@ export const pursuitEvasionSchema = z.object({
             help: 'Time multiplier for the whole arena. Lower is calmer and easier to read.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same arms race. A fresh visit rolls a new one.' }),
 })
 

@@ -13,7 +13,7 @@ export const gpuFluidSchema = z.object({
                 + 'for a slow, drifting calm; above 1 runs several solver passes per frame so '
                 + 'the smoke boils and curls faster. Higher costs more GPU.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always injects the same sequence of dye blobs '
                 + 'and impulses. A shared link is seedless — every fresh visit swirls a '
                 + 'different world.' }),

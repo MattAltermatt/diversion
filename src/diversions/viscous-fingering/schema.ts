@@ -42,19 +42,19 @@ export const viscousFingeringSchema = z.object({
                 + 'few frames for a slow, meditative spread; above 1 runs several steps per frame '
                 + 'for faster growth.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Fingering', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always grows the same fingers. A shared link is '
                 + 'seedless — every fresh visit grows a different pattern.' }),
 
   // ─── Color ──────────────────────────────────────────────────────────────────
   colorMode: z.enum(['concentration', 'arrival']).default('concentration')
     .meta({ section: 'Color', ui: 'segmented', options: ['concentration', 'arrival'], label: 'Color by',
-            help: 'concentration → colour by how dense the invading fluid is (bright channels, dark '
-                + 'gaps). arrival → colour by WHEN each spot was invaded, so the advancing tips glow '
+            help: 'concentration → color by how dense the invading fluid is (bright channels, dark '
+                + 'gaps). arrival → color by WHEN each spot was invaded, so the advancing tips glow '
                 + 'and the older channels behind them fall back — fingers read as radiating fronts.' }),
   palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(8).default(GLACIER_INK)
     .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Finger colors',
-            help: 'The invading fluid is coloured along these stops — the lowest is the faintest '
+            help: 'The invading fluid is colored along these stops — the lowest is the faintest '
                 + 'wisp, the highest is the dense finger core. Err toward high contrast.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050a14')
     .meta({ section: 'Color', ui: 'color', label: 'Background',

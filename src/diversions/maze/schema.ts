@@ -35,7 +35,7 @@ export const mazeSchema = z.object({
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The ground behind the maze (also the corridor floor).' }),
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed carves the same maze. A fresh visit rolls a new one.' }),
 })
 

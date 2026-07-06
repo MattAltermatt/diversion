@@ -10,7 +10,7 @@ export const labyrinthSchema = z.object({
             help: 'Cells across the short edge. Higher = finer, more intricate labyrinth and a '
                 + 'longer solve. Changing this generates a new maze.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Maze', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always grows the same sequence of mazes. A fresh visit rolls a new one.' }),
   // ── Behavior ──
   sensorAngle: z.number().min(5).max(60).default(22.5)

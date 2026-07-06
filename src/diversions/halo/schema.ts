@@ -28,18 +28,18 @@ export const haloSchema = z.object({
   color: z.object({
     mode: z.enum(['spectrum', 'mono']).default('spectrum')
       .meta({ ui: 'segmented', options: ['spectrum', 'mono'], label: 'Mode',
-              help: 'Spectrum: each halo a luminous colour, blended into light where rings cross. Mono: one ink drawn XOR-style so crossings cancel into crisp fringes.' }),
+              help: 'Spectrum: each halo a luminous color, blended into light where rings cross. Mono: one ink drawn XOR-style so crossings cancel into crisp fringes.' }),
     background: hex6.default('#04060b')
-      .meta({ ui: 'color', label: 'Background', help: 'The ground colour, painted every frame.' }),
+      .meta({ ui: 'color', label: 'Background', help: 'The ground color, painted every frame.' }),
     tints: z.array(hex8).min(1).max(6)
       .default(['#38d9ffcc', '#a479ffcc', '#ff5f9ecc', '#5effbdcc', '#ffd15ecc', '#ff8a4ccc'])
-      .meta({ ui: 'colorList', label: 'Halo colours', min: 1, max: 6,
+      .meta({ ui: 'colorList', label: 'Halo colors', min: 1, max: 6,
               showWhen: { field: 'mode', equals: 'spectrum' },
               help: 'Each halo takes one of these, cycling by index. Overlaps add into brighter light.' }),
     ink: hex6.default('#9fe7ff')
-      .meta({ ui: 'color', label: 'Ink colour',
+      .meta({ ui: 'color', label: 'Ink color',
               showWhen: { field: 'mode', equals: 'mono' },
-              help: 'The single ring colour over the background. Crossings cancel toward black — the classic XOR fringe.' }),
+              help: 'The single ring color over the background. Crossings cancel toward black — the classic XOR fringe.' }),
     hueDrift: z.number().min(0).max(60).default(4)
       .meta({ ui: 'slider', min: 0, max: 60, step: 1, label: 'Hue drift',
               showWhen: { field: 'mode', equals: 'mono' },
@@ -51,7 +51,7 @@ export const haloSchema = z.object({
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(80)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed places the halo centers and drift directions identically every run. A fresh visit rolls a new one.' }),
 })
 

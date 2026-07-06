@@ -39,7 +39,7 @@ export const sphFluidSchema = z.object({
                 + 'light up while the calm pool stays deep.' }),
   fluidColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1b6ef3')
     .meta({ section: 'Look', ui: 'color', label: 'Fluid',
-            help: 'The deep body colour of the liquid.' }),
+            help: 'The deep body color of the liquid.' }),
   surfaceColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8fe9ff')
     .meta({ section: 'Look', ui: 'color', label: 'Surface',
             help: 'Bright highlight on the surface / fast splashes — pick something '
@@ -48,7 +48,7 @@ export const sphFluidSchema = z.object({
     .meta({ section: 'Look', ui: 'color', label: 'Background',
             help: 'The empty tank behind the liquid. Keep it dark for contrast.' }),
   seed: z.number().int().default(4218)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always re-pours the same tank. A fresh '
                 + 'visit rolls a new one.' }),
 })

@@ -18,7 +18,7 @@ const WRAP = Math.round(1e4 / (2 * Math.PI)) * 2 * Math.PI
 
 const presets: PresetGroup<QuasicrystalConfig>[] = [
   { label: 'Symmetry', options: symmetryPresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const quasicrystal = defineDiversion<typeof quasicrystalSchema, QuasicrystalState, 'webgl'>({

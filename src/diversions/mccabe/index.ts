@@ -11,7 +11,7 @@ type MccabeState = {
 
 const presets: PresetGroup<MccabeConfig>[] = [
   { label: 'Pattern', options: patternPresets },
-  { label: 'Color', options: palettePresets },
+  { label: 'Palette', options: palettePresets },
 ]
 
 const mccabe = defineDiversion<typeof mccabeSchema, MccabeState, 'webgl'>({

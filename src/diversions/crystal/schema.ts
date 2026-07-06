@@ -24,7 +24,7 @@ export const crystalSchema = z.object({
     .meta({ section: 'Pattern', ui: 'slider', min: 1, max: 8, step: 1, label: 'Motif complexity',
             help: 'How many shapes make up the motif stamped into each fundamental domain.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Pattern', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer — picks the group (when auto), the motif, and the palette (when auto). '
                 + 'A shared link is seedless, so every visit opens on a fresh wallpaper; '
                 + 'pass ?seed=N to reproduce an exact one.' }),
@@ -38,7 +38,7 @@ export const crystalSchema = z.object({
   // ── Color ──
   palette: z.enum(PALETTE_OPTIONS).default('auto')
     .meta({ section: 'Color', ui: 'select', options: [...PALETTE_OPTIONS], label: 'Palette',
-            help: 'Motif colours. "auto" rolls a palette from the seed each reseed.' }),
+            help: 'Motif colors. "auto" rolls a palette from the seed each reseed.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0c0a14')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'Fills behind the wallpaper. Kept dark for high contrast.' }),

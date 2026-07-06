@@ -27,7 +27,7 @@ export const foamSchema = z.object({
                 + 'few frames for a slow, meditative drift (0.1 ≈ a step every 10 frames); above 1 '
                 + 'runs several steps per frame for faster coarsening.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Foam', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed always nucleates the same froth. A shared link is '
                 + 'seedless — every fresh visit grows a different soap film.' }),
 

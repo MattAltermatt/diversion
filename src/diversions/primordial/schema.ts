@@ -29,10 +29,10 @@ export const primordialSchema = z.object({
   colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(7)
     .default(['#0a0a3cff', '#1e5fffff', '#00e0ffff', '#6cff8aff', '#ffd23eff', '#ff3c2eff'])
     .meta({ section: 'Look', ui: 'colorList', min: 2, max: 7, label: 'Density ramp',
-            help: 'Each particle is coloured by how many neighbours it has: sparse drifters take the cool end, dense membranes glow at the hot end.' }),
+            help: 'Each particle is colored by how many neighbours it has: sparse drifters take the cool end, dense membranes glow at the hot end.' }),
   colorMax: z.number().int().min(6).max(60).default(18)
     .meta({ section: 'Look', ui: 'slider', min: 6, max: 60, step: 1, label: 'Ramp peak (neighbours)',
-            help: 'Neighbour count that maps to the hottest colour. Lower it to make membranes blaze sooner; raise it to reserve the hot end for the very densest cores.' }),
+            help: 'Neighbour count that maps to the hottest color. Lower it to make membranes blaze sooner; raise it to reserve the hot end for the very densest cores.' }),
   dotSize: z.number().min(0.5).max(4).default(1.6)
     .meta({ section: 'Look', ui: 'slider', min: 0.5, max: 4, step: 0.1, label: 'Particle size',
             help: 'Radius of each particle dot, in screen pixels.' }),
@@ -44,11 +44,11 @@ export const primordialSchema = z.object({
             help: 'How slowly the previous frame fades. 0 redraws crisp every frame; higher leaves dreamy motion trails as the cells drift.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#04040a')
     .meta({ section: 'Look', ui: 'color', label: 'Background',
-            help: 'The dark field the particles glow against. Trails fade toward this colour.' }),
+            help: 'The dark field the particles glow against. Trails fade toward this color.' }),
 
   // --- Advanced ---
   seed: z.number().int().default(1337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed + settings always grows the same primordial soup. A fresh visit rolls a new one.' }),
 })
 

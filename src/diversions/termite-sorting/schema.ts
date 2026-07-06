@@ -42,7 +42,7 @@ export const termiteSortingSchema = z.object({
             help: 'On: blur the chip field into glowing blobs. Off: crisp cells.' }),
   color: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#08090c')
-      .meta({ ui: 'color', label: 'Floor' }),
+      .meta({ ui: 'color', label: 'Background' }),
     termite: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8b93a6')
       .meta({ ui: 'color', label: 'Termites' }),
     chips: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1).max(5)
@@ -61,7 +61,7 @@ export const termiteSortingSchema = z.object({
             help: 'Overlay the live pile count, ticking down as the mess consolidates.' }),
 
   seed: z.number().int().default(13)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same scatter. A fresh visit rolls a new one.' }),
 })
 

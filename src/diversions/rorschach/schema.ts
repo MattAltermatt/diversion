@@ -43,24 +43,24 @@ export const rorschachSchema = z.object({
   edgeSoftness: z.number().min(0).max(1).default(0.35)
     .meta({ section: 'Ink', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Edge softness',
             help: '0 = crisp, bold silhouette with hard edges · higher = a softer, bleeding, '
-                + 'watercolour edge. Keep it low for maximum contrast.' }),
+                + 'watercolor edge. Keep it low for maximum contrast.' }),
   twoTone: z.boolean().default(false)
     .meta({ section: 'Ink', ui: 'toggle', label: 'Two-tone bleed',
-            help: 'On: a faint accent colour bleeds around the ink at the edges, like a second '
+            help: 'On: a faint accent color bleeds around the ink at the edges, like a second '
                 + 'pigment feathering into the paper.' }),
   blotColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#111014')
     .meta({ section: 'Ink', ui: 'color', label: 'Ink',
-            help: 'The colour of the inkblot itself.' }),
+            help: 'The color of the inkblot itself.' }),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#8a1f2b')
     .meta({ section: 'Ink', ui: 'color', label: 'Accent',
-            help: 'The bleed colour — only visible when Two-tone bleed is on.' }),
+            help: 'The bleed color — only visible when Two-tone bleed is on.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#efe9dc')
     .meta({ section: 'Ink', ui: 'color', label: 'Background',
             help: 'The paper behind the blot. Classic cards are cream; err toward high contrast '
                 + 'with the ink.' }),
 
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Same seed regrows the same sequence of blots. A fresh visit rolls '
                 + 'a new one.' }),
 })

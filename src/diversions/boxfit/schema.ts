@@ -41,20 +41,20 @@ export const boxfitSchema = z.object({
   // ─── Color ──────────────────────────────────────────────────────────────────
   colorMode: z.enum(['by-size', 'palette-cycle', 'random']).default('by-size')
     .meta({ section: 'Color', ui: 'segmented', options: ['by-size', 'palette-cycle', 'random'],
-            label: 'Colour by',
-            help: 'by-size → colour maps to a shape’s final size, so the palette reveals the '
+            label: 'Color by',
+            help: 'by-size → color maps to a shape’s final size, so the palette reveals the '
                 + 'packing structure · palette-cycle → hue sweeps slowly with spawn order · random → '
                 + 'each shape a random palette pick.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0d1117')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Canvas colour — and the colour of the gaps between shapes (the grout).' }),
+            help: 'Canvas color — and the color of the gaps between shapes (the grout).' }),
   colors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1).max(8)
     .default(['#457b9d', '#2a9d8f', '#8cb369', '#e9c46a', '#f4a259', '#e63946'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
             help: 'Ordered small → large for "by-size"; cycled for the other modes.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed repacks the same mosaic. A fresh visit rolls a new one.' }),
 })
 

@@ -40,7 +40,7 @@ export const flockVsHunterSchema = z.object({
     .meta({ section: 'Look', ui: 'color', label: 'Hunter color',
             help: 'A bold, high-contrast color so the predators pop against the flock.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
-    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this colour.' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this color.' }),
   showHud: z.boolean().default(true)
     .meta({ section: 'Look', ui: 'toggle', label: 'Show HUD',
             help: 'Generation counter, survivor %, and the evolving flock + hunter strategy bars.' }),
@@ -48,7 +48,7 @@ export const flockVsHunterSchema = z.object({
     .meta({ section: 'Motion', ui: 'slider', min: 1, max: 4, step: 1, label: 'Speed',
             help: 'Visual fast-forward — sim steps per frame. Changes only how fast you watch, never the outcome.' }),
   seed: z.number().int().default(31337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed + settings always replays the same hunt. A fresh visit rolls a new one.' }),
 })
 

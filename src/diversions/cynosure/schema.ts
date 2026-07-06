@@ -58,7 +58,7 @@ export const cynosureSchema = z.object({
 
   // ── Advanced ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed lays out the same composition. A shared link is seedless '
                 + '— every visit composes a new one.' }),
 })

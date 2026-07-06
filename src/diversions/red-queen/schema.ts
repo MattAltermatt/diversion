@@ -35,10 +35,10 @@ export const redQueenSchema = z.object({
 
   palette: z.enum(['spectrum', 'warm-cool', 'sunset', 'ice']).default('spectrum')
     .meta({ section: 'Look', ui: 'segmented', options: ['spectrum', 'warm-cool', 'sunset', 'ice'], label: 'Palette',
-            help: 'The genotype colour wheel. Each genotype keeps its colour across both bands.' }),
+            help: 'The genotype color wheel. Each genotype keeps its color across both bands.' }),
   saturation: z.number().min(0.3).max(1).default(0.72)
     .meta({ section: 'Look', ui: 'slider', min: 0.3, max: 1, step: 0.02, label: 'Saturation',
-            help: 'Colour intensity of the stripes.' }),
+            help: 'Color intensity of the stripes.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
     .meta({ section: 'Look', ui: 'color', label: 'Background',
             help: 'Shows through as the gap between the host and parasite bands.' }),
@@ -51,7 +51,7 @@ export const redQueenSchema = z.object({
             help: 'Generations per second — how fast the waterfall flows.' }),
 
   seed: z.number().int().default(5)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same run. A fresh visit rolls a new one.' }),
 })
 

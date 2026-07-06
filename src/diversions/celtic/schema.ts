@@ -22,7 +22,7 @@ export const celticSchema = z.object({
             help: 'Fraction of interior crossings turned into a "break" that redirects the bands. '
                 + '0 weaves one big plait; more breaks split it into separate, smaller knots.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Knot', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Chooses where the breaks fall. A shared link is seedless — '
                 + 'every visit weaves a different knot.' }),
 
@@ -52,15 +52,15 @@ export const celticSchema = z.object({
 
   // ─── Color ─────────────────────────────────────────────────────────────────
   colorMode: z.enum(COLOR_MODES).default('single')
-    .meta({ section: 'Color', ui: 'segmented', options: [...COLOR_MODES], label: 'Colouring',
-            help: 'Single: one colour for the whole weave. Rainbow: each separate closed band '
+    .meta({ section: 'Color', ui: 'segmented', options: [...COLOR_MODES], label: 'Coloring',
+            help: 'Single: one color for the whole weave. Rainbow: each separate closed band '
                 + 'gets its own hue (most striking when Breaks split the knot apart).' }),
   band: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f2c14e')
     .meta({ section: 'Color', ui: 'color', label: 'Band',
-            help: 'The ribbon colour, used in Single mode.' }),
+            help: 'The ribbon color, used in Single mode.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a14')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The dark ground. Also the colour of the gaps between crossing bands.' }),
+            help: 'The dark ground. Also the color of the gaps between crossing bands.' }),
 })
 
 export type CelticConfig = z.infer<typeof celticSchema>

@@ -38,7 +38,7 @@ export const lyapunovSchema = z.object({
             help: 'Contrast of the warm ramp inside the stable "cities" (how quickly deep '
                 + 'stability darkens away from the glowing edge).' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Pattern', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Sets where the window opens in parameter space and its drift path — each '
                 + 'fresh visit frames a different swirl. A shared link is seedless; an explicit '
                 + 'seed reproduces one framing.' }),

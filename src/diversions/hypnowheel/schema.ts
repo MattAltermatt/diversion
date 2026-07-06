@@ -39,11 +39,11 @@ export const hypnowheelSchema = z.object({
   color: z.object({
     mode: z.enum(['duotone', 'spectrum']).default('duotone')
       .meta({ ui: 'segmented', options: ['duotone', 'spectrum'], label: 'Mode',
-              help: 'Duotone: one ink drawn XOR-style so overlapping arms cancel to the ground — the crispest moire. Spectrum: each layer a luminous colour, overlaps adding into light.' }),
+              help: 'Duotone: one ink drawn XOR-style so overlapping arms cancel to the ground — the crispest moire. Spectrum: each layer a luminous color, overlaps adding into light.' }),
     background: hex6.default('#05060a')
-      .meta({ ui: 'color', label: 'Background', help: 'The ground colour, painted every frame.' }),
+      .meta({ ui: 'color', label: 'Background', help: 'The ground color, painted every frame.' }),
     ink: hex6.default('#e8f2ff')
-      .meta({ ui: 'color', label: 'Ink colour',
+      .meta({ ui: 'color', label: 'Ink color',
               showWhen: { field: 'mode', equals: 'duotone' },
               help: 'The single arm colour. Overlapping arms cancel toward the background — the classic XOR moire wheel.' }),
     hueDrift: z.number().min(0).max(60).default(3)
@@ -52,7 +52,7 @@ export const hypnowheelSchema = z.object({
               help: 'Degrees per second the ink hue slides around the wheel. 0 = fixed hue.' }),
     tints: z.array(hex8).min(1).max(6)
       .default(['#38d9ffcc', '#a479ffcc', '#ff5f9ecc', '#5effbdcc', '#ffd15ecc', '#ff8a4ccc'])
-      .meta({ ui: 'colorList', label: 'Layer colours', min: 1, max: 6,
+      .meta({ ui: 'colorList', label: 'Layer colors', min: 1, max: 6,
               showWhen: { field: 'mode', equals: 'spectrum' },
               help: 'Each layer takes one of these, cycling by index. Overlaps add into brighter light.' }),
   }).default({
@@ -61,7 +61,7 @@ export const hypnowheelSchema = z.object({
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(87)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed gives every layer the same starting rotation, so a run reproduces exactly. A fresh visit rolls a new one.' }),
 })
 

@@ -16,14 +16,14 @@ export const braidSchema = z.object({
   // ─── Braid ───────────────────────────────────────────────────────────────
   strandCount: z.number().int().min(3).max(8).default(5)
     .meta({ section: 'Braid', ui: 'slider', min: 3, max: 8, step: 1, label: 'Strands',
-            help: 'How many coloured strands weave around the ring. Fewer = bold, chunky '
+            help: 'How many colored strands weave around the ring. Fewer = bold, chunky '
                 + 'rope; more = a fine, intricate plait.' }),
   twist: z.number().int().min(1).max(6).default(2)
     .meta({ section: 'Braid', ui: 'slider', min: 1, max: 6, step: 1, label: 'Twist',
             help: 'How tightly the strands braid — how many full weave cycles wrap the '
                 + 'ring. Low = long, lazy crossings; high = a dense, tightly-plaited torc.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Braid', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Chooses the palette, the starting angle, and the over/under '
                 + 'parity. A shared link is seedless — every visit weaves a different braid.' }),
 
@@ -48,17 +48,17 @@ export const braidSchema = z.object({
                 + 'other way; 0 holds it still. Slow is hypnotic.' }),
   holdSeconds: z.number().int().min(6).max(60).default(24)
     .meta({ section: 'Motion', ui: 'slider', min: 6, max: 60, step: 1, label: 'New braid every',
-            help: 'Seconds before a fresh seed re-weaves the braid with new colours and a new '
+            help: 'Seconds before a fresh seed re-weaves the braid with new colors and a new '
                 + 'weave — the endless screensaver loop. The ring keeps rotating throughout.' }),
 
   // ─── Color ───────────────────────────────────────────────────────────────
   colorMode: z.enum(COLOR_MODES).default('palette')
-    .meta({ section: 'Color', ui: 'segmented', options: [...COLOR_MODES], label: 'Colouring',
+    .meta({ section: 'Color', ui: 'segmented', options: [...COLOR_MODES], label: 'Coloring',
             help: 'Palette: each strand a jewel hue, golden-angle spaced from a seeded base. '
                 + 'Rainbow: hues evenly span the wheel by strand.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a14')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The dark ground. Also the colour of the gaps between crossing strands.' }),
+            help: 'The dark ground. Also the color of the gaps between crossing strands.' }),
 })
 
 export type BraidConfig = z.infer<typeof braidSchema>

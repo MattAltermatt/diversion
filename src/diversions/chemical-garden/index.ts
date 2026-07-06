@@ -13,7 +13,7 @@ import { gardenPresets, mineralPresets } from './presets'
 
 const presets: PresetGroup<ChemicalGardenConfig>[] = [
   { label: 'Garden', options: gardenPresets },
-  { label: 'Minerals', options: mineralPresets },
+  { label: 'Palette', options: mineralPresets },
 ]
 
 const chemicalGarden = defineDiversion<typeof chemicalGardenSchema, GardenState, '2d'>({

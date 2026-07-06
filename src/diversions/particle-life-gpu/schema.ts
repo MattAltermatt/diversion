@@ -62,14 +62,14 @@ export const particleLifeGpuSchema = z.object({
     .meta({ section: 'Look', ui: 'slider', min: 0, max: 0.6, step: 0.01, label: 'Trail length',
             help: 'How slowly the previous frame fades. Higher = longer, dreamier motion trails. 0 = crisp, no trails.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
-    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this colour. Dark reads best.' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this color. Dark reads best.' }),
 
   speed: z.number().min(0.02).max(4).default(1)
     .meta({ section: 'Motion', ui: 'slider', min: 0.02, max: 4, step: 0.02, label: 'Speed',
             help: 'Visual playback speed. Far below 1× slows the whole broth into a barely-creeping, meditative drift; above 1× fast-forwards. The GPU has headroom to spare, so even the slowest settings stay smooth.' }),
 
   seed: z.number().int().default(1337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The seed rolls the interaction matrix and the starting soup, so the same seed always STARTS the same world. (Its GPU-simulated evolution can drift slightly between different graphics cards.) A fresh visit rolls a new one.' }),
 })
 

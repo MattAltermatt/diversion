@@ -9,7 +9,7 @@ describe('viscous-fingering diversion', () => {
     expect(typeof viscousFingering.setup).toBe('function')
     expect(typeof viscousFingering.frame).toBe('function')
     expect(typeof viscousFingering.teardown).toBe('function')
-    expect(viscousFingering.presets?.map((g) => g.label)).toEqual(['Fingering', 'Color'])
+    expect(viscousFingering.presets?.map((g) => g.label)).toEqual(['Fingering', 'Palette'])
   })
 
   it('preset patches are all valid partial configs (equal key-sets per group)', () => {

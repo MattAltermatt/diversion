@@ -7,7 +7,7 @@ describe('grayscott diversion', () => {
     expect(grayscott.kind).toBe('webgl')
     expect(typeof grayscott.setup).toBe('function')
     expect(typeof grayscott.frame).toBe('function')
-    expect(grayscott.presets?.map((g) => g.label)).toEqual(['Pattern', 'Color'])
+    expect(grayscott.presets?.map((g) => g.label)).toEqual(['Pattern', 'Palette'])
   })
   it('update() reseeds only on seed change, morphs otherwise', () => {
     const cfg = grayScottBase()

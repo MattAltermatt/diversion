@@ -20,12 +20,12 @@ export const starfieldSchema = z.object({
             help: 'Slowly rotates the whole field as you fly. 0 = no roll; sign sets direction.' }),
   starColorMode: z.enum(['white', 'blue-white', 'spectrum']).default('blue-white')
     .meta({ section: 'Color', ui: 'segmented', options: ['white', 'blue-white', 'spectrum'],
-            label: 'Star colour',
+            label: 'Star color',
             help: 'white: pure white stars. blue-white: a cool blue-to-white stellar spectrum. '
                 + 'spectrum: subtle pastel tints across the whole spectrum.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#02030a')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Deep-space colour behind the stars. Streaks fade toward this.' }),
+            help: 'Deep-space color behind the stars. Streaks fade toward this.' }),
   trailFade: z.number().min(0).max(1).default(0.55)
     .meta({ section: 'Look', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Trail persistence',
             help: 'How long streaks linger. 0 = crisp moving dots wiped each frame; '
@@ -34,7 +34,7 @@ export const starfieldSchema = z.object({
     .meta({ section: 'Look', ui: 'toggle', label: 'Glow',
             help: 'Adds a soft halo around each star for a brighter, dreamier field.' }),
   seed: z.number().int().default(72301)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same star layout. A fresh visit '
                 + 'rolls a new sky.' }),
 })

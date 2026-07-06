@@ -79,7 +79,7 @@ export const forestSchema = z.object({
                 + 'the whole grove fades to this when it reseeds.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regrows the exact same forest. A fresh visit rolls '
                 + 'a new one.' }),
 })

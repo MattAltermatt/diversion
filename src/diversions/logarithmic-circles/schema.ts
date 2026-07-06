@@ -31,10 +31,10 @@ export const logCirclesSchema = z.object({
       .meta({ ui: 'segmented', options: ['mono', 'color'], label: 'Mode',
               help: 'Mono: faithful black & white. Color: circles cycle a gallery palette.' }),
     background: hex6.default('#000000')
-      .meta({ ui: 'color', label: 'Background', help: 'The ground colour, painted every frame.' }),
+      .meta({ ui: 'color', label: 'Background', help: 'The ground color, painted every frame.' }),
     fg: hex6.default('#ffffff')
-      .meta({ ui: 'color', label: 'Circle colour', showWhen: { field: 'mode', equals: 'mono' },
-              help: 'The two-tone circle colour; circles flip between this and the background in a spiral.' }),
+      .meta({ ui: 'color', label: 'Circle color', showWhen: { field: 'mode', equals: 'mono' },
+              help: 'The two-tone circle color; circles flip between this and the background in a spiral.' }),
     tints: z.array(hex6).min(1).max(8)
       .default(['#37d6ff', '#8a7bff', '#ff5fa2', '#5effc4', '#ffd166'])
       .meta({ ui: 'colorList', label: 'Palette', min: 1, max: 8,

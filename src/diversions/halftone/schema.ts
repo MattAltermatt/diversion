@@ -41,27 +41,27 @@ export const halftoneSchema = z.object({
   // ─── Color ───────────────────────────────────────────────────────────────────
   colorMode: z.enum(['ink', 'tinted']).default('ink')
     .meta({ section: 'Color', ui: 'segmented', options: ['ink', 'tinted'], label: 'Color by',
-            help: 'ink: single-colour dots, classic black-on-white newsprint. '
-                + 'tinted: dots shift colour with the field — cool where weak, hot at the peaks.' }),
+            help: 'ink: single-color dots, classic black-on-white newsprint. '
+                + 'tinted: dots shift color with the field — cool where weak, hot at the peaks.' }),
   inkColor: hex6.default('#14171c')
     .meta({ section: 'Color', ui: 'color', label: 'Ink', showWhen: { field: 'colorMode', equals: 'ink' },
-            help: 'The single dot colour in ink mode.' }),
+            help: 'The single dot color in ink mode.' }),
   tintLow: hex6.default('#1b2a6b')
     .meta({ section: 'Color', ui: 'color', label: 'Weak-field tint',
             showWhen: { field: 'colorMode', equals: 'tinted' },
-            help: 'Colour of the small dots far from any mass (low field).' }),
+            help: 'Color of the small dots far from any mass (low field).' }),
   tintHigh: hex6.default('#ff3b6b')
     .meta({ section: 'Color', ui: 'color', label: 'Strong-field tint',
             showWhen: { field: 'colorMode', equals: 'tinted' },
-            help: 'Colour of the big dots at the field peaks (near a mass).' }),
+            help: 'Color of the big dots at the field peaks (near a mass).' }),
   background: hex6.default('#f4f1ea')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The paper colour behind the dots. Off-white gives newsprint energy; '
+            help: 'The paper color behind the dots. Off-white gives newsprint energy; '
                 + 'a dark ground flips it to glowing dots.' }),
 
   // ─── Advanced ────────────────────────────────────────────────────────────────
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always regenerates the same orbits. '
                 + 'A fresh visit rolls a new one.' }),
 })

@@ -36,25 +36,25 @@ export const substrateSchema = z.object({
             help: 'How long the finished painting takes to fade to the background before regrowing.' }),
   grainDensity: z.number().int().min(16).max(128).default(84)
     .meta({ section: 'Sand', ui: 'slider', min: 16, max: 128, step: 1, label: 'Grain density',
-            help: 'Grains laid along each perpendicular ray. More = smoother, denser watercolour cells.' }),
+            help: 'Grains laid along each perpendicular ray. More = smoother, denser watercolor cells.' }),
   grainOpacity: z.number().min(0.02).max(0.3).default(0.135)
     .meta({ section: 'Sand', ui: 'slider', min: 0.02, max: 0.3, step: 0.005, label: 'Grain opacity',
             help: 'Alpha at a ray’s dense end; grains feather toward ~0 at the far (neighbour) end.' }),
   crackColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#2a2a2a')
     .meta({ section: 'Line', ui: 'color', label: 'Crack color',
-            help: 'Colour of the thin dark ink line each crack draws as it grows.' }),
+            help: 'Color of the thin dark ink line each crack draws as it grows.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f4efe4')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground colour, painted once and faded back to between cycles.' }),
+            help: 'The ground color, painted once and faded back to between cycles.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
-              help: 'Palette: each crack picks one random wash colour. Gradient: colour sampled by start position.' }),
+              help: 'Palette: each crack picks one random wash color. Gradient: color sampled by start position.' }),
     colors: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
       .default(['#7c3f1e33', '#c8762f33', '#e0a45833', '#3a4a6b33', '#9c5a3c33', '#b0402e33'])
       .meta({ ui: 'colorList', label: 'Colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'palette' },
-              help: 'Each crack picks one of these for its watercolour wash. Alpha multiplies the grain build-up.' }),
+              help: 'Each crack picks one of these for its watercolor wash. Alpha multiplies the grain build-up.' }),
     source: z.enum(['y', 'x']).default('y')
       .meta({ ui: 'segmented', options: ['y', 'x'], label: 'Gradient source',
               showWhen: { field: 'mode', equals: 'gradient' },
@@ -71,7 +71,7 @@ export const substrateSchema = z.object({
     stops: ['#3a4a6bff', '#c8762fff', '#7c3f1eff'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(2917)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same sequence of crack networks. A fresh visit rolls a new one.' }),
 })
 

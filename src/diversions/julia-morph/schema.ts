@@ -19,7 +19,7 @@ export const juliaMorphSchema = z.object({
             help: 'Escape iterations — more sharpens the fractal boundary and its finest '
                 + 'filaments, at some cost.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Pattern', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Sets where the constant starts its orbit — each fresh visit opens on a '
                 + 'different form. A shared link is seedless; an explicit seed reproduces one.' }),
   // ── Color ──

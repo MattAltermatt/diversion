@@ -45,32 +45,32 @@ export const swirlSchema = z.object({
             help: 'Thickness of the spiral filaments, in pixels. Thin reads as fine smoke; thick as bold ribbons.' }),
   glow: z.number().min(0).max(1).default(0.55)
     .meta({ section: 'Look', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Glow',
-            help: 'Strength of the soft halo drawn under each filament. More glow makes the crossings bloom into luminous nodes; too much can wash out — dark ground keeps the jewel colour.' }),
+            help: 'Strength of the soft halo drawn under each filament. More glow makes the crossings bloom into luminous nodes; too much can wash out — dark ground keeps the jewel color.' }),
 
   color: z.object({
     mode: z.enum(['spectrum', 'palette']).default('spectrum')
-      .meta({ ui: 'segmented', options: ['spectrum', 'palette'], label: 'Colour',
-              help: 'Spectrum: hue sweeps the full wheel across centre→rim and per centre — a jewel rainbow. Palette: filaments take colours interpolated from your own stops.' }),
+      .meta({ ui: 'segmented', options: ['spectrum', 'palette'], label: 'Color',
+              help: 'Spectrum: hue sweeps the full wheel across centre→rim and per centre — a jewel rainbow. Palette: filaments take colors interpolated from your own stops.' }),
     background: hex6.default('#04050b')
       .meta({ ui: 'color', label: 'Background', help: 'The dark ground, painted every frame. Deep and near-black keeps the filaments luminous.' }),
     radialHue: z.number().min(0).max(360).default(140)
       .meta({ ui: 'slider', min: 0, max: 360, step: 5, label: 'Hue span',
-              help: 'How many degrees the hue slides from a filament’s centre to its rim. 0 = one colour per arm; larger = a marbled, ink-in-water gradient along each filament.' }),
+              help: 'How many degrees the hue slides from a filament’s centre to its rim. 0 = one color per arm; larger = a marbled, ink-in-water gradient along each filament.' }),
     colorCycle: z.number().min(0).max(30).default(5)
-      .meta({ ui: 'slider', min: 0, max: 30, step: 0.5, label: 'Colour cycle',
-              help: 'Degrees per second the whole palette slides around the wheel, so the jewel colours breathe over time. 0 = fixed.' }),
+      .meta({ ui: 'slider', min: 0, max: 30, step: 0.5, label: 'Color cycle',
+              help: 'Degrees per second the whole palette slides around the wheel, so the jewel colors breathe over time. 0 = fixed.' }),
     palette: z.array(hex6).min(2).max(6)
       .default(['#3a0ca3', '#7209b7', '#f72585', '#4cc9f0', '#4361ee'])
       .meta({ ui: 'colorList', label: 'Palette', min: 2, max: 6,
               showWhen: { field: 'mode', equals: 'palette' },
-              help: 'Filament colours, interpolated across centre→rim and cycled over time. Overlaps add into brighter light.' }),
+              help: 'Filament colors, interpolated across centre→rim and cycled over time. Overlaps add into brighter light.' }),
   }).default({
     mode: 'spectrum', background: '#04050b', radialHue: 140, colorCycle: 5,
     palette: ['#3a0ca3', '#7209b7', '#f72585', '#4cc9f0', '#4361ee'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(95)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed lays the centres down identically, so a run reproduces exactly. A fresh visit rolls a new one.' }),
 })
 

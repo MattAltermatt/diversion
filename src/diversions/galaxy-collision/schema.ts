@@ -45,19 +45,19 @@ export const galaxyCollisionSchema = z.object({
                 + 'trace the tidal streams.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#01020a')
     .meta({ section: 'Look', ui: 'color', label: 'Background',
-            help: 'Deep-space colour behind the stars.' }),
+            help: 'Deep-space color behind the stars.' }),
 
   // ── Color ──
   colorsA: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(5).default(WARM)
-    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 5, label: 'Galaxy A colours',
+    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 5, label: 'Galaxy A colors',
             help: 'Warm disk. Ordered faint-outer → bright-core; a star is tinted by how '
                 + 'central it sits in its disk.' }),
   colorsB: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(5).default(COOL)
-    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 5, label: 'Galaxy B colours',
+    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 5, label: 'Galaxy B colors',
             help: 'Cool disk. Ordered faint-outer → bright-core, mirroring Galaxy A.' }),
 
   seed: z.number().int().default(90210)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same encounter. A fresh visit '
                 + 'rolls a new one.' }),
 })

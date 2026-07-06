@@ -13,7 +13,7 @@ type GrayScottState = {
 // patches the V→color ramp. simSpeed/seed stay user-controlled, outside both.
 const presets: PresetGroup<GrayScottConfig>[] = [
   { label: 'Pattern', options: patternPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const grayscott = defineDiversion<typeof grayScottSchema, GrayScottState, 'webgl'>({

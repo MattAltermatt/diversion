@@ -10,7 +10,7 @@ const MAX_STEPS_PER_FRAME = 12
 
 const presets: PresetGroup<ReiterSnowflakeConfig>[] = [
   { label: 'Morphology', options: morphologyPresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const reiterSnowflake = defineDiversion<typeof reiterSnowflakeSchema, SnowState, '2d'>({

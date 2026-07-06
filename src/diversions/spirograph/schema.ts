@@ -27,7 +27,7 @@ export const spirographSchema = z.object({
   randomizeEachBloom: z.boolean().default(true)
     .meta({ section: 'Shape', ui: 'toggle', label: 'Random blooms',
             help: 'On: every completed rosette fades and reseeds fresh gears for endless variety. '
-                + 'Off: the same rosette (your R / r / offset above) re-traces forever, colour still drifting.' }),
+                + 'Off: the same rosette (your R / r / offset above) re-traces forever, color still drifting.' }),
 
   // ─── Motion ──────────────────────────────────────────────────────────────────
   traceSpeed: z.number().min(0.5).max(8).default(2.6)
@@ -42,45 +42,45 @@ export const spirographSchema = z.object({
   // ─── Style ─────────────────────────────────────────────────────────────────
   penCount: z.number().int().min(1).max(3).default(2)
     .meta({ section: 'Style', ui: 'slider', min: 1, max: 3, step: 1, label: 'Nested pens',
-            help: 'Draw 1–3 copies of the rosette, each rotated a little and in its own colour, for '
+            help: 'Draw 1–3 copies of the rosette, each rotated a little and in its own color, for '
                 + 'a layered, interwoven bloom.' }),
   lineWidth: z.number().min(0.4).max(3).default(1.1)
     .meta({ section: 'Style', ui: 'slider', min: 0.4, max: 3, step: 0.05, label: 'Line width',
             help: 'Stroke thickness in pixels. Thin keeps the dense petals crisp and legible.' }),
   glow: z.number().min(0).max(1).default(0.25)
     .meta({ section: 'Style', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Glow',
-            help: 'Soft halo around the line (opaque core keeps the colour from blowing out). '
+            help: 'Soft halo around the line (opaque core keeps the color from blowing out). '
                 + '0 = clean, crisp lines.' }),
 
   // ─── Color ───────────────────────────────────────────────────────────────────
   colorMode: z.enum(['palette', 'spectrum', 'mono']).default('spectrum')
     .meta({ section: 'Color', ui: 'segmented', options: ['palette', 'spectrum', 'mono'], label: 'Color by',
             help: 'spectrum: hue sweeps along the curve (rainbow rosette) · palette: each pen takes a '
-                + 'colour from your list, cycling per bloom · mono: a single ink colour.' }),
+                + 'color from your list, cycling per bloom · mono: a single ink color.' }),
   hueRange: z.number().min(20).max(360).default(220)
     .meta({ section: 'Color', ui: 'slider', min: 20, max: 360, step: 5, label: 'Hue spread',
             showWhen: { field: 'colorMode', equals: 'spectrum' },
-            help: 'How much of the colour wheel the rainbow sweeps across the curve. Small = tight, '
+            help: 'How much of the color wheel the rainbow sweeps across the curve. Small = tight, '
                 + 'analogous; 360 = full spectrum.' }),
   colorDrift: z.number().min(0).max(1).default(0.3)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Color drift',
-            help: 'How fast the base hue slowly rotates over time. 0 = fixed colour. Keeps a long '
+            help: 'How fast the base hue slowly rotates over time. 0 = fixed color. Keeps a long '
                 + 'session gently evolving.' }),
   palette: z.array(hex6).min(1).max(8)
     .default(['#ff5d8f', '#ffd166', '#5ff0c8', '#5d9cff', '#c58bff'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
             showWhen: { field: 'colorMode', equals: 'palette' },
-            help: 'Nested pens and successive blooms cycle through these colours.' }),
+            help: 'Nested pens and successive blooms cycle through these colors.' }),
   fg: hex6.default('#eafaff')
     .meta({ section: 'Color', ui: 'color', label: 'Ink', showWhen: { field: 'colorMode', equals: 'mono' },
-            help: 'The single line colour in mono mode.' }),
+            help: 'The single line color in mono mode.' }),
   background: hex6.default('#05070d')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground colour, painted every frame. Dark backgrounds give the most contrast.' }),
+            help: 'The ground color, painted every frame. Dark backgrounds give the most contrast.' }),
 
   // ─── Advanced ────────────────────────────────────────────────────────────────
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed replays the same sequence of blooms. A fresh visit rolls '
                 + 'a new one.' }),
 })

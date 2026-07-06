@@ -44,7 +44,7 @@ export const munchingSquaresSchema = z.object({
   }).default({ hueStart: 200, hueSpan: 300, saturation: 85, lightness: 55 })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Rolls the Auto rule, the Shift offset, and the starting color phase. A fresh visit rolls a new one; a shared link pins it.' }),
 })
 

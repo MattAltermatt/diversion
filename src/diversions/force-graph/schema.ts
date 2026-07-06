@@ -24,7 +24,7 @@ export const forceGraphSchema = z.object({
     .meta({ section: 'Forces', ui: 'slider', min: 0.6, max: 0.97, step: 0.01, label: 'Damping',
             help: 'Fraction of velocity kept each step. Lower settles faster but stiffer; higher drifts longer. Strong damping is what lets the tangle come to rest.' }),
   colorBy: z.enum(['community', 'degree']).default('community')
-    .meta({ section: 'Look', ui: 'segmented', options: ['community', 'degree'], label: 'Colour by',
+    .meta({ section: 'Look', ui: 'segmented', options: ['community', 'degree'], label: 'Color by',
             help: 'community = each cluster gets its own hue · degree = hub nodes glow hot, leaves stay cool.' }),
   nodeSize: z.number().min(1.5).max(9).default(4)
     .meta({ section: 'Look', ui: 'slider', min: 1.5, max: 9, step: 0.5, label: 'Node size',
@@ -35,7 +35,7 @@ export const forceGraphSchema = z.object({
   palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(6)
     .default(['#4cc9f0', '#f72585', '#ffd166', '#06d6a0', '#b5179e', '#ff7b54'])
     .meta({ section: 'Look', ui: 'colorList', min: 2, max: 6, label: 'Palette',
-            help: 'Community hues (cycled) and the low→high ramp for degree colouring. Vivid + saturated pops against the dark.' }),
+            help: 'Community hues (cycled) and the low→high ramp for degree coloring. Vivid + saturated pops against the dark.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#06080f')
     .meta({ section: 'Look', ui: 'color', label: 'Background',
             help: 'A near-black keeps the glowing nodes high-contrast.' }),
@@ -43,7 +43,7 @@ export const forceGraphSchema = z.object({
     .meta({ section: 'Motion', ui: 'slider', min: 1, max: 6, step: 1, label: 'Relax speed',
             help: 'Physics steps per frame — how fast you watch the untangling. Changes the pace, not the final layout.' }),
   seed: z.number().int().default(1337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed + settings → the same graph and the same relaxation. A fresh visit rolls a new world.' }),
 })
 

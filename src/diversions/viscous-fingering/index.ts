@@ -13,7 +13,7 @@ type ViscousFingeringState = {
 // Color option patches the palette + background. Speed/seed/colorMode stay outside.
 const presets: PresetGroup<ViscousFingeringConfig>[] = [
   { label: 'Fingering', options: fingeringPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const viscousFingering = defineDiversion<typeof viscousFingeringSchema, ViscousFingeringState, 'webgl'>({

@@ -23,10 +23,10 @@ export const abstractileSchema = z.object({
                 + 'Rotate = 180° pinwheel, Translate = a small motif tiled edge to edge.' }),
   grout: z.number().int().min(0).max(12).default(2)
     .meta({ section: 'Tiling', ui: 'slider', min: 0, max: 12, step: 1, label: 'Grout',
-            help: 'Width of the gap between tiles, where the background colour shows through.' }),
+            help: 'Width of the gap between tiles, where the background color shows through.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Tiling', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
-            help: 'Any integer. Sets the whole tileset, colours and symmetry. A shared link is '
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
+            help: 'Any integer. Sets the whole tileset, colors and symmetry. A shared link is '
                 + 'seedless — every visit lays a fresh mosaic.' }),
   // ── Motion ──
   fillSpeed: z.number().min(4).max(120).default(24)
@@ -38,9 +38,9 @@ export const abstractileSchema = z.object({
   // ── Color ──
   palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(8).default(TILE_COLORS)
     .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Tile colors',
-            help: 'Each tile region is filled with one of these. More colours = a richer quilt.' }),
+            help: 'Each tile region is filled with one of these. More colors = a richer quilt.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#141019')
-    .meta({ section: 'Color', ui: 'color', label: 'Grout / background',
+    .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'Shows in the grout gaps and behind open (negative-space) tiles.' }),
 })
 

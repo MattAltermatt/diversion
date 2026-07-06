@@ -38,7 +38,7 @@ export const chemicalGardenSchema = z.object({
             help: 'How much each branching generation thins. Lower = a strong stem-to-tendril taper.' }),
   glow: z.number().min(0).max(1).default(0.4)
     .meta({ section: 'Render', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Glow',
-            help: 'Soft mineral bloom around the tubes, layered over the opaque core so colour stays '
+            help: 'Soft mineral bloom around the tubes, layered over the opaque core so color stays '
                 + 'saturated at density. 0 = crisp, matte precipitate.' }),
 
   // ─── Color ──────────────────────────────────────────────────────────────────
@@ -50,10 +50,10 @@ export const chemicalGardenSchema = z.object({
                 + 'single salt, freshly picked every visit.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070a')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Canvas colour. The garden fades toward this when it reseeds.' }),
+            help: 'Canvas color. The garden fades toward this when it reseeds.' }),
 
   seed: z.number().int().default(3)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed regrows the same garden. A fresh visit rolls a new one.' }),
 })
 

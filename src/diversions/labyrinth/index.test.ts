@@ -9,7 +9,7 @@ describe('labyrinth diversion', () => {
     expect(labyrinth.kind).toBe('webgl')
     expect(typeof labyrinth.setup).toBe('function')
     expect(typeof labyrinth.frame).toBe('function')
-    expect(labyrinth.presets?.map((g) => g.label)).toEqual(['Density', 'Behavior', 'Color'])
+    expect(labyrinth.presets?.map((g) => g.label)).toEqual(['Density', 'Behavior', 'Palette'])
   })
 
   it('config survives a URL encode→decode round-trip', () => {

@@ -5,9 +5,9 @@ import { flowFieldSchema } from './schema'
 import { matchPresets } from '../../framework/presets'
 
 describe('flow-field preset groups', () => {
-  it('declares two groups: Flow and Color', () => {
+  it('declares two groups: Flow and Palette', () => {
     expect(flowField.presets).toBeDefined()
-    expect(flowField.presets!.map((g) => g.label)).toEqual(['Flow', 'Color'])
+    expect(flowField.presets!.map((g) => g.label)).toEqual(['Flow', 'Palette'])
   })
 
   it('exposes every flow/color preset as an option', () => {
@@ -45,7 +45,7 @@ describe('flow-field preset groups', () => {
     expect(aurora.patch).not.toHaveProperty('color')
   })
 
-  it('Color patches carry background + blend + color group', () => {
+  it('Palette patches carry background + blend + color group', () => {
     const pyr3 = flowField.presets![1].options.find((o) => o.name === 'pyr3')!
     expect(pyr3.patch).toHaveProperty('background')
     expect(pyr3.patch).toHaveProperty('blend')

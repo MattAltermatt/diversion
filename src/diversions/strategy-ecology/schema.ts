@@ -47,7 +47,7 @@ export const strategyEcologySchema = z.object({
     wsls: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f5b000')
       .meta({ ui: 'color', label: 'Win-Stay-Lose-Shift' }),
   }).default({ cooperate: '#3b82f6', defect: '#ff3b57', tft: '#2dd4a7', wsls: '#f5b000' })
-    .meta({ section: 'Look', ui: 'group', label: 'Strategy colours' }),
+    .meta({ section: 'Look', ui: 'group', label: 'Strategy colors' }),
   highlightChanges: z.boolean().default(true)
     .meta({ section: 'Look', ui: 'toggle', label: 'Flash invasions',
             help: 'Briefly brighten any cell that just switched strategy, so the invasion fronts '
@@ -61,7 +61,7 @@ export const strategyEcologySchema = z.object({
             help: 'Overlay the current fraction of each strategy.' }),
 
   seed: z.number().int().default(3)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same world. A fresh visit rolls a new one.' }),
 })
 

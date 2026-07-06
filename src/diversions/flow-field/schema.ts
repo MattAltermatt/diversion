@@ -34,7 +34,7 @@ export const flowFieldSchema = z.object({
                 + '- lighten: colored glow that keeps its hue — no white-out' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050810')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Trails fade toward this colour.' }),
+            help: 'Trails fade toward this color.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
@@ -65,7 +65,7 @@ export const flowFieldSchema = z.object({
     stops: ['#ff3b3b66', '#ffd23b66', '#3bff7a66', '#3bd2ff66', '#6a3bff66'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(10847)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regenerates the same initial layout and overall character. A fresh visit rolls a new one.' }),
 })
 

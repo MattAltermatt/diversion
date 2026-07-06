@@ -50,7 +50,7 @@ function buildMaze(cfg: LabyrinthConfig, trailW: number, trailH: number, subSeed
 const presets: PresetGroup<LabyrinthConfig>[] = [
   { label: 'Density', options: densityPresets.map((p) => ({ name: p.name, patch: p.patch })) },
   { label: 'Behavior', options: behaviorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const labyrinth = defineDiversion<typeof labyrinthSchema, LabyrinthState, 'webgl'>({

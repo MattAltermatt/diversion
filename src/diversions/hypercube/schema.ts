@@ -66,17 +66,17 @@ export const hypercubeSchema = z.object({
   colorMode: z.enum(['depth', 'single', 'spectrum']).default('depth')
     .meta({ section: 'Color', ui: 'segmented', options: ['depth', 'single', 'spectrum'],
             label: 'Color mode',
-            help: 'Depth: edges blend from a far colour to a near colour by distance. '
-                + 'Single: one colour, brightness by depth. Spectrum: each edge a '
+            help: 'Depth: edges blend from a far color to a near color by distance. '
+                + 'Single: one color, brightness by depth. Spectrum: each edge a '
                 + 'different hue around the wheel.' }),
   nearColor: hex6.default('#6cf0ff')
-    .meta({ section: 'Color', ui: 'color', label: 'Near colour',
-            help: 'Colour of the nearest edges (and the single-colour mode).' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Near color',
+            help: 'Color of the nearest edges (and the single-color mode).' }),
   farColor: hex6.default('#2340b8')
-    .meta({ section: 'Color', ui: 'color', label: 'Far colour',
+    .meta({ section: 'Color', ui: 'color', label: 'Far color',
             showWhen: { field: 'colorMode', equals: 'depth' },
-            help: 'Colour of the most distant edges; the wireframe blends toward the near '
-                + 'colour as edges approach.' }),
+            help: 'Color of the most distant edges; the wireframe blends toward the near '
+                + 'color as edges approach.' }),
   background: hex6.default('#04050c')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The deep ground the luminous wireframe is drawn on. Keep it dark for '
@@ -84,7 +84,7 @@ export const hypercubeSchema = z.object({
 
   // ─── Advanced ──────────────────────────────────────────────────────────────────
   seed: z.number().int().default(4104)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Sets the initial orientation and a subtle per-plane speed '
                 + 'jitter, so the same seed reproduces the same turning. A fresh visit '
                 + 'rolls a new one.' }),

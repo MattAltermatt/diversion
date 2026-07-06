@@ -88,7 +88,7 @@ export const phantomTrafficSchema = z.object({
             help: 'Overlay live density and mean flow.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same initial layout. A fresh visit '
                 + 'rolls a new one.' }),
 })

@@ -46,14 +46,14 @@ export const particleLifeSchema = z.object({
     .meta({ section: 'Look', ui: 'slider', min: 0, max: 0.6, step: 0.01, label: 'Trail length',
             help: 'How slowly the previous frame fades. Higher = longer, dreamier motion trails. 0 = crisp, no trails.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
-    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this colour. Dark reads best.' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Background', help: 'Trails fade toward this color. Dark reads best.' }),
 
   speed: z.number().min(0.25).max(4).default(1)
     .meta({ section: 'Motion', ui: 'slider', min: 0.25, max: 4, step: 0.25, label: 'Speed',
             help: 'Visual playback speed. Below 1× slows the whole broth into a calm, meditative drift; above 1× fast-forwards. Changes only how fast you watch, never the outcome.' }),
 
   seed: z.number().int().default(1337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The seed rolls the whole interaction matrix and the starting soup, so the same seed + settings always replays the same world. A fresh visit rolls a new one.' }),
 })
 

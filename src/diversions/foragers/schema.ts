@@ -59,11 +59,11 @@ export const foragersSchema = z.object({
     fast: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6ff0ff')
       .meta({ ui: 'color', label: 'Forager (fast)' }),
   }).default({ slow: '#2a6cff', fast: '#6ff0ff' })
-    .meta({ section: 'Look', ui: 'group', label: 'Forager colours' }),
+    .meta({ section: 'Look', ui: 'group', label: 'Forager colors' }),
   foodColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#5CFF7A')
-    .meta({ section: 'Look', ui: 'color', label: 'Food colour' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Food color' }),
   poisonColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff3050')
-    .meta({ section: 'Look', ui: 'color', label: 'Poison colour' }),
+    .meta({ section: 'Look', ui: 'color', label: 'Poison color' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#080a12')
     .meta({ section: 'Look', ui: 'color', label: 'Background' }),
   trailFade: z.number().min(0).max(0.95).default(0.8)
@@ -81,7 +81,7 @@ export const foragersSchema = z.object({
             help: 'Time multiplier for the whole world. Lower is calmer and easier to read.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same population and pellet layout. A '
                 + 'fresh visit rolls a new one.' }),
 })

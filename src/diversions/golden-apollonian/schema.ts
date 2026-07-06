@@ -8,7 +8,7 @@ export const goldenApollonianSchema = z.object({
     .meta({ section: 'Flight', ui: 'slider', min: 0.1, max: 3, step: 0.05, label: 'Speed',
             help: 'How fast the camera flies down the endless tunnel.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Flight', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Sets where in the endless flight it opens. A shared link is seedless — every '
                 + 'visit begins somewhere new.' }),
   depth: z.number().int().min(4).max(9).default(9)

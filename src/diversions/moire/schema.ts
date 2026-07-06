@@ -32,23 +32,23 @@ export const moireSchema = z.object({
   color: z.object({
     mode: z.enum(['glow', 'solid', 'xor']).default('glow')
       .meta({ ui: 'segmented', options: ['glow', 'solid', 'xor'], label: 'Mode',
-              help: 'Glow: luminous colour rings blended additively. Solid: filled rings that merge into a '
-                  + 'bold 2-colour parity field. XOR: thin duotone rings that cancel where they cross.' }),
+              help: 'Glow: luminous color rings blended additively. Solid: filled rings that merge into a '
+                  + 'bold 2-color parity field. XOR: thin duotone rings that cancel where they cross.' }),
     background: hex6.default('#05060a')
-      .meta({ ui: 'color', label: 'Background', help: 'The ground colour, painted every frame.' }),
+      .meta({ ui: 'color', label: 'Background', help: 'The ground color, painted every frame.' }),
     tints: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(1).max(8)
       .default(['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff', '#ffd166ff'])
-      .meta({ ui: 'colorList', label: 'Ring colours', min: 1, max: 8,
+      .meta({ ui: 'colorList', label: 'Ring colors', min: 1, max: 8,
               showWhen: { field: 'mode', equals: 'glow' },
               help: 'Each center takes one of these, cycling by index. Overlaps add into light.' }),
     fg: hex6.default('#9fe7ff')
-      .meta({ ui: 'color', label: 'Ring colour',
+      .meta({ ui: 'color', label: 'Ring color',
               showWhen: { field: 'mode', equals: ['solid', 'xor'] },
-              help: 'The second duotone colour, over the background. Solid: fills the odd-parity bands. XOR: rings that cancel where they cross.' }),
+              help: 'The second duotone color, over the background. Solid: fills the odd-parity bands. XOR: rings that cancel where they cross.' }),
     hueCycle: z.number().min(0).max(60).default(6)
       .meta({ ui: 'slider', min: 0, max: 60, step: 1, label: 'Hue cycle',
               showWhen: { field: 'mode', equals: 'xor' },
-              help: 'Degrees per second the ring colour drifts around the wheel. 0 = fixed hue.' }),
+              help: 'Degrees per second the ring color drifts around the wheel. 0 = fixed hue.' }),
   }).default({
     mode: 'glow', background: '#05060a',
     tints: ['#37d6ffff', '#8a7bffff', '#ff5fa2ff', '#5effc4ff', '#ffd166ff'],
@@ -56,7 +56,7 @@ export const moireSchema = z.object({
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(1701)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed places centers and drift directions identically every run. A fresh visit rolls a new one.' }),
 })
 

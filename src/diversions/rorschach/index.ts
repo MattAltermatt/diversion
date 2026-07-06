@@ -6,7 +6,7 @@ import { formPresets, inkPresets } from './presets'
 
 const presets: PresetGroup<RorschachConfig>[] = [
   { label: 'Form', options: formPresets },
-  { label: 'Ink', options: inkPresets },
+  { label: 'Palette', options: inkPresets },
 ]
 
 const rorschach = defineDiversion<typeof rorschachSchema, RorschachState, '2d'>({

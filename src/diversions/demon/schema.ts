@@ -38,7 +38,7 @@ export const demonSchema = z.object({
   }).default({ hueStart: 0, hueSpan: 360, saturation: 70, lightness: 55 })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regenerates the same starting noise. A fresh visit rolls a new one.' }),
 })
 

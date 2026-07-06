@@ -33,7 +33,7 @@ export const terrainSchema = z.object({
                 + '0 = a rigid, unchanging profile.' }),
   atmosphere: z.number().min(0).max(1).default(0.8)
     .meta({ section: 'Sky', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Atmosphere',
-            help: 'Haze strength. Higher washes distant ridges paler toward the sky colour for '
+            help: 'Haze strength. Higher washes distant ridges paler toward the sky color for '
                 + 'that deep "misty mountains" recession; 0 keeps every layer equally dark.' }),
   timeOfDay: z.enum(TIMES_OF_DAY).default('Auto')
     .meta({ section: 'Sky', ui: 'select', options: [...TIMES_OF_DAY], label: 'Time of day',
@@ -44,7 +44,7 @@ export const terrainSchema = z.object({
             showWhen: { field: 'timeOfDay', equals: 'Auto' },
             help: 'Minutes for one full night→day→night loop when Time of day is Auto.' }),
   seed: z.number().int().default(7421)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same mountain range. A fresh visit '
                 + 'rolls a new one.' }),
 })

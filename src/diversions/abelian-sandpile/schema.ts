@@ -23,7 +23,7 @@ export const abelianSandpileSchema = z.object({
             help: 'Seconds to hold the finished mandala once it crystallizes, before it clears '
                 + 'and regrows.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Growth', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Sets where extra sources land (a single centered source is the '
                 + 'same every time). A shared link is seedless — each visit reseeds.' }),
   // ── Color ──

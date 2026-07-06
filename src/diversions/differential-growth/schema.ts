@@ -78,7 +78,7 @@ export const differentialGrowthSchema = z.object({
                 + 'front; "ink" uses the last color; "sweep" cycles the whole list around the curve.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed regrows the same world. A fresh visit rolls a new one.' }),
 })
 

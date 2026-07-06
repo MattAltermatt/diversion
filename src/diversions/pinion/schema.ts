@@ -35,7 +35,7 @@ export const pinionSchema = z.object({
   // ── Look ──
   style: z.enum(['brass', 'solid', 'line']).default('brass')
     .meta({ section: 'Look', ui: 'segmented', options: ['brass', 'solid', 'line'], label: 'Style',
-            help: 'Brass: metallic shaded wheels with a highlight rim (steampunk). Solid: flat filled colour wheels with a dark outline. Line: blueprint line-art — outlines, hubs and spokes only.' }),
+            help: 'Brass: metallic shaded wheels with a highlight rim (steampunk). Solid: flat filled color wheels with a dark outline. Line: blueprint line-art — outlines, hubs and spokes only.' }),
   toothDepth: z.number().min(0.5).max(1.15).default(1)
     .meta({ section: 'Look', ui: 'slider', min: 0.5, max: 1.15, step: 0.01, label: 'Tooth depth',
             help: 'How far the teeth stand out from the wheel (cosmetic — the mesh spacing is fixed by the module). 1 draws teeth at full height so neighbours visibly interlock; lower flattens toward a smooth disc.' }),
@@ -43,14 +43,14 @@ export const pinionSchema = z.object({
   // ── Color ──
   palette: z.enum(['brass', 'copper', 'jewel', 'steel', 'spectrum']).default('brass')
     .meta({ section: 'Color', ui: 'segmented', options: ['brass', 'copper', 'jewel', 'steel', 'spectrum'], label: 'Palette',
-            help: 'Colour family cycled across the gears. Brass / copper / steel are metallic; jewel is saturated gem tones; spectrum sweeps the colour wheel by gear.' }),
+            help: 'Color family cycled across the gears. Brass / copper / steel are metallic; jewel is saturated gem tones; spectrum sweeps the color wheel by gear.' }),
   background: hex6.default('#0f0d0a')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The ground the gears sit on, painted every frame. A dark warm ground reads the metallic wheels best.' }),
 
   // ── Advanced ──
   seed: z.number().int().default(113)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed grows the same gear train — counts, sizes, positions and directions — every run. A fresh visit rolls a new one; add ?seed=N to pin an exact mechanism.' }),
 })
 

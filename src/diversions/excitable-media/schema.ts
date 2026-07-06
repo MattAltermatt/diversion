@@ -26,7 +26,7 @@ export const excitableMediaSchema = z.object({
                 + 'non-spiral patches. 0 is the raw hard-edged automaton; higher is a smoother, '
                 + 'more liquid glow (too high smears the crisp spiral fronts).' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed always restarts the dish the same way. A shared '
                 + 'link is seedless — every fresh visit self-organizes a different set of spirals.' }),
   // ── Pattern ── the Gerhardt-Schuster "hodgepodge machine" cellular-BZ knobs.

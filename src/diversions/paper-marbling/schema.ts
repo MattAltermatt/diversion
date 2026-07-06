@@ -14,7 +14,7 @@ export const paperMarblingSchema = z.object({
             help: 'How the inks are laid & mixed. concentric → drops fall on the same spot (with a '
                 + 'little jitter), each pushing the last outward into rippling tree-rings · drift → '
                 + 'inks keep dropping while a whirlpool or a single rake fires every so often · '
-                + 'whirlpool → eddies appear one by one and swirl colours into spirals · stylus → a '
+                + 'whirlpool → eddies appear one by one and swirl colors into spirals · stylus → a '
                 + 'stick dragged through, one wavering line at a time · stone → dropped inks only · '
                 + 'nonpareil → straight rake then a fine cross-rake (peacock grid) · feather → '
                 + 'nonpareil then a close cross-rake into plumes · bouquet → rake drawn then back '
@@ -28,7 +28,7 @@ export const paperMarblingSchema = z.object({
   dropSize: z.number().min(0.02).max(0.14).default(0.078)
     .meta({ section: 'The Marbling', ui: 'slider', min: 0.02, max: 0.14, step: 0.005, label: 'Drop size',
             help: 'Base radius of each ink drop (fraction of the sheet). Drops expand every existing '
-                + 'colour outward to make room, so larger drops overwrite more of what came before.' }),
+                + 'color outward to make room, so larger drops overwrite more of what came before.' }),
   combSpacing: z.number().min(0.03).max(0.3).default(0.08)
     .meta({ section: 'The Marbling', ui: 'slider', min: 0.03, max: 0.3, step: 0.005, label: 'Comb spacing',
             help: 'Gap between the rake teeth (fraction of the sheet). Tight spacing = many fine '
@@ -59,14 +59,14 @@ export const paperMarblingSchema = z.object({
                 + 'the others dye each drop from the list at random, newest painted on top.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f2ead6')
     .meta({ section: 'Color', ui: 'color', label: 'Paper',
-            help: 'Colour of the size bath / paper showing through where no ink lands.' }),
+            help: 'Color of the size bath / paper showing through where no ink lands.' }),
   paperGrain: z.number().min(0).max(1).default(0.35)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Paper grain',
-            help: 'Subtle fibrous mottling in the paper. 0 = flat colour; higher = more handmade, '
+            help: 'Subtle fibrous mottling in the paper. 0 = flat color; higher = more handmade, '
                 + 'organic tone.' }),
 
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Same seed marbles the same sheet. A fresh visit rolls a new one.' }),
 })
 

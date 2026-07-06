@@ -10,7 +10,7 @@ export const truchetFlowSchema = z.object({
     .meta({ section: 'Tiling', ui: 'slider', min: 1, max: 20, step: 1, label: 'Line width',
             help: 'Thickness of the curves.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Tiling', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Chooses each tile’s orientation. A shared link is seedless — '
                 + 'every visit weaves a different maze.' }),
   // ── Flow ──

@@ -31,11 +31,11 @@ export const doyleSchema = z.object({
   style: z.enum(['filled', 'rings', 'ink']).default('filled')
     .meta({ section: 'Look', ui: 'segmented', options: ['filled', 'rings', 'ink'], label: 'Style',
             help: 'filled → solid kissing discs · rings → line-art outlines only · ink → single-'
-                + 'colour silhouette.' }),
+                + 'color silhouette.' }),
   colorBy: z.enum(['radius', 'arm', 'angle']).default('radius')
-    .meta({ section: 'Look', ui: 'segmented', options: ['radius', 'arm', 'angle'], label: 'Colour by',
-            help: 'radius → still concentric colour bands the circles flow through as they zoom · '
-                + 'arm → each spiral arm a solid hue that sweeps round · angle → a colour wheel by '
+    .meta({ section: 'Look', ui: 'segmented', options: ['radius', 'arm', 'angle'], label: 'Color by',
+            help: 'radius → still concentric color bands the circles flow through as they zoom · '
+                + 'arm → each spiral arm a solid hue that sweeps round · angle → a color wheel by '
                 + 'direction from centre.' }),
   lineWidth: z.number().min(0.4).max(4).default(1.2)
     .meta({ section: 'Look', ui: 'slider', min: 0.4, max: 4, step: 0.1, label: 'Line width',
@@ -48,11 +48,11 @@ export const doyleSchema = z.object({
   // ─── Color ─────────────────────────────────────────────────────────────────────
   background: hex6.default('#07040c')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Canvas colour behind the spiral.' }),
+            help: 'Canvas color behind the spiral.' }),
   colors: z.array(hex6).min(1).max(8)
     .default(['#3a1a5e', '#7a2f8f', '#c8781f', '#f0b24a', '#ffe6a8', '#fff7e6'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
-            help: 'Sampled by the Colour-by mode: a smooth ramp across radius / angle, or one hue '
+            help: 'Sampled by the Color-by mode: a smooth ramp across radius / angle, or one hue '
                 + 'per arm (cycling).' }),
 
   // ─── Motion ─────────────────────────────────────────────────────────────────────

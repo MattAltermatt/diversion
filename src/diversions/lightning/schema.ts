@@ -44,16 +44,16 @@ export const lightningSchema = z.object({
             help: 'The searing-bright centre of the bolt (usually near-white).' }),
   haloColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#4a7dff')
     .meta({ section: 'Color', ui: 'color', label: 'Halo',
-            help: 'The colour of the glow around the bolt — the electric aura.' }),
+            help: 'The color of the glow around the bolt — the electric aura.' }),
   emberColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff7a2a')
     .meta({ section: 'Color', ui: 'color', label: 'Ember',
-            help: 'The warm colour the bolt decays toward as it fades after the strike.' }),
+            help: 'The warm color the bolt decays toward as it fades after the strike.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#03040a')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The night sky behind the storm — err dark for maximum bolt contrast.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Same seed regrows the same sequence of bolts. A fresh visit rolls a new storm.' }),
 })
 

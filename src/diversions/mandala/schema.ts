@@ -50,14 +50,14 @@ export const mandalaSchema = z.object({
             help: 'Stroke thickness of the outlined motifs (arcs and spokes).' }),
   palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(3).max(8).default(JEWEL)
     .meta({ section: 'Style', ui: 'colorList', min: 3, max: 8, label: 'Jewel colors',
-            help: 'Each ring is coloured from this palette, cycling outward.' }),
+            help: 'Each ring is colored from this palette, cycling outward.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0812')
     .meta({ section: 'Style', ui: 'color', label: 'Background' }),
 
   // ── Seed (pin-only) ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Style', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
-            help: 'Any integer. Sets the whole mandala — symmetry, motifs, colours. A shared '
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+            help: 'Any integer. Sets the whole mandala — symmetry, motifs, colors. A shared '
                 + 'link is seedless, so every visit blooms a different one.' }),
 })
 

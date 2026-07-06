@@ -12,7 +12,7 @@ export const leniaSchema = z.object({
                 + 'minute, and the fastest in a few seconds. (The frame cost is the same at every '
                 + 'speed — only the pace changes.)' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always restarts the field the same way. '
                 + 'A shared link is seedless — every fresh visit grows a different soup.' }),
   // ── Advanced ── raw growth band; most values away from a preset give a dead or saturated field.

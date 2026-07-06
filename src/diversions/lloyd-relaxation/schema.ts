@@ -17,7 +17,7 @@ export const lloydRelaxationSchema = z.object({
             help: 'Gentle perpetual perturbation so the foam never fully freezes — cells keep '
                 + 'nudging and occasionally swapping neighbours. 0 = settles and stops.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Cells', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Sets the initial scatter of seeds. A shared link is seedless — '
                 + 'every visit anneals a different foam.' }),
   // ── Style ──

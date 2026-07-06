@@ -14,7 +14,7 @@ type PhysarumState = {
 // seed stay user-controlled, outside both groups.
 const presets: PresetGroup<PhysarumConfig>[] = [
   { label: 'Behavior', options: behaviorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const physarum = defineDiversion<typeof physarumSchema, PhysarumState, 'webgl'>({

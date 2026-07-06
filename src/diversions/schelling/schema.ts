@@ -41,7 +41,7 @@ export const schellingSchema = z.object({
 
   palette: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0b0d12')
-      .meta({ ui: 'color', label: 'Empty / background' }),
+      .meta({ ui: 'color', label: 'Background' }),
     typeA: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff4d6d')
       .meta({ ui: 'color', label: 'Type A' }),
     typeB: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#4dd0e1')
@@ -49,7 +49,7 @@ export const schellingSchema = z.object({
     typeC: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ffd166')
       .meta({ ui: 'color', label: 'Type C (3-type only)' }),
   }).default({ background: '#0b0d12', typeA: '#ff4d6d', typeB: '#4dd0e1', typeC: '#ffd166' })
-    .meta({ section: 'Look', ui: 'group', label: 'Palette',
+    .meta({ section: 'Color', ui: 'group', label: 'Palette',
             help: 'High contrast between types makes the emerging neighbourhoods pop.' }),
 
   showHud: z.boolean().default(true)
@@ -57,7 +57,7 @@ export const schellingSchema = z.object({
             help: 'Overlay the live segregation index and unhappy count.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same sorting. A fresh visit rolls a new one.' }),
 })
 

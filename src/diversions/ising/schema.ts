@@ -44,8 +44,8 @@ export const isingSchema = z.object({
                 + 'temperature higher, so ordered domains survive to hotter sweeps.' }),
   field: z.number().min(-0.5).max(0.5).default(0)
     .meta({ section: 'Dynamics', ui: 'slider', min: -0.5, max: 0.5, step: 0.01, label: 'External field',
-            help: 'A magnetic bias toward one spin. 0 is balanced (both colours equally likely); '
-                + 'push it either way and that colour tends to win the whole lattice.' }),
+            help: 'A magnetic bias toward one spin. 0 is balanced (both colors equally likely); '
+                + 'push it either way and that color tends to win the whole lattice.' }),
   speed: z.number().min(0.02).max(4).default(0.1)
     .meta({ section: 'Dynamics', ui: 'slider', min: 0.02, max: 4, step: 0.02, label: 'Speed',
             help: 'Monte-Carlo sweeps of the whole lattice per frame. Fractional values (below 1) '
@@ -55,25 +55,25 @@ export const isingSchema = z.object({
   // ── Color ──
   colorUp: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f4f1e6')
     .meta({ section: 'Color', ui: 'color', label: 'Up spin',
-            help: 'Colour of one spin domain.' }),
+            help: 'Color of one spin domain.' }),
   colorDown: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a1c30')
     .meta({ section: 'Color', ui: 'color', label: 'Down spin',
-            help: 'Colour of the other spin domain. Keep strong contrast with Up spin for crisp '
+            help: 'Color of the other spin domain. Keep strong contrast with Up spin for crisp '
                 + 'domains.' }),
   boundary: z.boolean().default(false)
     .meta({ section: 'Color', ui: 'toggle', label: 'Domain walls',
             help: 'Trace a bright line along the boundaries between domains — highlights the '
                 + 'fractal coastlines near the critical point.' }),
   boundaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff5a1e')
-    .meta({ section: 'Color', ui: 'color', label: 'Wall colour',
-            help: 'Colour of the domain-wall outline (used only when Domain walls is on).' }),
+    .meta({ section: 'Color', ui: 'color', label: 'Wall color',
+            help: 'Color of the domain-wall outline (used only when Domain walls is on).' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05060a')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground colour behind the lattice (shows at the grid-edge margin).' }),
+            help: 'The ground color behind the lattice (shows at the grid-edge margin).' }),
 
   // ── Advanced ──
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same starting noise and evolution. '
                 + 'A shared link is seedless — every visit seeds a fresh lattice.' }),
 })

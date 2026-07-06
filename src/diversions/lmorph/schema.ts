@@ -40,7 +40,7 @@ export const lmorphSchema = z.object({
             help: 'Thickness of the bright core stroke, in pixels.' }),
   glow: z.number().min(0).max(1).default(0.4)
     .meta({ section: 'Style', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Glow',
-            help: 'Soft luminous halo drawn under the core (an opaque core keeps the colour from '
+            help: 'Soft luminous halo drawn under the core (an opaque core keeps the color from '
                 + 'blowing out). 0 = a clean hairline.' }),
   ghostTrails: z.number().min(0).max(1).default(0.25)
     .meta({ section: 'Style', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Ghost trails',
@@ -51,28 +51,28 @@ export const lmorphSchema = z.object({
   colorMode: z.enum(['spectrum', 'palette']).default('spectrum')
     .meta({ section: 'Color', ui: 'segmented', options: ['spectrum', 'palette'], label: 'Color by',
             help: 'spectrum: hue sweeps around the outline and slowly cycles over time · '
-                + 'palette: the outline blends through your own list of colours, drifting slowly.' }),
+                + 'palette: the outline blends through your own list of colors, drifting slowly.' }),
   colorCycleSpeed: z.number().min(0).max(1).default(0.25)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Color cycle',
-            help: 'How fast the colour drifts over time. 0 = fixed colour. Keeps a long session '
+            help: 'How fast the color drifts over time. 0 = fixed color. Keeps a long session '
                 + 'gently evolving.' }),
   hueSpread: z.number().min(0).max(360).default(60)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 360, step: 5, label: 'Hue spread',
             showWhen: { field: 'colorMode', equals: 'spectrum' },
-            help: 'Degrees of hue swept around the outline. 0 = one solid, slowly-cycling colour; '
+            help: 'Degrees of hue swept around the outline. 0 = one solid, slowly-cycling color; '
                 + '360 = a full rainbow wrapped around the curve.' }),
   palette: z.array(hex6).min(1).max(8)
     .default(['#7cf9ff', '#4d7bff', '#c77dff', '#ff7ad9', '#ffd166'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
             showWhen: { field: 'colorMode', equals: 'palette' },
-            help: 'The outline blends through these colours in order, the offset drifting over time.' }),
+            help: 'The outline blends through these colors in order, the offset drifting over time.' }),
   background: hex6.default('#05070d')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'The dark ground the luminous curve is drawn on. Err toward deep and low-key.' }),
 
   // ─── Advanced ────────────────────────────────────────────────────────────────
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Picks which shapes are in the cycle, their order, and each one’s '
                 + 'details. The same seed replays the same sequence; a fresh visit rolls a new one.' }),
 })

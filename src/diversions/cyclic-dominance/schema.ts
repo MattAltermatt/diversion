@@ -43,7 +43,7 @@ export const cyclicDominanceSchema = z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a0a0f')
       .meta({ ui: 'color', label: 'Empty' }),
   }).default({ a: '#ff4136', b: '#2ecc40', c: '#0074d9', background: '#0a0a0f' })
-    .meta({ section: 'Look', ui: 'group', label: 'Species colours' }),
+    .meta({ section: 'Color', ui: 'group', label: 'Species colors' }),
 
   simSpeed: z.number().min(1).max(30).default(10)
     .meta({ section: 'Sim', ui: 'slider', min: 1, max: 30, step: 0.5, label: 'Sim speed',
@@ -55,7 +55,7 @@ export const cyclicDominanceSchema = z.object({
             help: 'Overlay the current population fraction of each species.' }),
 
   seed: z.number().int().default(5)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same world. A fresh visit rolls a new one.' }),
 })
 

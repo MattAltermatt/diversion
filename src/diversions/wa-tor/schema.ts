@@ -40,13 +40,13 @@ export const waTorSchema = z.object({
 
   palette: z.object({
     background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050b16')
-      .meta({ ui: 'color', label: 'Water' }),
+      .meta({ ui: 'color', label: 'Background' }),
     fish: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#f2c14e')
       .meta({ ui: 'color', label: 'Fish' }),
     shark: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff3b57')
       .meta({ ui: 'color', label: 'Shark' }),
   }).default({ background: '#050b16', fish: '#f2c14e', shark: '#ff3b57' })
-    .meta({ section: 'Look', ui: 'group', label: 'Palette' }),
+    .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
 
   simSpeed: z.number().min(1).max(30).default(8)
     .meta({ section: 'Sim', ui: 'slider', min: 1, max: 30, step: 0.5, label: 'Sim speed',
@@ -57,7 +57,7 @@ export const waTorSchema = z.object({
             help: 'Overlay live fish and shark counts.' }),
 
   seed: z.number().int().default(17)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same world. A fresh visit rolls a new one.' }),
 })
 

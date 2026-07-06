@@ -9,7 +9,7 @@ const MAX_GENS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
 const presets: PresetGroup<GameOfLifeConfig>[] = [
   { label: 'Style', options: stylePresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const gameOfLife = defineDiversion<typeof gameOfLifeSchema, LifeState, '2d'>({

@@ -25,19 +25,19 @@ export const cwavesSchema = z.object({
                 + 'high = a woven, cellular interference.' }),
   banding: z.number().min(0.2).max(3).default(0.9)
     .meta({ section: 'Pattern', ui: 'slider', min: 0.2, max: 3, step: 0.05, label: 'Banding',
-            help: 'How tightly the summed field folds into colour bands. Low = wide, smooth '
+            help: 'How tightly the summed field folds into color bands. Low = wide, smooth '
                 + 'ribbons; high = many thin fringes.' }),
   driftSpeed: z.number().min(0).max(2).default(0.3)
     .meta({ section: 'Pattern', ui: 'slider', min: 0, max: 2, step: 0.05, label: 'Drift speed',
             help: 'How fast the phases drift and the ribbons reorganize. 0 = frozen.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Pattern', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Chooses the base set of angles and wavelengths — every fresh visit shows a '
                 + 'different weave. A shared link is seedless; an explicit seed reproduces one exactly.' }),
   // ── Color ──
   palette: z.array(hex6).min(2).max(8).default(AURORA)
     .meta({ section: 'Color', ui: 'colorList', min: 2, max: 8, label: 'Palette',
-            help: 'The colour gradient the field flows through. The field oscillates smoothly, so '
+            help: 'The color gradient the field flows through. The field oscillates smoothly, so '
                 + 'the palette is swept out and back — dark → light → dark — with no seam.' }),
 })
 

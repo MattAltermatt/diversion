@@ -8,7 +8,7 @@ import { arrangementPresets, colorPresets } from './presets'
 
 const presets: PresetGroup<AbelianSandpileConfig>[] = [
   { label: 'Arrangement', options: arrangementPresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const abelianSandpile = defineDiversion<typeof abelianSandpileSchema, SandpileState, '2d'>({

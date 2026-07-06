@@ -55,7 +55,7 @@ export const gravityWellsSchema = z.object({
                 + '- normal: each particle’s true color' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05060f')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Trails fade toward this colour.' }),
+            help: 'Trails fade toward this color.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('palette')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Color mode',
@@ -87,7 +87,7 @@ export const gravityWellsSchema = z.object({
     stops: ['#1b3a8aaa', '#3bd2ffaa', '#ffd23baa', '#ff3b3baa'],
   }).meta({ section: 'Color', ui: 'group', label: 'Palette / Gradient' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same initial layout and overall character. A fresh visit rolls a new one.' }),
 })
 

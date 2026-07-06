@@ -7,7 +7,7 @@ describe('lenia diversion', () => {
     expect(lenia.kind).toBe('webgl')
     expect(typeof lenia.setup).toBe('function')
     expect(typeof lenia.frame).toBe('function')
-    expect(lenia.presets?.map((g) => g.label)).toEqual(['Pattern', 'Color'])
+    expect(lenia.presets?.map((g) => g.label)).toEqual(['Pattern', 'Palette'])
   })
   it('update() reseeds on seed or radius change, morphs otherwise', () => {
     const cfg = leniaBase()

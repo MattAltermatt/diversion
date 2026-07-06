@@ -31,7 +31,7 @@ export const strangeAttractorsSchema = z.object({
                 + '- normal: each point’s flat color' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050810')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Density fades toward this colour.' }),
+            help: 'Density fades toward this color.' }),
   color: z.object({
     mode: z.enum(['palette', 'gradient']).default('gradient')
       .meta({ ui: 'segmented', options: ['palette', 'gradient'], label: 'Mode',
@@ -59,7 +59,7 @@ export const strangeAttractorsSchema = z.object({
     stops: ['#3b1a6a66', '#7a3bff66', '#3bd2ff66', '#3bff7a66', '#ffe08a66'],
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always regenerates the same attractor. '
                 + 'A fresh visit rolls a new one to discover a different map.' }),
 })

@@ -16,7 +16,7 @@ export const camouflageSchema = z.object({
   patternScale: z.number().min(1).max(8).default(3.5)
     .meta({ section: 'World', ui: 'slider', min: 1, max: 8, step: 0.1, label: 'Pattern scale',
             help: 'Size of the background blotches. Bigger blotches give the moths large patches to '
-                + 'match, so distinct colour lineages settle in each region.' }),
+                + 'match, so distinct color lineages settle in each region.' }),
 
   mothCount: z.number().int().min(40).max(600).default(220)
     .meta({ section: 'Moths', ui: 'slider', min: 40, max: 600, step: 10, label: 'Moths',
@@ -27,7 +27,7 @@ export const camouflageSchema = z.object({
             help: 'Radius of each moth in pixels.' }),
   mutationRate: z.number().min(0.01).max(0.4).default(0.12)
     .meta({ section: 'Moths', ui: 'slider', min: 0.01, max: 0.4, step: 0.01, label: 'Mutation',
-            help: 'How far an offspring’s colour drifts from its parent. Higher = faster (rougher) '
+            help: 'How far an offspring’s color drifts from its parent. Higher = faster (rougher) '
                 + 'adaptation and more conspicuous mutants to be picked off.' }),
   drift: z.number().min(0).max(1).default(0.35)
     .meta({ section: 'Moths', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Flutter',
@@ -55,7 +55,7 @@ export const camouflageSchema = z.object({
             help: 'Time multiplier for the whole scene.' }),
 
   seed: z.number().int().default(9)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same habitat + arms race. A fresh visit rolls a new one.' }),
 })
 

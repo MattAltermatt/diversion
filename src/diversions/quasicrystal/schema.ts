@@ -17,7 +17,7 @@ export const quasicrystalSchema = z.object({
     .meta({ section: 'Pattern', ui: 'slider', min: 0, max: 3, step: 0.05, label: 'Speed',
             help: 'How fast the interference drifts and reorganizes. 0 = frozen.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Pattern', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Rotates the whole lattice — every fresh visit shows a different quasicrystal. '
                 + 'A shared link is seedless; an explicit seed reproduces one exactly.' }),
   // ── Color ──

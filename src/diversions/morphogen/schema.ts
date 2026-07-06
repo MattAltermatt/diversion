@@ -19,7 +19,7 @@ export const morphogenSchema = z.object({
       help: 'Size of the chemical grid. The smooth gradient upscales cleanly to any screen, '
           + 'so a small grid stays crisp — smaller also resolves faster and spreads broader.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
       help: 'Any integer — fixes the source placement and drift. A shared link is seedless, '
           + 'so every fresh visit grows a different body plan.' }),
 

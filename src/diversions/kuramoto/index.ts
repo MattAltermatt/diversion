@@ -11,7 +11,7 @@ type KuramotoState = {
 
 const presets: PresetGroup<KuramotoConfig>[] = [
   { label: 'Regime', options: regimePresets },
-  { label: 'Color', options: colorPresets },
+  { label: 'Palette', options: colorPresets },
 ]
 
 const kuramoto = defineDiversion<typeof kuramotoSchema, KuramotoState, 'webgl'>({

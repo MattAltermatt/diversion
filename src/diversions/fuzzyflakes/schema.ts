@@ -38,7 +38,7 @@ export const fuzzyflakesSchema = z.object({
             help: 'The deep field the flakes drift across. Keep it dark for contrast.' }),
 
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed → same flakes. A fresh visit rolls a new field.' }),
 })
 

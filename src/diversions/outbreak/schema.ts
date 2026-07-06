@@ -76,7 +76,7 @@ export const outbreakSchema = z.object({
     .meta({ section: 'Motion', ui: 'slider', min: 0.1, max: 4, step: 0.05, label: 'Speed',
             help: 'Playback rate. Below 1 is slow-motion (0.1 is a very slow, meditative watch); above 1 fast-forwards. Only changes how fast you watch, never the outcome.' }),
   seed: z.number().int().default(1337)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed + settings always replays the same outbreak. A fresh visit rolls a new one.' }),
 })
 

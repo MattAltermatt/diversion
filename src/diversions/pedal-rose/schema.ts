@@ -25,12 +25,12 @@ export const pedalRoseSchema = z.object({
   randomizeEachBloom: z.boolean().default(true)
     .meta({ section: 'Shape', ui: 'toggle', label: 'Random blooms',
             help: 'On: every finished bloom fades and reseeds a fresh curve (new k and type) for '
-                + 'endless variety. Off: your n / d / type above re-traces forever, colour still drifting.' }),
+                + 'endless variety. Off: your n / d / type above re-traces forever, color still drifting.' }),
 
   // ─── Mandala ─────────────────────────────────────────────────────────────────
   copies: z.number().int().min(1).max(4).default(1)
     .meta({ section: 'Mandala', ui: 'slider', min: 1, max: 4, step: 1, label: 'Copies',
-            help: 'Overlay 1–4 rotated copies of the curve, each in its own colour, for a fuller '
+            help: 'Overlay 1–4 rotated copies of the curve, each in its own color, for a fuller '
                 + 'kaleidoscopic mandala.' }),
   rotationOffset: z.number().min(0).max(180).default(30)
     .meta({ section: 'Mandala', ui: 'slider', min: 0, max: 180, step: 1, label: 'Copy rotation',
@@ -52,38 +52,38 @@ export const pedalRoseSchema = z.object({
             help: 'Stroke thickness in pixels. Thin keeps dense petals crisp and legible.' }),
   glow: z.number().min(0).max(1).default(0.3)
     .meta({ section: 'Style', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Glow',
-            help: 'Soft luminous halo around the line (an opaque core keeps the colour from blowing '
+            help: 'Soft luminous halo around the line (an opaque core keeps the color from blowing '
                 + 'out). 0 = clean, crisp lines.' }),
 
   // ─── Color ───────────────────────────────────────────────────────────────────
   colorMode: z.enum(['spectrum', 'palette', 'mono']).default('spectrum')
     .meta({ section: 'Color', ui: 'segmented', options: ['spectrum', 'palette', 'mono'], label: 'Color by',
             help: 'spectrum: hue sweeps along the curve (rainbow bloom) · palette: each copy takes a '
-                + 'colour from your list, cycling per bloom · mono: a single ink colour.' }),
+                + 'color from your list, cycling per bloom · mono: a single ink color.' }),
   hueRange: z.number().min(20).max(360).default(200)
     .meta({ section: 'Color', ui: 'slider', min: 20, max: 360, step: 5, label: 'Hue spread',
             showWhen: { field: 'colorMode', equals: 'spectrum' },
-            help: 'How much of the colour wheel the rainbow sweeps across the curve. Small = tight, '
+            help: 'How much of the color wheel the rainbow sweeps across the curve. Small = tight, '
                 + 'analogous; 360 = full spectrum.' }),
   colorDrift: z.number().min(0).max(1).default(0.3)
     .meta({ section: 'Color', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Color drift',
-            help: 'How fast the base hue slowly rotates over time. 0 = fixed colour. Keeps a long '
+            help: 'How fast the base hue slowly rotates over time. 0 = fixed color. Keeps a long '
                 + 'session gently evolving.' }),
   palette: z.array(hex6).min(1).max(8)
     .default(['#ff5d8f', '#ffd166', '#5ff0c8', '#5d9cff', '#c58bff'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
             showWhen: { field: 'colorMode', equals: 'palette' },
-            help: 'Copies and successive blooms cycle through these colours.' }),
+            help: 'Copies and successive blooms cycle through these colors.' }),
   fg: hex6.default('#eafaff')
     .meta({ section: 'Color', ui: 'color', label: 'Ink', showWhen: { field: 'colorMode', equals: 'mono' },
-            help: 'The single line colour in mono mode.' }),
+            help: 'The single line color in mono mode.' }),
   background: hex6.default('#05070d')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground colour, painted every frame. Dark backgrounds give the most contrast.' }),
+            help: 'The ground color, painted every frame. Dark backgrounds give the most contrast.' }),
 
   // ─── Advanced ────────────────────────────────────────────────────────────────
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed replays the same sequence of blooms. A fresh visit rolls '
                 + 'a new one.' }),
 })

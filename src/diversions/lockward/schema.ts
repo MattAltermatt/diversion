@@ -14,7 +14,7 @@ export const lockwardSchema = z.object({
             help: 'How many concentric blade-rings, hub to rim. More rings = a finer, busier clockwork.' }),
   bladesMin: z.number().int().min(2).max(24).default(6)
     .meta({ section: 'Rings', ui: 'slider', min: 2, max: 24, step: 2, label: 'Blades — fewest',
-            help: 'The lower bound on blades per ring. Each ring picks an even count in [fewest, most] from the seed (even so the two-colour alternation closes seamlessly).' }),
+            help: 'The lower bound on blades per ring. Each ring picks an even count in [fewest, most] from the seed (even so the two-color alternation closes seamlessly).' }),
   bladesMax: z.number().int().min(2).max(24).default(14)
     .meta({ section: 'Rings', ui: 'slider', min: 2, max: 24, step: 2, label: 'Blades — most',
             help: 'The upper bound on blades per ring. Widen the gap between fewest and most for rings of visibly different pitch.' }),
@@ -39,28 +39,28 @@ export const lockwardSchema = z.object({
   color: z.object({
     mode: z.enum(['spectrum', 'duotone']).default('spectrum')
       .meta({ ui: 'segmented', options: ['spectrum', 'duotone'], label: 'Mode',
-              help: 'Spectrum: blades sweep the colour wheel and the whole wheel drifts over time — kaleidoscopic. Duotone: two fixed inks alternate blade-to-blade — a stained-glass rose window.' }),
+              help: 'Spectrum: blades sweep the color wheel and the whole wheel drifts over time — kaleidoscopic. Duotone: two fixed inks alternate blade-to-blade — a stained-glass rose window.' }),
     background: hex6.default('#05060c')
       .meta({ ui: 'color', label: 'Background', help: 'The ground the rings sit on, painted every frame. Dark reads the luminous blades best.' }),
     colorCycle: z.number().min(0).max(30).default(6)
-      .meta({ ui: 'slider', min: 0, max: 30, step: 1, label: 'Colour cycle',
+      .meta({ ui: 'slider', min: 0, max: 30, step: 1, label: 'Color cycle',
               showWhen: { field: 'mode', equals: 'spectrum' },
-              help: 'Degrees per second the whole colour wheel drifts. 0 = fixed hues; slow drift is the hypnotic slow-cycle.' }),
+              help: 'Degrees per second the whole color wheel drifts. 0 = fixed hues; slow drift is the hypnotic slow-cycle.' }),
     colorA: hex6.default('#38d9ff')
       .meta({ ui: 'color', label: 'Ink A',
               showWhen: { field: 'mode', equals: 'duotone' },
-              help: 'The colour of the even blades. Set Ink B to the background for classic filled/empty spokes.' }),
+              help: 'The color of the even blades. Set Ink B to the background for classic filled/empty spokes.' }),
     colorB: hex6.default('#ff5f9e')
       .meta({ ui: 'color', label: 'Ink B',
               showWhen: { field: 'mode', equals: 'duotone' },
-              help: 'The colour of the odd blades, alternating with Ink A around each ring.' }),
+              help: 'The color of the odd blades, alternating with Ink A around each ring.' }),
   }).default({
     mode: 'spectrum', background: '#05060c', colorCycle: 6,
     colorA: '#38d9ff', colorB: '#ff5f9e',
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(110)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed gives the same blade counts, speeds and directions every run. A fresh visit rolls a new one; add ?seed=N to pin an exact clockwork.' }),
 })
 

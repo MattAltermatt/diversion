@@ -38,7 +38,7 @@ function makeState(cfg: StrangeAttractorsConfig, w: number, h: number): Attracto
 const presets: PresetGroup<StrangeAttractorsConfig>[] = [
   { label: 'Attractor', options: attractorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
   {
-    label: 'Color',
+    label: 'Palette',
     options: colorPresets.map((p) => ({
       name: p.name,
       patch: { background: p.background, blend: p.blend, color: p.color },

@@ -109,7 +109,7 @@ export const antColonySchema = z.object({
   }).meta({ section: 'Look', ui: 'group', label: 'Palette' }),
 
   seed: z.number().int().default(13)
-    .meta({ section: 'Look', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same world (nest/food placement + '
                 + 'ant starts). A fresh visit rolls a new one.' }),
 })

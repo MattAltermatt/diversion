@@ -39,11 +39,11 @@ export const tourSchema = z.object({
 
   pathColor: z.object({
     mode: z.enum(['position', 'solid']).default('position')
-      .meta({ ui: 'segmented', options: ['position', 'solid'], label: 'Colour mode',
+      .meta({ ui: 'segmented', options: ['position', 'solid'], label: 'Color mode',
               help: 'position: a rainbow swept along the loop, so you can trace the route. solid: one '
-                  + 'colour for the whole path.' }),
+                  + 'color for the whole path.' }),
     color: z.string().regex(HEX).default('#7dd3fc')
-      .meta({ ui: 'color', label: 'Path colour',
+      .meta({ ui: 'color', label: 'Path color',
               showWhen: { field: 'mode', equals: 'solid' } }),
     glow: z.boolean().default(true)
       .meta({ ui: 'toggle', label: 'Glow',
@@ -61,7 +61,7 @@ export const tourSchema = z.object({
     .meta({ section: 'Look', ui: 'color', label: 'Background' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same cities and the same untangling. A '
                 + 'fresh visit rolls a new one.' }),
 })

@@ -64,7 +64,7 @@ export const phyllotaxisSchema = z.object({
   colorBy: z.enum(['index', 'radius']).default('index')
     .meta({ section: 'Color', ui: 'segmented', options: ['index', 'radius'], label: 'Color by',
             help: 'index: rainbow along the growth order (matches the video — arms become '
-                + 'colour streams). radius: colour by distance from the centre.' }),
+                + 'color streams). radius: color by distance from the centre.' }),
   motion: z.enum(['flow', 'sweep', 'still']).default('flow')
     .meta({ section: 'Motion', ui: 'segmented', options: ['flow', 'sweep', 'still'], label: 'Motion',
             help: 'flow: shapes are born at the centre and stream outward off-screen forever (a '
@@ -106,17 +106,17 @@ export const phyllotaxisSchema = z.object({
   strokeColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05030a')
     .meta({ section: 'Color', ui: 'color', label: 'Mesh line color',
             showWhen: { field: 'renderMode', equals: 'mesh' },
-            help: 'Colour of the cell borders. Only shows when Mesh lines > 0.' }),
+            help: 'Color of the cell borders. Only shows when Mesh lines > 0.' }),
   color: z.object({
     stops: z.array(z.string().regex(/^#[0-9a-fA-F]{8}$/)).min(2).max(8)
       .default(NIGHTGLASS_STOPS)
       .meta({ ui: 'colorList', label: 'Palette', min: 2, max: 8,
-              help: 'Colours are evenly spaced and sampled across the florets (by index or '
+              help: 'Colors are evenly spaced and sampled across the florets (by index or '
                   + 'radius). Per-stop alpha lets the background glow through.' }),
   }).default({ stops: NIGHTGLASS_STOPS })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Drives the jitter wobble. A shared link shows a fresh seed '
                 + 'each visit; set one explicitly to reproduce an exact head.' }),
 })

@@ -41,22 +41,22 @@ export const dlaSchema = z.object({
   colorByAge: z.boolean().default(true)
     .meta({ section: 'Color', ui: 'toggle', label: 'Color by growth',
             help: 'On: the palette cycles outward with arrival time, so the growth history glows as '
-                + 'concentric rings from the seed. Off: one ink colour for the whole cluster.' }),
+                + 'concentric rings from the seed. Off: one ink color for the whole cluster.' }),
   bands: z.number().int().min(1).max(16).default(5)
     .meta({ section: 'Color', ui: 'slider', min: 1, max: 16, step: 1, label: 'Rings',
             help: 'How many full palette cycles the growth passes through end to end (only affects '
                 + '"Color by growth"). More = tighter, thinner rings.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#04060d')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'Canvas colour behind the structure.' }),
+            help: 'Canvas color behind the structure.' }),
   colors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1).max(8)
     .default(['#0a2f52', '#1f7fc0', '#57d6f2', '#eafcff'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 1, max: 8,
             help: 'Ordered seed → outermost growth. Cycles for the rings; "Color by growth" off uses '
-                + 'the last colour.' }),
+                + 'the last color.' }),
 
   seed: z.number().int().default(3)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Same seed regrows the same structure. A fresh visit rolls a new one.' }),
 })
 

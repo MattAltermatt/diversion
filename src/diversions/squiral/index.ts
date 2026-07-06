@@ -35,7 +35,7 @@ function drawCell(
 
 const presets: PresetGroup<SquiralConfig>[] = [
   { label: 'Motion', options: motionPresets.map((p) => ({ name: p.name, patch: p.patch })) },
-  { label: 'Color', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
+  { label: 'Palette', options: colorPresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({

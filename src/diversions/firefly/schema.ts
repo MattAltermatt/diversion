@@ -35,7 +35,7 @@ export const fireflySchema = z.object({
 
   flashColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#c9ff5e')
     .meta({ section: 'Look', ui: 'color', label: 'Flash color',
-            help: 'The colour of a firefly’s pulse. Warm yellow-greens read most like real fireflies.' }),
+            help: 'The color of a firefly’s pulse. Warm yellow-greens read most like real fireflies.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#050a08')
     .meta({ section: 'Look', ui: 'color', label: 'Background',
             help: 'The night. Keep it deep and dark so the flashes pop.' }),
@@ -49,7 +49,7 @@ export const fireflySchema = z.object({
                 + 'light so the waves smear beautifully.' }),
 
   seed: z.number().int().default(7)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regenerates the same field of fireflies and the same '
                 + 'dance into sync. A fresh visit rolls a new one.' }),
 })

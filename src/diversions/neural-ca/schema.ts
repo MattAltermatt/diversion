@@ -14,7 +14,7 @@ export const neuralCaSchema = z.object({
     .meta({ section: 'Simulation', ui: 'slider', min: 0.5, max: 2, step: 0.1, label: 'Scale',
             help: 'Cell size — higher = a finer grid of more, smaller cells.' }),
   seed: z.number().int().default(1337)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed restarts the variant identically. '
                 + 'A shared link is seedless — every fresh visit grows a different variant.' }),
 })

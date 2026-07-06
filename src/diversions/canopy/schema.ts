@@ -53,7 +53,7 @@ export const canopySchema = z.object({
       .meta({ ui: 'color', label: 'Leaf (sunlit)',
               help: 'Leaves are tinted between shaded and sunlit by how much light they catch.' }),
   }).default({ skyTop: '#0a1420', skyBottom: '#05080c', trunk: '#3a2a1c', leafShade: '#123a24', leafSun: '#b6f05a' })
-    .meta({ section: 'Look', ui: 'group', label: 'Palette' }),
+    .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
 
   showHud: z.boolean().default(true)
     .meta({ section: 'HUD', ui: 'toggle', label: 'Show readout',
@@ -64,7 +64,7 @@ export const canopySchema = z.object({
             help: 'Simulation steps per second.' }),
 
   seed: z.number().int().default(17)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed reproduces the same forest. A fresh visit rolls a new one.' }),
 })
 

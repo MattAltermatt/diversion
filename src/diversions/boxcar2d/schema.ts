@@ -60,7 +60,7 @@ export const boxcar2dSchema = z.object({
   }).default({ chassis: '#e76f51', wheel: '#264653', terrain: '#3a5a40', sky: '#bde3ec' })
     .meta({ section: 'Color', ui: 'group', label: 'Palette' }),
   seed: z.number().int().default(42)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed regenerates the same track and the same evolutionary run. A fresh visit (no share-link) rolls a new one, so every load is a different run.' }),
 })
 

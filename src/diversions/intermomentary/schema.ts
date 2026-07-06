@@ -42,7 +42,7 @@ export const intermomentarySchema = z.object({
       .meta({ ui: 'segmented', options: ['duotone', 'spectrum'], label: 'Mode',
               help: 'Duotone: two inks, one per alternating ring, added into light where circles cross. Spectrum: each circle takes a hue around the wheel for a rainbow rosette.' }),
     background: hex6.default('#05070d')
-      .meta({ ui: 'color', label: 'Background', help: 'The ground colour, painted every frame.' }),
+      .meta({ ui: 'color', label: 'Background', help: 'The ground color, painted every frame.' }),
     inkA: hex8.default('#59e0ffcc')
       .meta({ ui: 'color', label: 'Ink A',
               showWhen: { field: 'mode', equals: 'duotone' },
@@ -54,7 +54,7 @@ export const intermomentarySchema = z.object({
     saturation: z.number().min(0).max(100).default(85)
       .meta({ ui: 'slider', min: 0, max: 100, step: 1, label: 'Saturation',
               showWhen: { field: 'mode', equals: 'spectrum' },
-              help: 'Colour intensity of the spectrum hues, percent. Lower drifts toward luminous white crossings.' }),
+              help: 'Color intensity of the spectrum hues, percent. Lower drifts toward luminous white crossings.' }),
   }).default({
     mode: 'duotone', background: '#05070d',
     inkA: '#59e0ffcc', inkB: '#ff6ab0cc', saturation: 85,
@@ -65,7 +65,7 @@ export const intermomentarySchema = z.object({
             help: 'Brighten the exact points where two circle outlines cross with tiny sparks, so the moving intersection lattice reads as luminous nodes.' }),
 
   seed: z.number().int().default(109)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed sets each ring’s starting angle and spin direction identically every run. A fresh visit rolls a new one.' }),
 })
 

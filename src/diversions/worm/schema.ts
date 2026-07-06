@@ -50,7 +50,7 @@ export const wormSchema = z.object({
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'Backdrop the worms glide over (and trails fade toward).' }),
   seed: z.number().int().default(4231)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the same paths and colours. '
                 + 'A fresh visit rolls a new one.' }),
 })

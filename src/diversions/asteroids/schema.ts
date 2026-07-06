@@ -99,7 +99,7 @@ export const asteroidsSchema = z.object({
     .meta({ section: 'Color', ui: 'color', label: 'Background' }),
   // ── Advanced ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer — sets the nebula, the dust, and the whole asteroid field. A shared '
                 + 'link is seedless, so every visit drifts through a different field.' }),
 })

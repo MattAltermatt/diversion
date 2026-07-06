@@ -46,22 +46,22 @@ export const hextrailSchema = z.object({
   // ─── Render ──────────────────────────────────────────────────────────────
   glow: z.number().min(0).max(1).default(0.6)
     .meta({ section: 'Render', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Glow',
-            help: 'Soft halo around each arm, tinted to its own colour. 0 = crisp lines.' }),
+            help: 'Soft halo around each arm, tinted to its own color. 0 = crisp lines.' }),
   coreWidth: z.number().min(1).max(4).default(2.5)
     .meta({ section: 'Render', ui: 'slider', min: 1, max: 4, step: 0.1, label: 'Line width',
             help: 'Thickness of the bright core stroke in pixels.' }),
 
   // ─── Color ───────────────────────────────────────────────────────────────
   colorWrap: z.boolean().default(true)
-    .meta({ section: 'Color', ui: 'toggle', label: 'Cyclic colour',
-            help: 'On = cyclic hue drift that never saturates — colour keeps drifting around the '
+    .meta({ section: 'Color', ui: 'toggle', label: 'Cyclic color',
+            help: 'On = cyclic hue drift that never saturates — color keeps drifting around the '
                 + 'palette over the whole spreading tree (jwz-authentic). Off = a ramp that clamps '
-                + 'at the last colour (the bloom saturates once it reaches the tip stop).' }),
+                + 'at the last color (the bloom saturates once it reaches the tip stop).' }),
   driftChance: z.number().min(0).max(0.6).default(0.14)
-    .meta({ section: 'Color', ui: 'slider', min: 0, max: 0.6, step: 0.01, label: 'Colour drift',
-            help: 'How fast colour moves along the palette as the tree branches — your "spread" '
+    .meta({ section: 'Color', ui: 'slider', min: 0, max: 0.6, step: 0.01, label: 'Color drift',
+            help: 'How fast color moves along the palette as the tree branches — your "spread" '
                 + 'control. Lower = the palette stretches slowly across the whole growth; higher = '
-                + 'faster hue drift; 0 = one flat colour.' }),
+                + 'faster hue drift; 0 = one flat color.' }),
   colors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(6)
     .default(['#f65b6b', '#f6a24a', '#dfd85a', '#5fd68a', '#4bbce6', '#8a7bf0'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 2, max: 6,
@@ -72,7 +72,7 @@ export const hextrailSchema = z.object({
             help: 'Canvas colour. The field fades toward this on each breath.' }),
 
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Same seed regrows the same sequence. A fresh visit rolls a new one.' }),
 })
 

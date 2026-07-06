@@ -8,9 +8,9 @@ export const penroseSchema = z.object({
                 + 'Capped at 6 to hold 60fps (the whole rotating field is redrawn each frame).' }),
   lineWidth: z.number().min(0).max(4).default(1.2)
     .meta({ section: 'Tiling', ui: 'slider', min: 0, max: 4, step: 0.2, label: 'Edge width',
-            help: 'Thickness of the rhombus edges. 0 hides them for pure colour fields.' }),
+            help: 'Thickness of the rhombus edges. 0 hides them for pure color fields.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Tiling', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Rotates the whole lattice to a fresh orientation. A shared link is seedless — '
                 + 'every visit opens on a different view.' }),
   // ── Motion ──

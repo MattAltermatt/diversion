@@ -15,7 +15,7 @@ export const decoSchema = z.object({
             help: 'How each rectangle is cut: Golden ratio (art-deco proportion), clean Halves, '
                 + 'or Mixed random cuts.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Composition', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Sets the whole subdivision. A shared link is seedless — every '
                 + 'visit composes a different one.' }),
   // ── Motion ──

@@ -54,7 +54,7 @@ export const wanderSchema = z.object({
                 + 'Fade: how long a trail lingers behind the pen (higher = longer comet tail).' }),
 
   seed: z.number().int().default(4931)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed reproduces the exact same wander. A fresh visit rolls a new one.' }),
 })
 

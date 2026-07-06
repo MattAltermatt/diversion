@@ -38,22 +38,22 @@ export const hexadropSchema = z.object({
   // ─── Color ─────────────────────────────────────────────────────────────────
   colorMode: z.enum(['by-phase', 'by-drop', 'single']).default('by-drop')
     .meta({ section: 'Color', ui: 'segmented', options: ['by-phase', 'by-drop', 'single'],
-            label: 'Colour by',
-            help: 'by-phase = colour follows ripple intensity along the palette (interference '
-                + 'reads as hue). by-drop = each drop keeps its own palette colour, like tinted '
-                + 'raindrops. single = one colour, brightness only.' }),
+            label: 'Color by',
+            help: 'by-phase = color follows ripple intensity along the palette (interference '
+                + 'reads as hue). by-drop = each drop keeps its own palette color, like tinted '
+                + 'raindrops. single = one color, brightness only.' }),
   colors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(6)
     .default(['#3aa0e6', '#4fd0c4', '#8a7bf0', '#f0a24a'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette', min: 2, max: 6,
-            help: 'Ripple colours. In by-phase the palette runs cool→hot with intensity; in '
+            help: 'Ripple colors. In by-phase the palette runs cool→hot with intensity; in '
                 + 'by-drop each drop picks one stop.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05070d')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The still-water colour behind the lattice. A deep dark keeps the ripples '
+            help: 'The still-water color behind the lattice. A deep dark keeps the ripples '
                 + 'luminous (err toward contrast).' }),
 
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed drops in the same places at the same times. A fresh '
                 + 'visit rolls a new one.' }),
 })

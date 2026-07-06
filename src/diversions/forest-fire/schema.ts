@@ -32,16 +32,16 @@ export const forestFireSchema = z.object({
   // ── Color ──
   ground: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#140f08')
     .meta({ section: 'Color', ui: 'color', label: 'Ground',
-            help: 'Colour of bare, burnt earth.' }),
+            help: 'Color of bare, burnt earth.' }),
   tree: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#2f9e3f')
     .meta({ section: 'Color', ui: 'color', label: 'Forest',
-            help: 'Colour of mature trees; young growth is a darker shade of this green.' }),
+            help: 'Color of mature trees; young growth is a darker shade of this green.' }),
   fire: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#ff5a1e')
     .meta({ section: 'Color', ui: 'color', label: 'Fire',
-            help: 'Colour of the burning front and the embers it leaves behind.' }),
+            help: 'Color of the burning front and the embers it leaves behind.' }),
   // ── Advanced ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed replays the same forest. A shared link is seedless — '
                 + 'every visit grows a fresh one.' }),
 })

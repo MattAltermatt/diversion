@@ -47,7 +47,7 @@ export const harmonographSchema = z.object({
     .meta({ section: 'Advanced', ui: 'slider', min: 1, max: 8, step: 0.5, label: 'Fade time',
             help: 'Seconds the settled figure takes to fade out before a fresh one is seeded.' }),
   seed: z.number().int().default(4207)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed regenerates the same sequence of figures. A fresh '
                 + 'visit rolls a new one.' }),
 })

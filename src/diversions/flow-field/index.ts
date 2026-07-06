@@ -9,7 +9,7 @@ import { flowPresets, colorPresets } from './presets'
 const presets: PresetGroup<FlowFieldConfig>[] = [
   { label: 'Flow', options: flowPresets.map((p) => ({ name: p.name, patch: p.flow })) },
   {
-    label: 'Color',
+    label: 'Palette',
     options: colorPresets.map((p) => ({
       name: p.name,
       patch: { background: p.background, blend: p.blend, color: p.color },

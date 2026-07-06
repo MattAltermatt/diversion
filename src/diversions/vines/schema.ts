@@ -72,7 +72,7 @@ export const vinesSchema = z.object({
                 + 'tips the last.' }),
 
   seed: z.number().int().default(3)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. Same seed regrows the same vine. A fresh visit rolls a new one.' }),
 })
 

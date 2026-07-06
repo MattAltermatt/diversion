@@ -27,7 +27,7 @@ export const gameOfLifeSchema = z.object({
             help: 'How many generations a dead cell lingers as a fading ghost. 0 = crisp classic '
                 + 'Life; higher leaves soft, cloud-like decay.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Motion', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed replays the same board. A shared link is seedless — '
                 + 'every visit seeds a fresh universe.' }),
   // ── Color ──

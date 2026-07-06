@@ -29,7 +29,7 @@ export const reiterSnowflakeSchema = z.object({
     .meta({ section: 'Motion', ui: 'slider', min: 0.5, max: 15, step: 0.5, label: 'Hold',
             help: 'Seconds to hold the finished crystal before it melts and a new one grows.' }),
   seed: z.number().int().default(1)
-    .meta({ section: 'Motion', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Jitters the growth conditions so each crystal is unique. A shared link is '
                 + 'seedless — every visit grows a different snowflake.' }),
   // ── Color ──

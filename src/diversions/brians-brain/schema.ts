@@ -55,7 +55,7 @@ export const briansBrainSchema = z.object({
             showWhen: { field: 'rule', equals: 'Wireworld' } }),
   // ── Advanced ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed replays the same field. A shared link is seedless — '
                 + 'every visit seeds a fresh world.' }),
 })

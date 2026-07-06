@@ -15,7 +15,7 @@ const FILL_HOLD_MS = 5000
 
 const presets: PresetGroup<BoxfitConfig>[] = [
   { label: 'Style', options: stylePresets },
-  { label: 'Look', options: lookPresets },
+  { label: 'Palette', options: lookPresets },
 ]
 
 const boxfit = defineDiversion<typeof boxfitSchema, BoxfitState, '2d'>({

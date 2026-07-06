@@ -58,7 +58,7 @@ export const threeBodySchema = z.object({
 
   // ── Advanced ──
   seed: z.number().int().default(1)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. While cycling, it shuffles the order of the catalogue (the iconic '
                 + 'figure-eight always leads). A shared link is seedless — every visit shuffles '
                 + 'anew; pass ?seed=N to reproduce an exact order.' }),

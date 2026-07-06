@@ -44,7 +44,7 @@ export const physarumSchema = z.object({
                 + '(0.1 ≈ a step every 10 frames); above 1 runs several steps per '
                 + 'frame for faster growth.' }),
   seed: z.number().int().default(7)
-    .meta({ section: 'Simulation', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             help: 'Any integer. The same seed always starts agents the same way. '
                 + 'A fresh visit rolls a new one to grow a different organism.' }),
   // ── Color ──

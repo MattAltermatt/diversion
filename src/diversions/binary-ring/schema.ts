@@ -41,28 +41,28 @@ export const binaryRingSchema = z.object({
   color: z.object({
     mode: z.enum(['warm-horizon', 'spectrum', 'duotone']).default('warm-horizon')
       .meta({ ui: 'segmented', options: ['warm-horizon', 'spectrum', 'duotone'], label: 'Mode',
-              help: 'warm-horizon: lit segments run from a white-gold core out to deep-red rim — a sun on the horizon. spectrum: segments sweep the colour wheel and the whole wheel drifts. duotone: two fixed inks alternate ring-and-segment.' }),
+              help: 'warm-horizon: lit segments run from a white-gold core out to deep-red rim — a sun on the horizon. spectrum: segments sweep the color wheel and the whole wheel drifts. duotone: two fixed inks alternate ring-and-segment.' }),
     background: hex6.default('#04060d')
       .meta({ ui: 'color', label: 'Background', help: 'The night the rings sit on, painted every frame. Deep and dark reads the glow best.' }),
     colorCycle: z.number().min(0).max(30).default(6)
-      .meta({ ui: 'slider', min: 0, max: 30, step: 1, label: 'Colour cycle',
+      .meta({ ui: 'slider', min: 0, max: 30, step: 1, label: 'Color cycle',
               showWhen: { field: 'mode', equals: 'spectrum' },
-              help: 'Degrees per second the colour wheel drifts. 0 = fixed hues; a slow drift is the hypnotic slow-cycle.' }),
+              help: 'Degrees per second the color wheel drifts. 0 = fixed hues; a slow drift is the hypnotic slow-cycle.' }),
     colorA: hex6.default('#ffcf5c')
       .meta({ ui: 'color', label: 'Ink A',
               showWhen: { field: 'mode', equals: 'duotone' },
-              help: 'Colour of the even lit segments.' }),
+              help: 'Color of the even lit segments.' }),
     colorB: hex6.default('#ff4d5e')
       .meta({ ui: 'color', label: 'Ink B',
               showWhen: { field: 'mode', equals: 'duotone' },
-              help: 'Colour of the odd lit segments, alternating with Ink A.' }),
+              help: 'Color of the odd lit segments, alternating with Ink A.' }),
   }).default({
     mode: 'warm-horizon', background: '#04060d', colorCycle: 6,
     colorA: '#ffcf5c', colorB: '#ff4d5e',
   }).meta({ section: 'Color', ui: 'group', label: 'Color' }),
 
   seed: z.number().int().default(101)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed gives the same ring rates, offsets and spin directions every run. A fresh visit rolls a new one; add ?seed=N to pin an exact horizon.' }),
 })
 
