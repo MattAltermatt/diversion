@@ -34,7 +34,7 @@ A new diversion copies this canon; it's what the majority of the 114 already do.
 - **Presets:** the color/appearance preset axis is a `PresetGroup` labeled **`'Palette'`** (independent axes for orthogonal choices, `Custom` fallback on manual drift — `matchPresets`).
 - **Help:** every non-obvious field carries persistent `.meta({ help })`.
 
-Known **not-yet-canon** debt (follow-up issues, not a blocker): ~18 pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; ~42 pieces have no color preset axis — add later.
+Known **not-yet-canon** debt (tracked in **#259**, not a blocker): ~18 pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; ~42 pieces have no color preset axis — add later.
 
 ## Gotchas learned
 
