@@ -43,7 +43,6 @@ struct Params {
   n: u32, nColors: u32,
   rMax: f32, beta: f32, forceMul: f32, frictionFactor: f32, dt: f32,
   worldW: f32, worldH: f32,
-  curve: u32,
 }
 @group(0) @binding(0) var<uniform> params: Params;
 @group(0) @binding(1) var<storage, read> species: array<u32>;
@@ -57,17 +56,11 @@ fn wrapDelta(d: f32, size: f32) -> f32 {
   if (d < -half) { return d + size; }
   return d;
 }
-// exact port of force.ts — band() shape selected by params.curve (#206)
-const PI = 3.14159265358979;
-fn band(s: f32, curve: u32) -> f32 {
-  if (curve == 1u) { return sin(PI * s); }                                 // Smooth
-  if (curve == 2u) { if (s < 0.2) { return s / 0.2; } return (1.0 - s) / 0.8; } // Long-range
-  if (curve == 3u) { return round(sin(PI * s) * 3.0) / 3.0; }             // Stepped
-  return 1.0 - abs(2.0 * s - 1.0);                                        // 0 Standard tent
-}
-fn force(q: f32, a: f32, beta: f32, curve: u32) -> f32 {
+// exact port of force.ts — symmetric triangular attraction band (peak a at center,
+// 0 at both ends so it joins the repulsion core continuously).
+fn force(q: f32, a: f32, beta: f32) -> f32 {
   if (q < beta) { return q / beta - 1.0; }
-  if (q < 1.0) { return a * band((q - beta) / (1.0 - beta), curve); }
+  if (q < 1.0) { return a * (1.0 - abs(2.0 * ((q - beta) / (1.0 - beta)) - 1.0)); }
   return 0.0;
 }
 
@@ -88,7 +81,7 @@ fn forces(@builtin(global_invocation_id) gid: vec3u) {
     if (d2 <= 0.0 || d2 > r2) { continue; }
     let dist = sqrt(d2);
     let a = matrix[ti * params.nColors + species[j]];
-    let inv = force(dist / params.rMax, a, params.beta, params.curve) / dist;
+    let inv = force(dist / params.rMax, a, params.beta) / dist;
     fx = fx + dx * inv;
     fy = fy + dy * inv;
   }

@@ -133,14 +133,6 @@ describe('particle-life-gpu pack', () => {
       expect(dv.getFloat32(24, true)).toBeCloseTo(DT)
       expect(dv.getFloat32(28, true)).toBeCloseTo(WORLD_W)
       expect(dv.getFloat32(32, true)).toBeCloseTo(WORLD_H)
-      expect(dv.getUint32(36, true)).toBe(0) // curve defaults to Standard (#206)
-    })
-
-    it('packs the force-curve id at offset 36 (#206)', () => {
-      const base = { count: 8000, colors: 6, rMax: 80, beta: 0.3, forceScale: 1, friction: 0.04 }
-      expect(new DataView(packParams({ ...base, forceCurve: 'Smooth' })).getUint32(36, true)).toBe(1)
-      expect(new DataView(packParams({ ...base, forceCurve: 'Long-range' })).getUint32(36, true)).toBe(2)
-      expect(new DataView(packParams({ ...base, forceCurve: 'Stepped' })).getUint32(36, true)).toBe(3)
     })
 
     // #213: the breathe pulse scales forceMul; the default multiplier (1) is a no-op.

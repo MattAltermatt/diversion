@@ -15,19 +15,6 @@ export const particleLifePresets: PresetGroup<ParticleLifeConfig>[] = [
     ],
   },
   {
-    // Structure — the force-curve dimension (#206). Each option pairs a band shape with
-    // a feature scale (rMax) that flatters it: the curves barely differ at a small radius,
-    // so a wider radius is what makes each regime read. 'Cells' matches the schema defaults
-    // so a fresh load maps here cleanly.
-    label: 'Structure',
-    options: [
-      { name: 'Cells', patch: { forceCurve: 'Standard', rMax: 80 } },
-      { name: 'Membranes', patch: { forceCurve: 'Smooth', rMax: 110 } },
-      { name: 'Continents', patch: { forceCurve: 'Long-range', rMax: 150 } },
-      { name: 'Crystals', patch: { forceCurve: 'Stepped', rMax: 120 } },
-    ],
-  },
-  {
     label: 'Look',
     options: [
       { name: 'Mariners', patch: { palette: 'Mariners', background: '#05070d', trailFade: 0.15, glow: true, dotSize: 2.5 } },
