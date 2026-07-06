@@ -3,7 +3,7 @@
 // then emerges from the shoot→enrage→charge→shoot loop in the sim (a woken zombie
 // charges the line, gets shot, and enrages the next pocket). Pure over Ecosystem +
 // its SimConfig; zero per-step allocation (bullet pool + reused scratch).
-import { DT, ZOMBIE, FIGHTER, WORLD_W, WORLD_H, type Ecosystem } from './sim'
+import { DT, ZOMBIE, FIGHTER, WORLD_W, WORLD_H, BLOOD_SECONDS, type Ecosystem } from './sim'
 import { insideWall } from './arena'
 import { losClear } from './navField'
 
@@ -94,6 +94,10 @@ export function bulletStep(e: Ecosystem): number {
       e.alive[z] = 0
       e.enrageT[z] = 0
       e.balive[b] = 0
+      // Blood mark (#236): a fading death blotch at the kill site, rolling pool.
+      const bc = e.bloodCursor
+      e.dbx[bc] = e.px[z]; e.dby[bc] = e.py[z]; e.dbt[bc] = BLOOD_SECONDS
+      e.bloodCursor = (bc + 1) % e.dbt.length
       kills++
     }
   }

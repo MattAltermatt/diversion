@@ -20,6 +20,7 @@ const toSimConfig = (c: OutbreakConfig): SimConfig => ({
   fighterRange: c.fighterRange, fireCooldown: 1 / c.fireRate, magazine: c.magazine,
   reloadTime: c.reloadTime, bulletSpeed: c.bulletSpeed, zombieFearRadius: c.zombieFearRadius,
   enrageRadius: c.enrageRadius, enrageTime: c.enrageTime,
+  panicStrength: c.panicStrength, panicRadius: c.panicRadius,
 })
 
 const outbreak = defineDiversion({

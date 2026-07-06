@@ -9,6 +9,7 @@ import { addSeek, addAvoid, addFlee, addCohesion, addSeparation } from './steeri
 import { fireStep, bulletStep } from './combat'
 import { generateArena, insideWall, resolveWall, addWallAvoid, type Arena } from './arena'
 import { createNavGrid, rebuildFields, rebuildRescueField, sampleField, losClear, type NavGrid } from './navField'
+import { panicStep } from './panic'
 
 export const CIVILIAN = 0
 export const FIGHTER = 1
@@ -33,8 +34,11 @@ const W_WALL_AVOID = 2.2 // strong — agents should skirt buildings, not clip t
 const SEP_R = 7 // personal space — tight so crowds pack densely (still not a point)
 const BITE_R = 5 // a zombie must be nearly on top of prey to bite
 const RECRUIT_R = 14 // a fighter must be close to pull a civilian in
-const INFECT_DELAY = 1.2 // seconds bitten → turned
+export const INFECT_DELAY = 1.2 // seconds bitten → turned (render shrinks the infection ring over this)
 const SETTLE_SECONDS = 14 // no conversion/death for this long → reseed by headcount
+export const BANNER_SECONDS = 2.6 // hold the resolved tableau + win banner (#236) before the reseed
+export const BLOOD_SECONDS = 5 // a zombie-death blood mark fades over this many sim-seconds (#236)
+const BLOOD_CAP = 512 // rolling pool of fading death marks
 
 // Steering weights (unit-vector contributions).
 const W_ZOMBIE_HUNT = 1.0
@@ -71,6 +75,9 @@ export interface SimConfig {
   zombieFearRadius: number
   enrageRadius: number
   enrageTime: number
+  // panic (#237)
+  panicStrength: number // fear → flee-force multiplier
+  panicRadius: number // scream contagion radius
 }
 
 export type Outcome = 'horde' | 'humans' | null
@@ -91,6 +98,15 @@ export interface Ecosystem {
   reloadT: Float32Array
   fireT: Float32Array
   enrageT: Float32Array
+  // panic (#237) — civilian fear field + this-step direct-fright source + last-step snapshot
+  fear: Float32Array
+  fearPrev: Float32Array
+  screamSrc: Float32Array
+  // blood pool (#236) — fading zombie-death marks (world pos + ttl seconds), rolling cursor
+  dbx: Float32Array
+  dby: Float32Array
+  dbt: Float32Array
+  bloodCursor: number
   // bullet pool
   bx: Float32Array
   by: Float32Array
@@ -111,6 +127,10 @@ export interface Ecosystem {
   fighterAlive: number
   zombieAlive: number
   outcome: Outcome
+  resolvedHold: number // seconds left to hold the resolved tableau + banner before reseed (#236)
+  // panic gating (#237 perf): skip the whole contagion pass when the crowd is calm
+  anyFear: boolean // some civilian ended last step still afraid → keep rippling/decaying
+  screamed: boolean // a civilian saw a zombie this step → a fresh scream to seed
   // scratch (reused; zero per-step alloc)
   neigh: number[]
   acc: Float32Array
@@ -177,6 +197,9 @@ export function createSim(cfg: SimConfig): Ecosystem {
   const eco: Ecosystem = {
     cfg, n, px, py, vx, vy, faction, alive, infecting, infectTimer,
     ammo, reloadT, fireT, enrageT,
+    fear: new Float32Array(n), fearPrev: new Float32Array(n), screamSrc: new Float32Array(n),
+    dbx: new Float32Array(BLOOD_CAP), dby: new Float32Array(BLOOD_CAP),
+    dbt: new Float32Array(BLOOD_CAP), bloodCursor: 0,
     bx: new Float32Array(bulletCap), by: new Float32Array(bulletCap),
     bvx: new Float32Array(bulletCap), bvy: new Float32Array(bulletCap),
     brange: new Float32Array(bulletCap), balive: new Uint8Array(bulletCap), bulletCursor: 0,
@@ -185,7 +208,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
     hash: new SpatialHash(WORLD_W, WORLD_H, CELL, n),
     rng, simTime: 0, stepCount: 0, lastEventTime: 0,
     civAlive: cfg.civilianCount, fighterAlive: cfg.fighterCount, zombieAlive: cfg.zombieCount,
-    outcome: null,
+    outcome: null, resolvedHold: 0, anyFear: false, screamed: false,
     neigh: [], acc: new Float32Array(2), navOut: new Float32Array(2),
   }
   return eco
@@ -220,7 +243,15 @@ function nearestHumanGlobal(e: Ecosystem, i: number): number {
 }
 
 export function stepSim(e: Ecosystem): void {
+  // Resolved: freeze the final tableau and count down the banner hold (#236). The
+  // framework only reseeds once isResolved() flips true (hold elapsed), so the win
+  // banner gets a beat on screen before the fresh outbreak.
+  if (e.outcome !== null) {
+    if (e.resolvedHold > 0) e.resolvedHold -= DT
+    return
+  }
   const { px, py, vx, vy, faction, alive, infecting, infectTimer, acc } = e
+  e.screamed = false // set true in loop 1 when a civilian sights a zombie (a fresh scream)
   e.hash.rebuild(px, py, e.n, alive)
   // Refresh the flow fields every NAV_REBUILD steps (keyed off stepCount so slow-mo /
   // fast-forward stay correct). Agents route these when their target is behind a wall.
@@ -285,14 +316,20 @@ export function stepSim(e: Ecosystem): void {
         if (d2 < nearZd2) { nearZd2 = d2; nearZ = j }
       }
       if (nearZ !== -1) {
+        // Panic (#237): seeing a zombie is a scream — a direct fright (louder the closer),
+        // seeding the fear field that panic.ts ripples through the crowd. Fear amplifies
+        // this civilian's own flee so the frightened bolt harder (an emergent stampede).
+        const fright = 1 - Math.sqrt(nearZd2) / sight
+        if (fright > e.screamSrc[i]) { e.screamSrc[i] = fright > 0 ? fright : 0; if (fright > 0) e.screamed = true }
+        const fleeW = W_CIV_FLEE * (1 + e.fear[i] * e.cfg.panicStrength)
         // Flee directly from every visible zombie; if the nearest is behind a wall, ascend
         // the zombie field instead so panic routes down a corridor (not into the wall).
         if (losClear(e.arena, px[i], py[i], px[nearZ], py[nearZ])) {
-          addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+          addFlee(px, py, i, e.neigh, sight, fleeW, acc)
         } else if (sampleField(e.navGrid, e.navGrid.zombieDist, px[i], py[i], false, e.navOut)) {
-          acc[0] += e.navOut[0] * W_CIV_FLEE; acc[1] += e.navOut[1] * W_CIV_FLEE
+          acc[0] += e.navOut[0] * fleeW; acc[1] += e.navOut[1] * fleeW
         } else {
-          addFlee(px, py, i, e.neigh, sight, W_CIV_FLEE, acc)
+          addFlee(px, py, i, e.neigh, sight, fleeW, acc)
         }
       }
       const safe = nearestOf(e, i, sight, FIGHTER)
@@ -411,6 +448,16 @@ export function stepSim(e: Ecosystem): void {
 
   for (let i = 0; i < e.n; i++) if (e.enrageT[i] > 0) e.enrageT[i] -= DT
 
+  // Panic field (#237): the hash is fresh from the combat rebuild above, so civilian
+  // neighbour queries are valid. Screams recorded this step in loop 1 seed it; it
+  // ripples + decays for the next step's flee scaling. Skip the whole pass when the
+  // crowd is calm (no lingering fear AND no fresh scream) — the field is already all
+  // zero, so there is nothing to decay or spread (perf: no wasted per-civilian query).
+  if (e.anyFear || e.screamed) panicStep(e, e.cfg.panicRadius)
+
+  // Fade the blood/death marks (#236) in sim-time so the fade is frame-rate-independent.
+  for (let k = 0; k < e.dbt.length; k++) if (e.dbt[k] > 0) e.dbt[k] -= DT
+
   e.simTime += DT
   if (event) e.lastEventTime = e.simTime
 
@@ -422,14 +469,18 @@ export function stepSim(e: Ecosystem): void {
     if (fc === CIVILIAN) civ++; else if (fc === FIGHTER) fig++; else zom++
   }
   e.civAlive = civ; e.fighterAlive = fig; e.zombieAlive = zom
-  if (zom === 0) e.outcome = 'humans'
-  else if (civ + fig === 0) e.outcome = 'horde'
+  let oc: Outcome = null
+  if (zom === 0) oc = 'humans'
+  else if (civ + fig === 0) oc = 'horde'
   else if (e.simTime - e.lastEventTime > SETTLE_SECONDS) {
-    e.outcome = zom > civ + fig ? 'horde' : 'humans'
+    oc = zom > civ + fig ? 'horde' : 'humans'
   }
+  if (oc !== null && e.outcome === null) e.resolvedHold = BANNER_SECONDS // first light of the win → start the banner hold
+  e.outcome = oc
 }
 
-/** True once the outbreak has resolved (terminal or settled) → framework reseeds. */
+/** True once the outbreak has resolved AND the banner hold has elapsed → framework
+ *  reseeds. The hold (#236) keeps the win banner on screen for a beat first. */
 export function isResolved(e: Ecosystem): boolean {
-  return e.outcome !== null
+  return e.outcome !== null && e.resolvedHold <= 0
 }

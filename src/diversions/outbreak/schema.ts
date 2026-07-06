@@ -1,6 +1,6 @@
 // schema.ts — single source of truth (form + URL codec + Config type).
-// Foundation subset (#233); combat (#234), arena/density (#235), juice (#236),
-// panic (#237) and presets (#238) extend this.
+// Foundation subset (#233); combat (#234), arena/density (#235), juice/HUD (#236),
+// panic (#237) and presets (#238) all extend this.
 import { z } from 'zod'
 
 export const outbreakSchema = z.object({
@@ -49,9 +49,18 @@ export const outbreakSchema = z.object({
   enrageTime: z.number().min(1).max(10).default(4.5)
     .meta({ section: 'Combat', ui: 'slider', min: 1, max: 10, step: 0.1, label: 'Enrage duration (s)',
             help: 'How long a shot wakes the horde — enraged zombies drop their caution and charge the nearest fighter.' }),
+  panicStrength: z.number().min(0).max(3).default(1.5)
+    .meta({ section: 'Panic', ui: 'slider', min: 0, max: 3, step: 0.1, label: 'Panic strength',
+            help: 'How much fear amplifies a civilian\'s flee. A civilian that sees a zombie screams; the fright ripples through the crowd and the frightened run harder — an emergent stampede. 0 turns panic off (everyone flees at a flat pace).' }),
+  panicRadius: z.number().min(20).max(120).default(70)
+    .meta({ section: 'Panic', ui: 'slider', min: 20, max: 120, step: 5, label: 'Panic spread',
+            help: 'How far a scream carries. Fear jumps to civilians within this radius each step and keeps rippling outward — a wide radius sends a shockwave across the whole crowd; a tight one keeps panic local to the sighting.' }),
   agentRadius: z.number().min(1).max(6).default(2.4)
     .meta({ section: 'Look', ui: 'slider', min: 1, max: 6, step: 0.1, label: 'Agent size',
             help: 'Radius of each circle in world pixels.' }),
+  showHud: z.boolean().default(true)
+    .meta({ section: 'Look', ui: 'toggle', label: 'Show HUD',
+            help: 'The population bar (civilians / fighters / horde — the who-is-winning gauge) and the win banner when an outbreak resolves.' }),
   civilianColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#efe7d2')
     .meta({ section: 'Look', ui: 'color', label: 'Civilian color',
             help: 'The crowd. A pale neutral so conversions to red/blue read clearly.' }),

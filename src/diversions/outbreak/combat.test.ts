@@ -7,7 +7,8 @@ const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
   civilianCount: 0, fighterCount: 1, zombieCount: 1,
   zombieSpeed: 52, humanSpeed: 88, civilianSight: 110, seed: 7, arenaDensity: 0,
   fighterRange: 128, fireCooldown: 1 / 3.2, magazine: 9, reloadTime: 2.1,
-  bulletSpeed: 660, zombieFearRadius: 120, enrageRadius: 80, enrageTime: 4.5, ...over,
+  bulletSpeed: 660, zombieFearRadius: 120, enrageRadius: 80, enrageTime: 4.5,
+  panicStrength: 1.5, panicRadius: 70, ...over,
 })
 
 /** Cluster the zombies right in front of the lone fighter (indices: 0 = fighter,

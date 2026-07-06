@@ -7,7 +7,8 @@ const cfg = (over: Partial<SimConfig> = {}): SimConfig => ({
   civilianCount: 500, fighterCount: 30, zombieCount: 40,
   zombieSpeed: 52, humanSpeed: 88, civilianSight: 110, seed: 1337, arenaDensity: 0,
   fighterRange: 128, fireCooldown: 1 / 3.2, magazine: 9, reloadTime: 2.1,
-  bulletSpeed: 660, zombieFearRadius: 120, enrageRadius: 80, enrageTime: 4.5, ...over,
+  bulletSpeed: 660, zombieFearRadius: 120, enrageRadius: 80, enrageTime: 4.5,
+  panicStrength: 1.5, panicRadius: 70, ...over,
 })
 
 describe('createSim / determinism', () => {
@@ -92,10 +93,14 @@ describe('conversion cycle', () => {
     expect(caught).toBe(true)
   })
 
-  it('resolves to a horde win when no humans remain', () => {
+  it('resolves to a horde win when no humans remain, after the banner hold', () => {
     const e = createSim(cfg({ civilianCount: 0, fighterCount: 0, zombieCount: 3 }))
     stepSim(e)
     expect(e.outcome).toBe('horde')
+    // The win is set immediately but isResolved holds for the banner beat (#236) — the
+    // sim freezes the tableau and counts the hold down before the framework reseeds.
+    expect(isResolved(e)).toBe(false)
+    for (let i = 0; i < 200; i++) stepSim(e) // > BANNER_SECONDS / DT
     expect(isResolved(e)).toBe(true)
   })
 })
