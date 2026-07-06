@@ -11,7 +11,7 @@ import { sweepPresets, colourPresets } from './presets'
 
 const presets: PresetGroup<PercolationConfig>[] = [
   { label: 'Sweep', options: sweepPresets },
-  { label: 'Colour', options: colourPresets },
+  { label: 'Palette', options: colourPresets },
 ]
 
 const percolation = defineDiversion<typeof percolationSchema, PercolationState, '2d'>({

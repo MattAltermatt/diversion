@@ -54,7 +54,7 @@ export const apollonianSchema = z.object({
             help: 'Slow rigid spin of the whole gasket. 0 = still; negative spins the other way.' }),
 
   seed: z.number().int().default(0)
-    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
+    .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. Selects the seed family (symmetric, bilateral, and various integer '
                 + 'gaskets) and rotation. Same seed → same gasket. A fresh visit rolls a new one.' }),
 })
