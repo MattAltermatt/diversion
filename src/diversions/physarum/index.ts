@@ -1,6 +1,6 @@
 import { defineDiversion, type PresetGroup, type Size } from '../../framework/types'
 import { physarumSchema, type PhysarumConfig } from './schema'
-import { initGL, render, uploadLUT, disposeGL, type PhysarumGL } from './gl'
+import { initGL, render, step, uploadLUT, disposeGL, type PhysarumGL } from './gl'
 import { behaviorPresets, colorPresets } from './presets'
 
 type PhysarumState = {
@@ -25,7 +25,17 @@ const physarum = defineDiversion<typeof physarumSchema, PhysarumState, 'webgl'>(
   schema: physarumSchema,
 
   setup(gl, cfg, size: Size) {
-    return { gl, res: initGL(gl, cfg, size.width, size.height), cfg }
+    const res = initGL(gl, cfg, size.width, size.height)
+    // Under prefers-reduced-motion (#39) the host paints one frozen frame, which
+    // would otherwise be a flat near-black field (the organism hasn't grown yet).
+    // Pre-warm the sim so that single frame shows the resolved slime-mold network.
+    // Gated on the media query so the normal animated view keeps its full
+    // grow-from-black opening. frame() resets the viewport each tick, so the GL
+    // state the pre-warm leaves behind is harmless.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      for (let i = 0; i < 150; i++) step(gl, res, cfg)
+    }
+    return { gl, res, cfg }
   },
 
   frame(state, gl, _t, _dt) {

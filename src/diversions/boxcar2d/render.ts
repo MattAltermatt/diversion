@@ -183,8 +183,9 @@ function drawGroundDetail(
   ctx.lineCap = 'butt'
 }
 
-const SPRING_THRESH = 0.55       // stiffness ≥ this draws as a straight bar
-const SPRING_COLOR = '#7fd1c4'   // accent for springy members (high contrast vs sky)
+const SPRING_THRESH = 0.55         // stiffness ≥ this draws as a straight bar
+const SPRING_COLOR = '#7fd1c4'     // spring accent on a dark sky (high contrast)
+const SPRING_COLOR_LIGHT = '#1f8a7a' // deeper teal — stays legible on a light (Meadow) sky
 
 /** Draw a coil between two canvas points — reads as a spring. */
 function drawSpring(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
@@ -484,7 +485,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   // parallax background (sun + clouds + distant hills) behind the terrain
   drawBackground(ctx, s)
 
-  const ink = isLight(s.cfg.color.sky) ? 'rgba(20,24,32,0.92)' : 'rgba(255,255,255,0.92)'
+  const skyLight = isLight(s.cfg.color.sky)
+  const inkRGB = skyLight ? '20,24,32' : '255,255,255'
+  const ink = `rgba(${inkRGB},0.92)`
 
   // endless terrain: sample the height function across the visible x-range.
   // Sample at FIXED world-x grid positions (snapped to RENDER_STEP) — NOT relative
@@ -516,7 +519,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   for (let meters = firstMark; s.spawnX + meters <= rightW; meters += MARK_STEP) {
     const px = sx(s.spawnX + meters)
     const hundred = meters % 100 === 0
-    ctx.strokeStyle = hundred ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.12)'
+    ctx.strokeStyle = hundred ? `rgba(${inkRGB},0.55)` : `rgba(${inkRGB},0.12)`
     ctx.lineWidth = hundred ? 2.5 : 1
     ctx.beginPath()
     ctx.moveTo(px, 0)
@@ -528,7 +531,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
     ctx.rotate(-Math.PI / 2)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = hundred ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)'
+    ctx.fillStyle = hundred ? `rgba(${inkRGB},0.85)` : `rgba(${inkRGB},0.35)`
     ctx.font = hundred ? 'bold 16px system-ui, sans-serif' : '12px system-ui, sans-serif'
     ctx.fillText(`${meters} m`, 0, -6)
     ctx.restore()
@@ -590,7 +593,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
       ctx.lineTo(x2, y2)
       ctx.stroke()
     } else {
-      ctx.strokeStyle = SPRING_COLOR
+      ctx.strokeStyle = skyLight ? SPRING_COLOR_LIGHT : SPRING_COLOR
       ctx.lineWidth = 2.4
       drawSpring(ctx, x1, y1, x2, y2)
     }

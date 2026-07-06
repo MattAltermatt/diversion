@@ -76,7 +76,10 @@ const langtonsLoops = defineDiversion<typeof langtonsLoopsSchema, RenderState, '
 
   frame(rs, ctx, _t, dt) {
     const dts = dt / 1000
-    if (rs.needsClear) { rs.lut = buildStateLut(rs.cfg); paintAll(rs, ctx) }
+    // Defer a live color-edit repaint while fading: paintAll would redraw cells at
+    // full brightness and lose the compounded fade overlay for one frame (a visible
+    // pop). needsClear stays set, so the edit lands on the next reseed instead.
+    if (rs.needsClear && rs.phase !== 'fade') { rs.lut = buildStateLut(rs.cfg); paintAll(rs, ctx) }
 
     // advance CA steps (capped)
     rs.acc += rs.cfg.speed * dts

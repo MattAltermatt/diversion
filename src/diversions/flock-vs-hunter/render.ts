@@ -1,6 +1,7 @@
 // render.ts — alpha-fade trails + boid/predator sprites + HUD. World→screen via a
 // cover-fit transform (drawn in CSS pixels; the host DPR-scales the 2D context).
 import type { Size } from '../../framework/types'
+import { hexToRgb } from '../../framework/color'
 import { WORLD_W, WORLD_H, type Ecosystem } from './sim'
 import { FLOCK_SPEC, PRED_SPEC, gene } from './genome'
 import type { FlockVsHunterConfig } from './schema'
@@ -58,23 +59,31 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: Ecosystem, cfg: Floc
   if (cfg.showHud) drawHud(ctx, s, cfg)
 }
 
-function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, frac: number, label: string): void {
-  ctx.fillStyle = '#ffffff22'
+/** HUD ink derived from the (user-editable) background luminance, so text + bars
+ *  keep contrast whether the background is dark (default) or a light custom color. */
+function hudInk(background: string): string {
+  const [r, g, b] = hexToRgb(background) // normalized 0..1 channels
+  return 0.299 * r + 0.587 * g + 0.114 * b > 0.55 ? '20,24,32' : '255,255,255'
+}
+
+function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, frac: number, label: string, ink: string): void {
+  ctx.fillStyle = `rgba(${ink},0.13)`
   ctx.fillRect(x, y, w, 6)
-  ctx.fillStyle = '#ffffffcc'
+  ctx.fillStyle = `rgba(${ink},0.80)`
   ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), 6)
-  ctx.fillStyle = '#ffffffaa'
+  ctx.fillStyle = `rgba(${ink},0.67)`
   ctx.font = '10px system-ui, sans-serif'
   ctx.textAlign = 'left'
   ctx.fillText(label, x + w + 6, y + 6)
 }
 
-function drawHud(ctx: CanvasRenderingContext2D, s: Ecosystem, _cfg: FlockVsHunterConfig): void {
+function drawHud(ctx: CanvasRenderingContext2D, s: Ecosystem, cfg: FlockVsHunterConfig): void {
+  const ink = hudInk(cfg.background)
   let aliveCount = 0
   for (let i = 0; i < s.n; i++) aliveCount += s.alive[i]
   const survivors = Math.round((aliveCount / s.n) * 100)
   ctx.save()
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = `rgba(${ink},1)`
   ctx.font = 'bold 15px system-ui, sans-serif'
   ctx.textAlign = 'left'
   ctx.fillText(`gen ${s.generation}`, 14, 24)
@@ -84,14 +93,14 @@ function drawHud(ctx: CanvasRenderingContext2D, s: Ecosystem, _cfg: FlockVsHunte
   let y = 60
   for (const spec of FLOCK_SPEC) {
     const v = gene(elite, FLOCK_SPEC, spec.key)
-    bar(ctx, 14, y, 60, (v - spec.min) / (spec.max - spec.min), spec.key)
+    bar(ctx, 14, y, 60, (v - spec.min) / (spec.max - spec.min), spec.key, ink)
     y += 12
   }
   const pElite = s.predGenomes[0]
   y += 6
   for (const spec of PRED_SPEC) {
     const v = gene(pElite, PRED_SPEC, spec.key)
-    bar(ctx, 14, y, 60, (v - spec.min) / (spec.max - spec.min), spec.key)
+    bar(ctx, 14, y, 60, (v - spec.min) / (spec.max - spec.min), spec.key, ink)
     y += 12
   }
   ctx.restore()

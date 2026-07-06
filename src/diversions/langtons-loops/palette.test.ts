@@ -30,4 +30,24 @@ describe('Langton palette', () => {
     expect(brightness(lut.agedSheath[AGE_BUCKETS - 1])).toBeLessThan(brightness(lut.agedSheath[0]))
     expect(brightness(lut.agedSheath[AGE_BUCKETS - 1])).toBeGreaterThan(bgBrightness)
   })
+
+  // The dark-default test above only exercises a sheath BRIGHTER than the bg (ramp
+  // darkens). The shipped light-bg 'Ink' preset flips this — a dark sheath fading
+  // toward a light bg — so pin the settled-coral-vs-background contrast in BOTH ramp
+  // directions (invariant #5) so a future tweak to the 65% stop can't fade it away.
+  it("keeps settled coral distinguishable from a LIGHT background ('Ink' preset)", () => {
+    const inkCfg = langtonsLoopsSchema.parse({ background: '#f4f1e8', sheath: '#3a4252' })
+    const lut = buildStateLut(inkCfg)
+    const channels = (c: string) => c.match(/\d+/g)!.map(Number)
+    const bg = channels(rgbOf('#f4f1e8'))
+    const settled = channels(lut.agedSheath[AGE_BUCKETS - 1])
+    const dist = settled.reduce((sum, v, i) => sum + Math.abs(v - bg[i]), 0)
+    expect(dist).toBeGreaterThan(30) // total channel distance — settled coral stays visible
+  })
 })
+
+/** #rrggbb -> the `rgb(r,g,b)` form buildStateLut emits, for channel comparison. */
+function rgbOf(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  return `rgb(${r},${g},${b})`
+}
