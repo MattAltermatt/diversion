@@ -16,6 +16,7 @@ export interface FieldMeta {
   options?: string[] // for ui:'segmented' (mirrors enum values)
   showWhen?: { field: string; equals: string | string[] } // render only when a sibling field === this value (or is one of the listed values)
   section?: string // groups the field under a collapsible subpanel in the config form
+  collapsed?: boolean // section starts collapsed if ANY field in it sets this (e.g. 'Advanced')
   randomizeOnFreshLoad?: boolean // numeric field rolled to a fresh random value on a bare load (empty query); share-links still pin it
   deriveFrom?: (config: any) => number[] // ui:'matrix' — derive the seed-based table (flat row-major, length colors²) from the full config, so the generic control imports no diversion math
 }

@@ -117,8 +117,11 @@ export function SchemaForm({
         const rendered = buckets.get(sec)!.map(renderField)
         if (rendered.every((el) => el === null)) return null // all hidden → drop the section
         if (!sec) return <Fragment key="__loose">{rendered}</Fragment>
+        // A section starts collapsed if any field in it declares `collapsed`
+        // (canon: 'Advanced' / seed sections tuck away by default — UX invariant #2).
+        const startCollapsed = buckets.get(sec)!.some(([, , m]) => m.collapsed)
         return (
-          <Subpanel key={sec} label={sec}>
+          <Subpanel key={sec} label={sec} defaultOpen={!startCollapsed}>
             {rendered}
           </Subpanel>
         )

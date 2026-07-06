@@ -100,6 +100,25 @@ describe('SchemaForm', () => {
     expect(screen.getByText('Field B')).toBeInTheDocument()
   })
 
+  it('starts a section collapsed when any field in it declares collapsed', () => {
+    const secSchema = z.object({
+      a: z.number().default(1).meta({ ui: 'number', label: 'Field A', section: 'Main' }),
+      s: z.number().default(1).meta({ ui: 'number', label: 'Seed', section: 'Advanced', collapsed: true }),
+    })
+    render(<SchemaForm schema={secSchema} value={secSchema.parse({})} onChange={() => {}} />)
+    const main = screen.getByRole('button', { name: /Main/ })
+    const advanced = screen.getByRole('button', { name: /Advanced/ })
+    // Main is open by default; Advanced starts collapsed (its control hidden but discoverable)
+    expect(main).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Field A')).toBeInTheDocument()
+    expect(advanced).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Seed')).not.toBeInTheDocument()
+    // one click reveals it
+    fireEvent.click(advanced)
+    expect(advanced).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Seed')).toBeInTheDocument()
+  })
+
   it('renders no subpanel chrome when the schema declares no sections', () => {
     const flat = z.object({
       x: z.number().default(1).meta({ ui: 'number', label: 'Ex' }),
