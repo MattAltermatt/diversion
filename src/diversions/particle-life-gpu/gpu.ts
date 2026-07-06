@@ -370,9 +370,10 @@ export function writeFade(res: GpuResources, cfg: ParticleLifeGpuConfig): void {
   res.device.queue.writeBuffer(res.fadeBuf, 0, new Float32Array([res.bg.r, res.bg.g, res.bg.b, alpha]))
 }
 
-/** Live-apply the cheap uniforms (forces/look) without reallocating buffers. */
-export function writeParams(res: GpuResources, cfg: ParticleLifeGpuConfig): void {
-  res.device.queue.writeBuffer(res.paramsBuf, 0, packParams(cfg, res.worldW, res.worldH))
+/** Live-apply the cheap uniforms (forces/look) without reallocating buffers.
+ *  `breatheMul` (#213) scales the force each frame while Breathe is on (1 = off). */
+export function writeParams(res: GpuResources, cfg: ParticleLifeGpuConfig, breatheMul: number = 1): void {
+  res.device.queue.writeBuffer(res.paramsBuf, 0, packParams(cfg, res.worldW, res.worldH, breatheMul))
 }
 export function writeColors(res: GpuResources, cfg: ParticleLifeGpuConfig): void {
   res.device.queue.writeBuffer(res.colorBuf, 0, packColors(cfg.palette as PaletteName, cfg.colors))

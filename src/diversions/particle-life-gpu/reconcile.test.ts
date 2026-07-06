@@ -13,6 +13,17 @@ describe('reconcileMatrix', () => {
     const out = reconcileMatrix(base(), { ...base(), colors: 4 })
     expect('matrix' in out).toBe(false)
   })
+
+  // #205: the matrix follows matrixSeed (or the soup seed when matrixSeed is 0).
+  it('clears the matrix when the matrix seed changes', () => {
+    const out = reconcileMatrix(base(), { ...base(), matrixSeed: 55 })
+    expect('matrix' in out).toBe(false)
+  })
+  it('keeps a hand-tuned matrix when only the soup seed changes and matrixSeed is pinned', () => {
+    const pinned = { ...base(), matrixSeed: 55 }
+    const out = reconcileMatrix(pinned, { ...pinned, seed: 42 })
+    expect(out.matrix).toEqual(pinned.matrix) // rules follow matrixSeed → soup reseed leaves them
+  })
   it('mirrors upper→lower when flipping to Symmetric', () => {
     const out = reconcileMatrix(base(), { ...base(), symmetry: 'Symmetric' })
     const n = 3, m = out.matrix!

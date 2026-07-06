@@ -14,7 +14,7 @@ import { getSharedDevice } from '../../framework/webgpu'
 import { particleLifeGpuSchema, type ParticleLifeGpuConfig } from './schema'
 import { particleLifeGpuPresets } from './presets'
 import { reconcileMatrix } from './reconcile'
-import { worldDims, type Camera } from './pack'
+import { worldDims, DT, type Camera } from './pack'
 import {
   initGPU, runFrame, resizeGPU, writeParams, writeColors, writeMatrix, writeView, writeFade,
   disposeGPU, type GpuResources,
@@ -29,6 +29,7 @@ interface State {
   ready: boolean
   disposed: boolean
   acc: number // fractional sim-step accumulator → speed < 1 = slow motion
+  simTime: number // accumulated sim time (s) driving the breathe pulse (#213)
   cam: Camera // zoom + pan (mouse-driven)
   camDirty: boolean // camera changed → re-upload the view uniform next frame
   detach: (() => void) | null // remove the input listeners on teardown
@@ -138,7 +139,7 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
 
   setup(ctx, cfg, size): State {
     const state: State = {
-      ctx, cfg, size, dpr: dprOf(), res: null, ready: false, disposed: false, acc: 0,
+      ctx, cfg, size, dpr: dprOf(), res: null, ready: false, disposed: false, acc: 0, simTime: 0,
       cam: { zoom: 1, panX: 0, panY: 0 }, camDirty: false, detach: null,
     }
     // Input listeners bind to the canvas synchronously (available before the device
@@ -167,11 +168,20 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
       writeView(state.res, state.cfg, state.size, state.cam)
       state.camDirty = false
     }
-    state.acc += state.cfg.speed
+    const cfg = state.cfg
+    state.acc += cfg.speed
     let steps = Math.floor(state.acc)
     state.acc -= steps
     if (steps > 8) steps = 8
-    runFrame(state.res, state.cfg, steps)
+    // Breathe (#213): a slow force pulse in SIM time (simTime advances by the
+    // fractional speed, so Speed scales the rhythm coherently). Off = no per-frame
+    // writes and forceMul stays exactly as the last config change left it.
+    if (cfg.breathe) {
+      state.simTime += cfg.speed * DT
+      const mul = 1 + cfg.breatheDepth * Math.sin((2 * Math.PI * state.simTime) / cfg.breathePeriod)
+      writeParams(state.res, cfg, mul)
+    }
+    runFrame(state.res, cfg, steps)
   },
 
   update(state, cfg, size): boolean {
@@ -188,7 +198,7 @@ const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'we
     // Re-upload the matrix on any change that alters it: a symmetry flip, a bias
     // shift, OR a direct cell edit / Zero / Reset (cfg.matrix is a fresh reference
     // each edit, undefined⇄array on Reset) — else hand-tuning never reaches the GPU.
-    if (cfg.symmetry !== prev.symmetry || cfg.attractBias !== prev.attractBias || cfg.matrix !== prev.matrix) writeMatrix(state.res, cfg)
+    if (cfg.symmetry !== prev.symmetry || cfg.attractBias !== prev.attractBias || cfg.matrix !== prev.matrix || cfg.matrixSeed !== prev.matrixSeed) writeMatrix(state.res, cfg)
     if (cfg.palette !== prev.palette) writeColors(state.res, cfg)
     if (cfg.background !== prev.background || cfg.trailFade !== prev.trailFade) writeFade(state.res, cfg)
     if (cfg.dotSize !== prev.dotSize) writeView(state.res, cfg, size, state.cam)

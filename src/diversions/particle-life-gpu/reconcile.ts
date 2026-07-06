@@ -4,8 +4,12 @@ import type { ParticleLifeGpuConfig } from './schema'
 export function reconcileMatrix(
   prev: ParticleLifeGpuConfig, next: ParticleLifeGpuConfig,
 ): ParticleLifeGpuConfig {
-  // Seed / Species → rebuild: drop any Custom override (omit the key).
-  if (next.seed !== prev.seed || next.colors !== prev.colors) {
+  // Effective matrix seed / Species → rebuild: drop any Custom override (omit the
+  // key). The matrix follows matrixSeed, or the soup seed when matrixSeed is 0 (#205),
+  // so a change to whichever currently drives the table clears a hand-tuned override.
+  const effPrev = prev.matrixSeed || prev.seed
+  const effNext = next.matrixSeed || next.seed
+  if (effNext !== effPrev || next.colors !== prev.colors) {
     const { matrix: _omit, ...rest } = next
     return rest as ParticleLifeGpuConfig
   }

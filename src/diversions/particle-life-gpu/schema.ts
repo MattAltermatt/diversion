@@ -45,9 +45,9 @@ export const particleLifeGpuSchema = z.object({
             help: 'Nudges every relationship toward attraction (positive → clumpy cells) or repulsion (negative → skittish gas). 0 = whatever the seed rolled.' }),
   matrix: z.array(z.number().min(-1).max(1)).optional()
     .meta({ section: 'Forces', ui: 'matrix', label: 'Interaction matrix',
-            help: 'Per-species attract/repel table. Drag cells to hand-tune relationships; Reset to seed re-rolls it. Changing Seed or Species rebuilds it.',
-            deriveFrom: (c: { colors: number; seed: number; symmetry: 'Asymmetric' | 'Symmetric'; attractBias: number }) =>
-              [...buildMatrix(c.colors, c.seed, c.symmetry, c.attractBias)] }),
+            help: 'Per-species attract/repel table. Drag cells to hand-tune relationships; Reset to seed re-rolls it. Changing Matrix seed (or Seed while it follows), or Species, rebuilds it.',
+            deriveFrom: (c: { colors: number; seed: number; matrixSeed: number; symmetry: 'Asymmetric' | 'Symmetric'; attractBias: number }) =>
+              [...buildMatrix(c.colors, c.matrixSeed || c.seed, c.symmetry, c.attractBias)] }),
 
   palette: z.enum(PALETTE_NAMES as [string, ...string[]]).default('Mariners')
     .meta({ section: 'Look', ui: 'select', options: [...PALETTE_NAMES], label: 'Palette',
@@ -67,10 +67,22 @@ export const particleLifeGpuSchema = z.object({
   speed: z.number().min(0.02).max(4).default(1)
     .meta({ section: 'Motion', ui: 'slider', min: 0.02, max: 4, step: 0.02, label: 'Speed',
             help: 'Visual playback speed. Far below 1× slows the whole broth into a barely-creeping, meditative drift; above 1× fast-forwards. The GPU has headroom to spare, so even the slowest settings stay smooth.' }),
+  breathe: z.boolean().default(false)
+    .meta({ section: 'Motion', ui: 'toggle', label: 'Breathe',
+            help: 'A slow rhythmic swell of the overall force — the whole broth’s motion gently surges and eases over tens of seconds, like breathing. Off by default; the classic look is unchanged.' }),
+  breathePeriod: z.number().min(4).max(90).default(16)
+    .meta({ section: 'Motion', ui: 'slider', min: 4, max: 90, step: 1, label: 'Breath length (s)',
+            help: 'Seconds per full swell-and-ease, measured in sim time so Speed scales it coherently. Longer = a calmer, more meditative rhythm; past ~40s it gets hard to notice. Only matters while Breathe is on.' }),
+  breatheDepth: z.number().min(0).max(0.8).default(0.4)
+    .meta({ section: 'Motion', ui: 'slider', min: 0, max: 0.8, step: 0.05, label: 'Breath depth',
+            help: 'How far the force swings each breath — 0 is imperceptible, high makes the whole broth visibly surge and settle. Only matters while Breathe is on.' }),
 
   seed: z.number().int().default(1337)
     .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
-            help: 'Any integer. The seed rolls the interaction matrix and the starting soup, so the same seed always STARTS the same world. (Its GPU-simulated evolution can drift slightly between different graphics cards.) A fresh visit rolls a new one.' }),
+            help: 'Any integer, rolling the STARTING SOUP — where every particle begins and which species it is. With Matrix seed left at 0 it also rolls the relationship rules, so one seed = one whole world (a fresh visit rolls a new one). Its GPU-simulated evolution can drift slightly between graphics cards.' }),
+  matrixSeed: z.number().int().default(0)
+    .meta({ section: 'Advanced', collapsed: true, ui: 'number', step: 1, label: 'Matrix seed',
+            help: 'Rolls the interaction MATRIX — the hidden table of who-chases-whom — independently of the soup. 0 = follow the Seed (the default: one seed rolls everything). Set any other integer to rewrite every relationship while keeping the current soup, or to A/B one arrangement under different rules. A shared link keeps this value, so you can share a ruleset that reseeds its soup each visit.' }),
 })
 
 export type ParticleLifeGpuConfig = z.infer<typeof particleLifeGpuSchema>

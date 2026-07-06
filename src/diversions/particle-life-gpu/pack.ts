@@ -69,11 +69,13 @@ export function packMatrix(colors: number, seed: number, symmetry: Symmetry, bia
  *  correctly sized (length colors²), else the seed-derived table. The length guard
  *  lives here (not in the URL codec) because only the consumer knows `colors`. */
 export function resolveMatrix(
-  cfg: { colors: number; seed: number; symmetry: Symmetry; attractBias: number; matrix?: number[] },
+  cfg: { colors: number; seed: number; matrixSeed?: number; symmetry: Symmetry; attractBias: number; matrix?: number[] },
 ): Float32Array {
   const n = cfg.colors
   if (Array.isArray(cfg.matrix) && cfg.matrix.length === n * n) return Float32Array.from(cfg.matrix)
-  return packMatrix(n, cfg.seed, cfg.symmetry, cfg.attractBias)
+  // matrixSeed rolls the rules independently of the soup; 0 = follow the soup seed
+  // (the default, so a fresh world still comes from one seed). #205
+  return packMatrix(n, cfg.matrixSeed || cfg.seed, cfg.symmetry, cfg.attractBias)
 }
 
 /** Per-species RGBA (0..1) laid out as vec4f, for the render color storage buffer. */
@@ -101,7 +103,7 @@ export const PARAMS_SIZE = 48 // 10 × 4 = 40 → round up to 16 = 48
  *  force-curve id (#206) matching force.ts / the WGSL `band()` switch. */
 export function packParams(
   cfg: { count: number; colors: number; rMax: number; beta: number; forceScale: number; friction: number; forceCurve?: string },
-  worldW: number = WORLD_W, worldH: number = WORLD_H,
+  worldW: number = WORLD_W, worldH: number = WORLD_H, breatheMul: number = 1,
 ): ArrayBuffer {
   const buf = new ArrayBuffer(PARAMS_SIZE)
   const dv = new DataView(buf)
@@ -109,7 +111,7 @@ export function packParams(
   dv.setUint32(4, cfg.colors, true)
   dv.setFloat32(8, cfg.rMax, true)
   dv.setFloat32(12, cfg.beta, true)
-  dv.setFloat32(16, cfg.rMax * cfg.forceScale, true) // forceMul
+  dv.setFloat32(16, cfg.rMax * cfg.forceScale * breatheMul, true) // forceMul (× breathe pulse, #213; 1 = off)
   dv.setFloat32(20, Math.pow(0.5, DT / cfg.friction), true) // frictionFactor
   dv.setFloat32(24, DT, true)
   dv.setFloat32(28, worldW, true)

@@ -84,6 +84,25 @@ describe('particle-life-gpu pack', () => {
       const want = packMatrix(3, 1337, 'Asymmetric', 0.1)
       expect(Array.from(got)).toEqual(Array.from(want))
     })
+
+    // #205: matrixSeed rolls the rules independently; 0 = follow the soup seed.
+    it('matrixSeed 0 follows the soup seed (default is pixel-identical to before)', () => {
+      const got = resolveMatrix({ ...base, matrixSeed: 0 })
+      const want = packMatrix(3, base.seed, 'Asymmetric', 0.1) // seed-derived, as always
+      expect(Array.from(got)).toEqual(Array.from(want))
+    })
+
+    it('a non-zero matrixSeed drives the table independently of the soup seed', () => {
+      const got = resolveMatrix({ ...base, matrixSeed: 4242 })
+      expect(Array.from(got)).toEqual(Array.from(packMatrix(3, 4242, 'Asymmetric', 0.1)))
+      // …and it differs from the soup-seed-derived table (a real reroll)
+      expect(Array.from(got)).not.toEqual(Array.from(packMatrix(3, base.seed, 'Asymmetric', 0.1)))
+    })
+
+    it('holding matrixSeed while the soup seed varies keeps the same rules', () => {
+      const rules = (seed: number) => Array.from(resolveMatrix({ ...base, seed, matrixSeed: 4242 }))
+      expect(rules(1337)).toEqual(rules(9999)) // soup changed, matrix pinned → identical
+    })
   })
 
   describe('packColors', () => {
@@ -122,6 +141,15 @@ describe('particle-life-gpu pack', () => {
       expect(new DataView(packParams({ ...base, forceCurve: 'Smooth' })).getUint32(36, true)).toBe(1)
       expect(new DataView(packParams({ ...base, forceCurve: 'Long-range' })).getUint32(36, true)).toBe(2)
       expect(new DataView(packParams({ ...base, forceCurve: 'Stepped' })).getUint32(36, true)).toBe(3)
+    })
+
+    // #213: the breathe pulse scales forceMul; the default multiplier (1) is a no-op.
+    it('breatheMul scales forceMul (1 = off, exactly as before)', () => {
+      const cfg = { count: 8000, colors: 6, rMax: 80, beta: 0.3, forceScale: 1.5, friction: 0.04 }
+      const off = new DataView(packParams(cfg, WORLD_W, WORLD_H)).getFloat32(16, true)
+      const on = new DataView(packParams(cfg, WORLD_W, WORLD_H, 1.2)).getFloat32(16, true)
+      expect(off).toBeCloseTo(80 * 1.5) // default breatheMul = 1 → unchanged
+      expect(on).toBeCloseTo(80 * 1.5 * 1.2) // pulse scales the force
     })
   })
 
