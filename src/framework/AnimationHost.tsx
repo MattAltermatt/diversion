@@ -138,22 +138,29 @@ export function AnimationHost({
       }
     }
 
-    const sizeOf = (): Size => {
+    // Measure the drawn box and (re)size the backing store. `force` applies unconditionally
+    // (initial setup / GL restore). Otherwise this is IDEMPOTENT: writing canvas.width — even
+    // the SAME value — resets the 2D context (clears the canvas + transform), so a same-size
+    // ResizeObserver reflow would nuke accumulated CA/accretion state; skip the write when the
+    // pixel size is unchanged (#269).
+    const sizeOf = (force = false): Size => {
       const r = canvas.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.max(1, Math.floor(r.width * dpr))
-      canvas.height = Math.max(1, Math.floor(r.height * dpr))
+      const tw = Math.max(1, Math.floor(r.width * dpr))
+      const th = Math.max(1, Math.floor(r.height * dpr))
+      const changed = force || tw !== canvas.width || th !== canvas.height
+      if (changed) { canvas.width = tw; canvas.height = th }
       // 2D: scale the backing store so the sim draws in CSS pixels at crisp HiDPI.
-      // (Resizing the canvas resets the transform, so reapply on every sizeOf.)
+      // (Resizing the canvas resets the transform, so reapply whenever it changed.)
       if (diversion.kind === '2d') {
-        ;(ctx as CanvasRenderingContext2D).setTransform(dpr, 0, 0, dpr, 0, 0)
+        if (changed) (ctx as CanvasRenderingContext2D).setTransform(dpr, 0, 0, dpr, 0, 0)
         return { width: Math.max(1, Math.floor(r.width)), height: Math.max(1, Math.floor(r.height)) }
       }
       // WebGL: work in device pixels (gl.viewport expects them).
       return { width: canvas.width, height: canvas.height }
     }
 
-    const size = sizeOf()
+    const size = sizeOf(true)
     let state: unknown
     try {
       state = diversion.setup(ctx, config, size)
@@ -238,8 +245,16 @@ export function AnimationHost({
     loop.start()
 
     const onResize = () => {
+      const pw = canvas.width, ph = canvas.height
       run.size = sizeOf()
+      // The RO fires for reflows that don't change the pixel size; several diversions
+      // rebuild/reseed in resize(), so short-circuit when the backing store is unchanged (#269).
+      if (canvas.width === pw && canvas.height === ph) return
       diversion.resize?.(run.state, run.size, ctx)
+      // A paused / reduced-motion tile won't repaint itself, so the just-cleared canvas
+      // (the size change reset it) would stay blank until unpause. Paint one static frame —
+      // the same #120 repaint the config-edit and GL-restore paths already do.
+      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, performance.now(), 0)
     }
     // ResizeObserver catches container/layout reflow and fullscreen transitions
     // that never fire a window 'resize'. Observe the canvas — exactly the drawn box.

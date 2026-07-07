@@ -268,14 +268,55 @@ describe('AnimationHost offscreen pause (#6)', () => {
   })
 })
 
-describe('AnimationHost resize (#7)', () => {
-  it('refits via ResizeObserver, passing the context to resize()', () => {
+describe('AnimationHost resize (#7, #269)', () => {
+  const rect = (w: number, h: number) =>
+    ({ width: w, height: h, top: 0, left: 0, right: w, bottom: h, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
+
+  it('refits via ResizeObserver when the pixel size changes, passing the context to resize()', () => {
+    harness.reducedMotion = false
     const calls: string[] = []
-    render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
-    expect(harness.lastResizeObserver).not.toBeNull()
-    const ro = harness.lastResizeObserver!
-    ro.cb([], ro) // fire a resize
-    expect(calls).toContain('resize')
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(400, 300))
+    try {
+      render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
+      expect(harness.lastResizeObserver).not.toBeNull()
+      const ro = harness.lastResizeObserver!
+      spy.mockReturnValue(rect(800, 600)) // the drawn box actually grew
+      ro.cb([], ro)
+      expect(calls).toContain('resize')
+    } finally { spy.mockRestore() }
+  })
+
+  it('does NOT rebuild on a same-size RO reflow — size-equality guard (#269)', () => {
+    harness.reducedMotion = false
+    const calls: string[] = []
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(400, 300))
+    try {
+      render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
+      const ro = harness.lastResizeObserver!
+      calls.length = 0 // ignore the initial setup
+      ro.cb([], ro) // same 400×300 → a reflow that changed nothing
+      ro.cb([], ro)
+      expect(calls).not.toContain('resize') // never nukes accumulated state on no-op reflow
+    } finally { spy.mockRestore() }
+  })
+
+  it('paints one static frame when a PAUSED tile is resized (#269 / #120)', () => {
+    harness.reducedMotion = true
+    const calls: string[] = []
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(400, 300))
+    try {
+      render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
+      act(() => drainRaf()) // first frame paints → reduced gate engages, loop frozen
+      const before = calls.filter((c) => c === 'frame').length
+      const ro = harness.lastResizeObserver!
+      spy.mockReturnValue(rect(800, 600))
+      act(() => ro.cb([], ro)) // resize the frozen tile → canvas cleared by the size change
+      expect(calls.filter((c) => c === 'resize').length).toBe(1)
+      expect(calls.filter((c) => c === 'frame').length).toBe(before + 1) // one static repaint, not blank
+    } finally {
+      spy.mockRestore()
+      harness.reducedMotion = false
+    }
   })
 })
 
