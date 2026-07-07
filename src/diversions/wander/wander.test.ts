@@ -148,6 +148,20 @@ describe('lifecycle', () => {
     expect(s.covCount).toBe(0)
   })
 
+  it('accumulate: a stuck billiard (turnLever=0, bounce) renews via the coverage-stall fallback', () => {
+    const c = cfg({ seed: 3, trailStyle: 'accumulate', fillThreshold: 90, walkers: 1, turnLever: 0, edges: 'bounce', speed: 200 })
+    const s = createWanderState(c, 400, 300)
+    // Force a pure horizontal billiard: covers a single row of cells (~4%), so the
+    // fillThreshold (90%) is never reached — without the stall fallback this loops
+    // forever and the accumulation buffer never renews.
+    s.walkers[0].heading = 0
+    s.walkers[0].y = 150
+    let guard = 0
+    while (s.life === 'draw' && guard++ < 100_000) runSteps(s, 100, () => {})
+    expect(s.life).toBe('fade')
+    expect(coverageFraction(s)).toBeLessThan(0.9)
+  })
+
   it('fade style never flips to the fade lifecycle (index.ts fades the buffer instead)', () => {
     const c = cfg({ seed: 3, trailStyle: 'fade', fillThreshold: 20, walkers: 6, speed: 200 })
     const s = createWanderState(c, 300, 200)

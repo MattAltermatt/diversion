@@ -13,6 +13,11 @@ import type { WanderConfig } from './schema'
 const COLOR_K = 0.02
 const MAX_STEPS_PER_FRAME = 6000 // anti spiral-of-death clamp (all walkers combined)
 const COV_CELL = 12              // coverage grid resolution (px) for the fill trigger
+// Accumulate-mode renew fallback: combined steps with zero new coverage before we
+// give up on reaching fillThreshold and fade anyway. A healthy walk marks new cells
+// constantly; only a degenerate corner (turnLever=0 + bounce → a retracing billiard)
+// plateaus below threshold. Step-based (not time) so it's speed-invariant / feel-neutral.
+const STALL_STEPS = 3000
 
 export interface Walker {
   x: number          // CSS px
@@ -44,6 +49,10 @@ export interface WanderState {
   // Lifecycle: 'draw' accumulates; 'fade' hands off to index.ts to fade the buffer out.
   life: Life
   fadeElapsed: number // ms spent fading (accumulate → reseed when >= fadeTime)
+  // Coverage-stall fallback: covCount at the last progress frame + steps run since,
+  // so a plateau below fillThreshold still renews (see STALL_STEPS).
+  prevCovCount: number
+  stallSteps: number
 }
 
 /** Build a 256-entry cyclic colour LUT from the palette (looped end→start), so
@@ -97,6 +106,7 @@ export function createWanderState(
     generation,
     cov, covCols, covRows, covCount: 0,
     life: 'draw', fadeElapsed: 0,
+    prevCovCount: 0, stallSteps: 0,
   }
 }
 
@@ -109,6 +119,8 @@ export function reseed(s: WanderState): void {
   s.covCount = 0
   s.life = 'draw'
   s.fadeElapsed = 0
+  s.prevCovCount = 0
+  s.stallSteps = 0
 }
 
 /** Resize without a full reseed: keep the walkers (clamped into the new bounds),
@@ -188,8 +200,15 @@ export function runSteps(s: WanderState, dt: number, draw: (seg: Segment) => voi
       if (seg) draw(seg)
     }
   }
-  if (cfg.trailStyle === 'accumulate' && coverageFraction(s) >= cfg.fillThreshold / 100) {
-    s.life = 'fade'
-    s.fadeElapsed = 0
+  if (cfg.trailStyle === 'accumulate') {
+    // Track progress: a frame that marks a new cell resets the stall counter.
+    if (s.covCount > s.prevCovCount) { s.prevCovCount = s.covCount; s.stallSteps = 0 }
+    else s.stallSteps += steps
+    // Renew when the screen is full enough OR when a degenerate walk has plateaued
+    // below threshold (stuck billiard) — otherwise it would never fade + reseed.
+    if (coverageFraction(s) >= cfg.fillThreshold / 100 || s.stallSteps >= STALL_STEPS) {
+      s.life = 'fade'
+      s.fadeElapsed = 0
+    }
   }
 }

@@ -40,6 +40,7 @@ export interface SchellingState {
   phase: Phase
   holdAccum: number // ms spent holding a settled pattern
   unhappy: number // unhappy agents after the last completed round
+  lastMoved: number // relocations in the last round — 0 means the grid is static (nearest-mode lock)
   segregation: number // mean same-type fraction among occupied neighbours (0..1)
   // render scratch
   field: ImageData | null
@@ -112,7 +113,7 @@ export function createSchellingState(cfg: SchellingConfig, w: number, h: number)
     rng: mulberry32(cfg.seed | 0),
     tick: 0, tickAccum: 0, tickMs: 1000 / cfg.speed,
     phase: 'sorting', holdAccum: 0,
-    unhappy: 0, segregation: 0,
+    unhappy: 0, segregation: 0, lastMoved: 0,
     field: null, buf: null, lut: buildLut(cfg),
   }
   scramble(state)
@@ -222,6 +223,7 @@ export function step(state: SchellingState): number {
   }
 
   const nearest = cfg.moveMode === 'nearest'
+  let moved = 0 // relocations that actually happened this round
   for (const from of movers) {
     const t = grid[from]
     if (t === EMPTY) continue // moved into by a prior mover this round
@@ -235,6 +237,7 @@ export function step(state: SchellingState): number {
       if (to >= 0) {
         grid[to] = t
         removeEmpty(state, to) // `from` stays empty
+        moved++
       } else {
         grid[from] = t
         removeEmpty(state, from) // put it back
@@ -246,9 +249,11 @@ export function step(state: SchellingState): number {
       removeEmpty(state, to)
       grid[from] = EMPTY
       addEmpty(state, from)
+      moved++
     }
   }
 
+  state.lastMoved = moved
   state.unhappy = movers.length
   recomputeStats(state)
   return movers.length
@@ -305,7 +310,10 @@ export function advance(state: SchellingState, dt: number): void {
   while (state.tickAccum >= state.tickMs && budget-- > 0) {
     state.tickAccum -= state.tickMs
     step(state)
-    if (state.unhappy <= SETTLE_UNHAPPY) {
+    // Settle when almost everyone is happy OR when the grid has gone static — a
+    // `nearest`-mode lock (nobody can find a satisfying empty) relocates no one, so
+    // without the second clause it stays 'sorting' forever and never reshuffles.
+    if (state.unhappy <= SETTLE_UNHAPPY || state.lastMoved === 0) {
       state.phase = 'holding'
       state.holdAccum = 0
       break

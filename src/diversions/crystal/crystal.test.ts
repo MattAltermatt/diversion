@@ -3,7 +3,7 @@ import { crystalSchema } from './schema'
 import {
   GROUPS, GROUP_IDS, mul, detM, cartOrient, type Mat, type GroupId,
 } from './groups'
-import { createState, buildMotif, offsetRadius } from './wallpaper'
+import { createState, buildMotif, offsetRadius, render } from './wallpaper'
 import { resolvePalette } from './palettes'
 
 const ID: Mat = [1, 0, 0, 1]
@@ -64,6 +64,33 @@ describe('determinism', () => {
     expect(buildMotif(3, 5, colors)).toHaveLength(5)
     expect(buildMotif(3, 99, colors)).toHaveLength(8)
     expect(buildMotif(3, 0, colors)).toHaveLength(1)
+  })
+})
+
+describe('drift never empties the viewport', () => {
+  // A minimal spy context: count how many motif stamps survive the off-screen
+  // cull (one ctx.rotate per drawn stamp). No jsdom canvas needed.
+  function drawnStamps(st: ReturnType<typeof createState>): number {
+    let stamps = 0
+    const ctx = {
+      fillStyle: '', strokeStyle: '', lineWidth: 0,
+      fillRect() {}, getTransform() { return {} }, setTransform() {}, transform() {},
+      rotate() { stamps++ },
+      beginPath() {}, arc() {}, fill() {}, stroke() {}, rect() {},
+      moveTo() {}, lineTo() {}, closePath() {}, quadraticCurveTo() {},
+    } as unknown as CanvasRenderingContext2D
+    render(st, ctx)
+    return stamps
+  }
+
+  it('a huge accumulated drift (cycleSeconds=0 corner) still fills the screen', () => {
+    const cfg = crystalSchema.parse({ group: 'p1', seed: 5, cellSize: 80 })
+    const st = createState(cfg, 800, 600)
+    expect(drawnStamps(st)).toBeGreaterThan(0) // baseline: undrifted
+
+    // Without the % 1 glide wrap the whole lattice slides off-screen → 0 stamps.
+    st.driftPhase = 123_456.789
+    expect(drawnStamps(st)).toBeGreaterThan(0)
   })
 })
 

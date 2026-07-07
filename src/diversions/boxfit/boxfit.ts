@@ -16,6 +16,12 @@ const BUCKET = 48 // px: spatial-hash bucket size
 const SPAWN_TRIES = 26 // candidate empty points probed per spawn before giving up
 const STALL_LIMIT_MS = 500 // no-room-to-spawn + nothing growing this long → filled
 const MIN_SHAPES_BEFORE_FILL = 24 // never declare "full" before this many are placed
+// Hard fallback: on a tiny canvas + large gap the plane can genuinely saturate with
+// FEWER than MIN_SHAPES_BEFORE_FILL shapes, so the fast-path floor never trips and the
+// mosaic would freeze forever with no reseed. After this much continuous stall we
+// declare filled regardless of count. Long enough that a normal canvas always reaches
+// the 24-shape fast path first, so this never changes ordinary behaviour.
+const HARD_STALL_LIMIT_MS = 4000
 
 export interface Shape {
   box: boolean // true = box, false = circle
@@ -207,10 +213,13 @@ export function advance(s: BoxfitState, dt: number): void {
   }
 
   // ── fill detection ── the plane is "full" once nothing is growing and we
-  // repeatedly can't find room to drop a new shape.
-  if (s.growing.length === 0 && roomRanOut && !placedAny && s.shapes.length >= MIN_SHAPES_BEFORE_FILL) {
+  // repeatedly can't find room to drop a new shape. Fast path: ≥ the shape floor
+  // after a short stall. Hard fallback: any count after a long stall, so a
+  // sub-floor saturation (tiny canvas + big gap) still reseeds instead of freezing.
+  if (s.growing.length === 0 && roomRanOut && !placedAny) {
     s.stalledMs += dt
-    if (s.stalledMs >= STALL_LIMIT_MS) s.filled = true
+    const fastFull = s.shapes.length >= MIN_SHAPES_BEFORE_FILL && s.stalledMs >= STALL_LIMIT_MS
+    if (fastFull || s.stalledMs >= HARD_STALL_LIMIT_MS) s.filled = true
   } else if (placedAny || s.growing.length > 0) {
     s.stalledMs = 0
   }

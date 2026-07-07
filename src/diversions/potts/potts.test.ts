@@ -76,4 +76,15 @@ describe('headline: the polycrystal coarsens', () => {
     expect(grains1).toBeLessThan(grains0)
     expect(grains1).toBeLessThan(grains0 * 0.6)
   })
+
+  it('never dead-ends at T=0: strict descent still reseeds (grain-count trigger)', () => {
+    // #268 flagged a possible temperature=0 freeze above the grain threshold. Verified
+    // false: the ΔE=0 boundary-migration moves keep coarsening until grainCount drops to
+    // ≤ RESEED_GRAINS and the existing trigger re-noises — no permanent lock. (A 75-config
+    // sweep found zero freezes; worst case reseeded within ~4440 sweeps.)
+    const st = createPottsState(cfg({ seed: 1, cellSize: 2, states: 12, temperature: 0 }), 200, 150)
+    let sweeps = 0
+    for (; sweeps < 6000 && st.reseeds === 0; sweeps++) advancePotts(st, 1)
+    expect(st.reseeds).toBeGreaterThan(0)
+  })
 })

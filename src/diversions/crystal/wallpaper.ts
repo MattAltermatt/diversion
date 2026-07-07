@@ -96,7 +96,11 @@ export function render(st: CrystalState, ctx: CanvasRenderingContext2D): void {
   const ang = st.driftPhase * DRIFT_ROT
   const ca = Math.cos(ang), sa = Math.sin(ang)
   const glide = st.driftPhase * DRIFT_TRANS
-  const gu = glide, gv = glide * 0.5 // drift direction in fractional coords
+  // Wrap the glide into one cell period. The lattice is periodic in fractional
+  // coords, so gu%1 / gv%1 is visually identical to the unbounded glide but can
+  // never slide the whole tiling off-screen (the cycleSeconds=0 / high-drift
+  // corner otherwise empties the disk — see the drift regression test).
+  const gu = glide % 1, gv = (glide * 0.5) % 1 // drift direction in fractional coords
 
   const cx = w / 2, cy = h / 2
   const base = ctx.getTransform() // the framework's DPR transform — compose on top

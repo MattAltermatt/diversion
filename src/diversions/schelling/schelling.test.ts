@@ -116,6 +116,26 @@ describe('schelling loop', () => {
   })
 })
 
+describe('schelling nearest-mode lock', () => {
+  it('a locked grid (nobody can improve) still settles + reshuffles instead of freezing', () => {
+    // High tolerance + few empties + nearest mode: almost everyone is unhappy but almost
+    // no one can find a nearby empty that satisfies them, so the grid goes static with
+    // unhappy far above SETTLE_UNHAPPY. Without the static-grid detector this stays in
+    // 'sorting' forever and the pattern never renews.
+    const s = createSchellingState(
+      cfg({ seed: 7, gridSize: 24, types: 3, tolerance: 0.9, emptyFraction: 0.03, moveMode: 'nearest', speed: 30, holdSeconds: 1 }),
+      800, 600,
+    )
+    // The grid locks by round ~1, so the fix reaches 'holding' almost immediately; the
+    // modest guard keeps a future regression (stuck in 'sorting') fast to fail.
+    let guard = 0
+    for (; guard < 200 && s.phase === 'sorting'; guard++) advance(s, 100)
+    expect(s.phase).toBe('holding')
+    // It locked with many still unhappy — a plain settle would need unhappy <= 3.
+    expect(s.unhappy).toBeGreaterThan(3)
+  })
+})
+
 describe('schelling LUT', () => {
   it('has empty + 3 type rgb slots', () => {
     const lut = buildLut(cfg())

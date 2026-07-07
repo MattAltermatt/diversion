@@ -101,6 +101,16 @@ describe('boxfit correctness (headline)', () => {
     advance(s, 16)
     expect(s.shapes.length).toBe(n) // filled → no further growth
   })
+
+  it('a tiny canvas + big gap that saturates below MIN_SHAPES_BEFORE_FILL still fills (no permanent freeze)', () => {
+    // A large grout on a small plane packs only a handful of shapes — fewer than the
+    // 24-shape fast-path floor. Without the hard-stall fallback `filled` never flips,
+    // so shouldRestart never fires and the mosaic freezes forever with no reseed.
+    const s = createState(cfg({ seed: 4, gap: 14, maxSize: 0.34, growthSpeed: 400, spawnRate: 50 }), 120, 90)
+    for (let i = 0; i < 4000 && !s.filled; i++) advance(s, 16)
+    expect(s.shapes.length).toBeLessThan(24) // confirms the sub-floor saturation regime
+    expect(s.filled).toBe(true)
+  })
 })
 
 describe('boxfit applyConfig', () => {
