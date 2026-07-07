@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { asteroidsSchema } from './schema'
-import { generateField, buildNebulaData, buildDustData, NEB_W, NEB_H, DUST_W, DUST_H } from './asteroids'
+import { generateField, buildNebulaData, buildDustData, nearestCopy, FIELD, NEB_W, NEB_H, DUST_W, DUST_H } from './asteroids'
 
 const base = asteroidsSchema.parse({})
 
@@ -42,6 +42,33 @@ describe('asteroid field generation', () => {
     expect(generateField({ ...base, stars: 1 }).stars.length).toBeGreaterThan(
       generateField({ ...base, stars: 0.25 }).stars.length,
     )
+  })
+})
+
+describe('Pan-mode toroidal wrap (regression #263)', () => {
+  it('nearestCopy is a real field copy within half a period of the window centre', () => {
+    const P = 2 * FIELD.ast.hw
+    for (const center of [0, 3.9, 12.3, -50, 100000.7]) {
+      for (const c of [-FIELD.ast.hw, -0.3, 0, 1.7, FIELD.ast.hw]) {
+        const wrapped = nearestCopy(c, center, P)
+        expect(Math.abs(wrapped - center)).toBeLessThanOrEqual(P / 2 + 1e-9)
+        const k = (wrapped - c) / P // differs from the original by a whole number of periods
+        expect(Math.abs(k - Math.round(k))).toBeLessThan(1e-9)
+      }
+    }
+  })
+
+  it('keeps field content near the window no matter how far Pan accretes (no flat background)', () => {
+    // The bug: a linear Pan slid the finite field off → flat #0a0a1a forever. With the
+    // wrap, every point's drawn copy stays within ±½-period of screen centre — the field
+    // can never pan off into the void, regardless of how large the accreted offset grows.
+    const unit = 300, w = 1067 // ~16:9 (h=600, w/h≈1.78)
+    const P = 2 * FIELD.star.hw, pf = 0.05
+    for (const camx of [0, 100, 5000, -99999]) {
+      const baseWx = nearestCopy(FIELD.star.hw - 0.01, camx * pf, P) // a star at the field edge
+      const screenX = w / 2 + (baseWx - camx * pf) * unit
+      expect(Math.abs(screenX - w / 2)).toBeLessThanOrEqual((P / 2) * unit + 1e-6)
+    }
   })
 })
 

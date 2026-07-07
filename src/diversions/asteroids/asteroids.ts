@@ -5,6 +5,31 @@ import type { AsteroidsConfig } from './schema'
 const TAU = Math.PI * 2
 export type Pt = [number, number]
 
+// World-field extents (half-width, half-height, in units of half-viewport-height).
+// Each point layer fills [-hw,hw]×[-hh,hh]; the full span (2·hw, 2·hh) is ALSO its
+// toroidal period for the Pan-mode wrap (#263), so this is the single source for both
+// generateField and the renderer. A uniform-random field tiles seamlessly at this period.
+export const FIELD = {
+  ast: { hw: 2.0, hh: 1.2 },
+  star: { hw: 2.1, hh: 1.3 },
+  mote: { hw: 1.7, hh: 1.1 },
+} as const
+
+/** Nearest periodic copy of world coord `c` to the window centre — the core of the
+ *  Pan-mode toroidal wrap (#263). The field tiles the plane, so instead of letting a
+ *  linearly-accreting Pan camera slide the finite field off into empty space, we draw
+ *  the copy of each point nearest the camera window. |result − centre| ≤ period/2. */
+export function nearestCopy(c: number, center: number, period: number): number {
+  return c - period * Math.round((c - center) / period)
+}
+
+/** Smooth saturating clamp to ±lim (no hard corner) — keeps the non-tileable nebula /
+ *  dust backdrops within their overscan margin under an unbounded Pan so their edge
+ *  never slides into view, while still parallaxing gently before easing to a stop. */
+function softClamp(v: number, lim: number): number {
+  return lim * Math.tanh(v / lim)
+}
+
 /** Scale an RGB by a brightness factor (per-rock tone), clamped to 0–255. */
 function shade(c: RGB, k: number): RGB {
   return { r: Math.min(255, c.r * k), g: Math.min(255, c.g * k), b: Math.min(255, c.b * k) }
@@ -107,8 +132,8 @@ export function generateField(cfg: AsteroidsConfig): Field {
     if (rnd() < 0.09) tone += 0.34
     asteroids.push({
       verts, craters, mottles, tone,
-      wx: (rnd() - 0.5) * 4.0,
-      wy: (rnd() - 0.5) * 2.4,
+      wx: (rnd() - 0.5) * (2 * FIELD.ast.hw),
+      wy: (rnd() - 0.5) * (2 * FIELD.ast.hh),
       radius,
       depth,
       rot: rnd() * TAU,
@@ -121,14 +146,14 @@ export function generateField(cfg: AsteroidsConfig): Field {
   const nStars = Math.round(cfg.stars * 320)
   const stars: Star[] = []
   for (let i = 0; i < nStars; i++) {
-    stars.push({ wx: (rnd() - 0.5) * 4.2, wy: (rnd() - 0.5) * 2.6, b: 0.2 + rnd() * 0.8 })
+    stars.push({ wx: (rnd() - 0.5) * (2 * FIELD.star.hw), wy: (rnd() - 0.5) * (2 * FIELD.star.hh), b: 0.2 + rnd() * 0.8 })
   }
 
   const nMotes = Math.round(cfg.dust * 140)
   const motes: Mote[] = []
   for (let i = 0; i < nMotes; i++) {
     motes.push({
-      wx: (rnd() - 0.5) * 3.4, wy: (rnd() - 0.5) * 2.2,
+      wx: (rnd() - 0.5) * (2 * FIELD.mote.hw), wy: (rnd() - 0.5) * (2 * FIELD.mote.hh),
       r: 0.4 + rnd() * 1.6, ph: rnd() * TAU,
     })
   }
@@ -327,6 +352,12 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   const cam = camera(s)
   const maxd = Math.hypot(w, h)
   const sx = cfg.sunX * w, sy = cfg.sunY * h
+  // Pan mode accretes camera offset without bound → the finite field would slide off
+  // into flat background (#263). In Pan we tile the point layers (draw the copy nearest
+  // the window, plus its X neighbours so the window is always covered) and soft-clamp the
+  // non-tileable nebula/dust backdrops within their overscan. Drift is bounded → untouched.
+  const pan = cfg.panMode === 'Pan'
+  const nCopies = pan ? 1 : 0 // extra ±X copies per point layer (Y needs only the nearest)
 
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = rgba(parseHex6(cfg.background), 1)
@@ -335,12 +366,19 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   // 1 · Stars (far, sharp)
   if (s.field.stars.length) {
     ctx.globalCompositeOperation = 'screen'
+    const PX = 2 * FIELD.star.hw, PY = 2 * FIELD.star.hh
     for (const st of s.field.stars) {
-      const px = w / 2 + (st.wx - cam.x * 0.05) * unit
-      const py = h / 2 + (st.wy - cam.y * 0.05) * unit
-      if (px < -2 || px > w + 2 || py < -2 || py > h + 2) continue
+      const baseWx = pan ? nearestCopy(st.wx, cam.x * 0.05, PX) : st.wx
+      const wy = pan ? nearestCopy(st.wy, cam.y * 0.05, PY) : st.wy
+      const py = h / 2 + (wy - cam.y * 0.05) * unit
+      if (py < -2 || py > h + 2) continue
+      const sz = st.b > 0.75 ? 1.5 : 1
       ctx.fillStyle = `rgba(220,225,255,${(0.25 + st.b * 0.55) * cfg.stars})`
-      ctx.fillRect(px, py, st.b > 0.75 ? 1.5 : 1, st.b > 0.75 ? 1.5 : 1)
+      for (let k = -nCopies; k <= nCopies; k++) {
+        const px = w / 2 + (baseWx + k * PX - cam.x * 0.05) * unit
+        if (px < -2 || px > w + 2) continue
+        ctx.fillRect(px, py, sz, sz)
+      }
     }
     ctx.globalCompositeOperation = 'source-over'
   }
@@ -348,8 +386,10 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   // 2 · Nebula — low-res bake stretched over the viewport with parallax overscan
   const over = 0.16 * maxd
   ctx.imageSmoothingEnabled = true
+  const nebX = pan ? softClamp(cam.x * 0.12 * unit, over) : cam.x * 0.12 * unit
+  const nebY = pan ? softClamp(cam.y * 0.12 * unit, over) : cam.y * 0.12 * unit
   ctx.drawImage(s.neb,
-    -over - cam.x * 0.12 * unit, -over - cam.y * 0.12 * unit,
+    -over - nebX, -over - nebY,
     w + over * 2, h + over * 2)
 
   // 3 · Sun bleed + god-rays (screen-blended warm light)
@@ -396,13 +436,17 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   if (cfg.dustLanes > 0) {
     ctx.globalCompositeOperation = 'source-over'
     const d1 = 0.14 * maxd
+    const d1x = pan ? softClamp(cam.x * 0.2 * unit, d1) : cam.x * 0.2 * unit
+    const d1y = pan ? softClamp(cam.y * 0.2 * unit, d1) : cam.y * 0.2 * unit
     ctx.drawImage(s.dust,
-      -d1 - cam.x * 0.2 * unit, -d1 - cam.y * 0.2 * unit,
+      -d1 - d1x, -d1 - d1y,
       w + d1 * 2, h + d1 * 2)
     const d2 = 0.22 * maxd   // a nearer, offset pass so the veil has depth
+    const d2x = pan ? softClamp(cam.x * 0.42 * unit, d2) : cam.x * 0.42 * unit
+    const d2y = pan ? softClamp(cam.y * 0.42 * unit, d2) : cam.y * 0.42 * unit
     ctx.globalAlpha = 0.8
     ctx.drawImage(s.dust,
-      -d2 + 0.15 * w - cam.x * 0.42 * unit, -d2 + 0.08 * h - cam.y * 0.42 * unit,
+      -d2 + 0.15 * w - d2x, -d2 + 0.08 * h - d2y,
       w + d2 * 2, h + d2 * 2)
     ctx.globalAlpha = 1
   }
@@ -413,11 +457,17 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
   const rockLit = parseHex6(cfg.rockLit)
   const rim = parseHex6(cfg.rimColor)
   const cool = { r: 44, g: 50, b: 78 }   // faint nebula bounce so shadow isn't dead black
+  const PXa = 2 * FIELD.ast.hw, PYa = 2 * FIELD.ast.hh
   for (let ai = 0; ai < s.field.asteroids.length; ai++) {
     const a = s.field.asteroids[ai]
-    const cx = w / 2 + (a.wx - cam.x * a.depth) * unit
-    const cy = h / 2 + (a.wy - cam.y * a.depth) * unit
+    // Pan-wrap: draw the field copy nearest the window, plus its ±X neighbours so a
+    // boulder re-enters from the trailing side instead of the field panning off (#263).
+    const baseWx = pan ? nearestCopy(a.wx, cam.x * a.depth, PXa) : a.wx
+    const wy = pan ? nearestCopy(a.wy, cam.y * a.depth, PYa) : a.wy
+    const cy = h / 2 + (wy - cam.y * a.depth) * unit
     const rad = a.radius * unit
+    for (let kc = -nCopies; kc <= nCopies; kc++) {
+    const cx = w / 2 + (baseWx + kc * PXa - cam.x * a.depth) * unit
     if (cx < -rad * 2 || cx > w + rad * 2 || cy < -rad * 2 || cy > h + rad * 2) continue
     const ang = a.rot + s.t * a.spin * cfg.tumble
     const ca = Math.cos(ang), sa = Math.sin(ang)
@@ -481,20 +531,27 @@ export function render(s: AsteroidsState, ctx: CanvasRenderingContext2D): void {
       ctx.fillRect(cx - rad * 2, cy - rad * 2, rad * 4, rad * 4)
     }
     ctx.restore()
+    } // kc: Pan-wrap copies
   }
 
   // 6 · Dust motes (nearest, faint twinkle)
   if (s.field.motes.length) {
     ctx.globalCompositeOperation = 'screen'
+    const PXm = 2 * FIELD.mote.hw, PYm = 2 * FIELD.mote.hh
     for (const m of s.field.motes) {
-      const px = w / 2 + (m.wx - cam.x) * unit
-      const py = h / 2 + (m.wy - cam.y) * unit
-      if (px < -4 || px > w + 4 || py < -4 || py > h + 4) continue
+      const baseWx = pan ? nearestCopy(m.wx, cam.x, PXm) : m.wx
+      const wy = pan ? nearestCopy(m.wy, cam.y, PYm) : m.wy
+      const py = h / 2 + (wy - cam.y) * unit
+      if (py < -4 || py > h + 4) continue
       const tw = 0.5 + 0.5 * Math.sin(s.t * 0.5 + m.ph)
       ctx.fillStyle = `rgba(205,184,255,${0.14 * cfg.dust * tw})`
-      ctx.beginPath()
-      ctx.arc(px, py, m.r, 0, TAU)
-      ctx.fill()
+      for (let k = -nCopies; k <= nCopies; k++) {
+        const px = w / 2 + (baseWx + k * PXm - cam.x) * unit
+        if (px < -4 || px > w + 4) continue
+        ctx.beginPath()
+        ctx.arc(px, py, m.r, 0, TAU)
+        ctx.fill()
+      }
     }
     ctx.globalCompositeOperation = 'source-over'
   }
