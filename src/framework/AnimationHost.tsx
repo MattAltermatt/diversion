@@ -8,6 +8,17 @@ import { applyFreshLoadRandomization } from './urlCodec'
 // path a bare page load takes — so every restart gets a brand-new world.
 const EMPTY_PARAMS = new URLSearchParams()
 
+// Free a diversion's live state exactly once, then null it. Every re-setup path
+// (auto-reseed, WebGL restore, the [config] effect) tears down then re-runs setup(); if
+// setup() THROWS, the nulled state stops the effect-cleanup teardown from freeing the same
+// GL/GPU resources a SECOND time (double free, #266). Shared by both effects (which own
+// distinct `run` closures) so the guard can't drift. teardown() only ever sees live state.
+function freeRun(diversion: Diversion, run: { state: unknown }): void {
+  if (run.state == null) return
+  diversion.teardown?.(run.state)
+  run.state = null
+}
+
 export function AnimationHost({
   diversion,
   config,
@@ -157,15 +168,6 @@ export function AnimationHost({
     runRef.current = run
     lastConfigRef.current = config
 
-    // Free the diversion's state exactly once. Re-setup paths (auto-reseed, GL restore,
-    // and the [config] effect) teardown-then-setup; if setup() THROWS, run.state must be
-    // nulled so the effect-cleanup teardown below can't free the same GL/GPU resources a
-    // SECOND time (double free, #266). teardown() is only ever called on live state.
-    const freeState = () => {
-      if (run.state == null) return
-      diversion.teardown?.(run.state)
-      run.state = null
-    }
     onLiveRef.current?.(config) // initial world → chrome can pin it before any restart
 
     // #39: honor prefers-reduced-motion. We paint exactly ONE frame (so the
@@ -189,7 +191,7 @@ export function AnimationHost({
       // that prop and discard the reseeded world's seed.
       if (diversion.shouldRestart?.(run.state, t, dt)) {
         const next = applyFreshLoadRandomization(diversion.schema, lastConfigRef.current as never, EMPTY_PARAMS)
-        freeState()
+        freeRun(diversion, run)
         try {
           run.state = diversion.setup(ctx, next, run.size)
         } catch (e) {
@@ -286,7 +288,7 @@ export function AnimationHost({
       // free any CPU-side state the diversion stashed before rebuilding, so a
       // restore doesn't leak it. (The GL resources are already gone with the
       // context; this frees the diversion's own bookkeeping.)
-      freeState()
+      freeRun(diversion, run)
       run.size = sizeOf()
       try {
         run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
@@ -363,7 +365,7 @@ export function AnimationHost({
       loop.stop()
       loopRef.current = null
       runRef.current = null
-      freeState()
+      freeRun(diversion, run)
       // Defer the context release to a macrotask (listeners already removed above). If
       // this cleanup is a REUSE — StrictMode's dev remount or a same-kind swap — the
       // very next setup run (synchronous, same commit) clears this timer before it
@@ -382,8 +384,7 @@ export function AnimationHost({
     lastConfigRef.current = config
     const handled = diversion.update?.(run.state, config, run.size)
     if (!handled) {
-      if (run.state != null) diversion.teardown?.(run.state)
-      run.state = null // if setup() throws below, the [diversion] cleanup must not re-free (#266)
+      freeRun(diversion, run) // if setup() throws below, the [diversion] cleanup must not re-free (#266)
       try {
         run.state = diversion.setup(run.ctx, config, run.size)
       } catch (e) {
