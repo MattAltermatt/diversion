@@ -41,6 +41,13 @@ export function getSharedDevice(opts: { forceNew?: boolean } = {}): Promise<GPUD
       })
       return device
     })()
+    // If init REJECTS (no adapter, requestDevice failure, GPU-process hiccup, transient
+    // blocklist race), drop the cached rejection so the NEXT getSharedDevice() re-attempts
+    // instead of handing every future webgpu tile a permanently-poisoned promise (#265).
+    // Same identity guard so a newer device requested via forceNew is never clobbered.
+    void pending.catch(() => {
+      if (devicePromise === pending) devicePromise = null
+    })
     devicePromise = pending
   }
   return devicePromise
