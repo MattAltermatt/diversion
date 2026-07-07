@@ -60,6 +60,18 @@ describe('DLA aggregation', () => {
     expect(checked).toBe(s.count)
   })
 
+  it('line seed does not instant-fill on a wide (≥16:9) grid, then grows spires (regression #262)', () => {
+    // 1920×1080 → gw=640, gh=360. A gw·0.32 bar started already past the fill radius,
+    // so `filled` latched on the first advance() and the spires never assembled.
+    const s = createState(cfg({ seedType: 'line', seed: 4, speed: 600 }), 1920, 1080)
+    expect(s.filled).toBe(false)
+    advance(s, 16)
+    expect(s.filled).toBe(false) // was: latched true on frame 1
+    const seeded = s.count
+    for (let i = 0; i < 200; i++) advance(s, 16)
+    expect(s.count).toBeGreaterThan(seeded) // spires actually grow in
+  })
+
   it('marks the frame filled and stops growing once the cluster spans it', () => {
     const s = createState(cfg({ seed: 3, speed: 1200 }), 240, 180)
     for (let i = 0; i < 4000 && !s.filled; i++) advance(s, 16)

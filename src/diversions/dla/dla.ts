@@ -72,7 +72,11 @@ function seedCluster(s: DLAState): void {
       break
     }
     case 'line': {
-      const half = Math.round(s.gw * 0.32)
+      // Half-width keyed to the SHORTER dimension: the "filled" test is radius-based
+      // (maxR ≥ min(gw,gh)·FILL_FRAC), and a bar of half-width gw·0.32 already exceeds
+      // that on any ≥16:9 grid → instant-fill, no spires. Keying to min(gw,gh) keeps the
+      // seed radius safely below the fill threshold so the bilateral spires can grow in.
+      const half = Math.round(Math.min(s.gw, s.gh) * 0.32)
       for (let gx = cx - half; gx <= cx + half; gx++) {
         if (inBounds(s, gx, cy) && !occupied(s, gx, cy)) freeze(s, gx, cy)
       }
