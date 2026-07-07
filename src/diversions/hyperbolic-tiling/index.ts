@@ -1,6 +1,6 @@
 import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { hyperbolicTilingSchema, type HyperbolicTilingConfig } from './schema'
-import { generateTiling, type Tile } from './tiling'
+import { generateTiling, driftCap, type Tile } from './tiling'
 import { renderTiling, buildBins, lightestColor, type TileBin } from './render'
 import { tilingPresets, palettePresets } from './presets'
 
@@ -12,6 +12,7 @@ type HyperbolicTilingState = {
   maxDepth: number
   bins: TileBin[] // precomputed per-(ring,parity) fill partition + colour — frame-invariant
   boundaryColor: string // precomputed lightestColor(cfg.colors) — frame-invariant
+  driftCap: number // per-patch max drift magnitude (keeps the disk centre covered, #261)
   time: number // seconds, accumulated — feeds the Möbius drift
 }
 
@@ -39,12 +40,12 @@ const hyperbolicTiling = defineDiversion<typeof hyperbolicTilingSchema, Hyperbol
     const { tiles, maxDepth } = buildTiles(config)
     const bins = buildBins(tiles, maxDepth, config.colors)
     const boundaryColor = lightestColor(config.colors)
-    return { cfg: config, w: size.width, h: size.height, tiles, maxDepth, bins, boundaryColor, time: 0 }
+    return { cfg: config, w: size.width, h: size.height, tiles, maxDepth, bins, boundaryColor, driftCap: driftCap(tiles), time: 0 }
   },
 
   frame(state, ctx, _t, dt) {
     state.time += dt / 1000
-    renderTiling(ctx, state.cfg, state.w, state.h, state.tiles, state.bins, state.boundaryColor, state.time)
+    renderTiling(ctx, state.cfg, state.w, state.h, state.tiles, state.bins, state.boundaryColor, state.time, state.driftCap)
   },
 
   resize(state, size) {
@@ -63,6 +64,7 @@ const hyperbolicTiling = defineDiversion<typeof hyperbolicTilingSchema, Hyperbol
       state.maxDepth = maxDepth
       state.bins = buildBins(state.tiles, state.maxDepth, config.colors)
       state.boundaryColor = lightestColor(config.colors)
+      state.driftCap = driftCap(state.tiles) // patch changed → recompute the drift ceiling
     } else if (config.colors !== state.cfg.colors) {
       state.bins = buildBins(state.tiles, state.maxDepth, config.colors)
       state.boundaryColor = lightestColor(config.colors)

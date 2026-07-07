@@ -182,17 +182,39 @@ export function generateTiling(p: number, q: number, depth: number): Tile[] {
 
 const RAPIDITY_RATE = 0.15 // 1/s — how fast the translation's magnitude ramps up
 const SWIRL_RATE = 0.05 // rad/s — how fast the translation's axis orbits (never stops)
-const MAX_MAGNITUDE = 0.88 // stays comfortably short of 1: avoids extreme boundary crowding
+const MAX_MAGNITUDE = 0.88 // absolute ceiling: stays comfortably short of the rim (|a|<1)
+const DRIFT_MARGIN = 0.2 // drift as a fraction of the patch's own hyperbolic radius (see driftCap)
+
+/** The largest drift magnitude that keeps the disk centre covered for THIS finite
+ *  patch. A {p,q} patch is a solid hyperbolic ball that only tessellates out to its
+ *  own outer radius R_out (Euclidean) — i.e. hyperbolic radius ρ = 2·atanh(R_out).
+ *  A disk-automorphism translation by rapidity δ moves the whole ball off-origin, so
+ *  once δ ≥ ρ the origin itself falls outside the patch and ~half the disk goes bare
+ *  (issue #261). Capping the translation at a fraction of ρ keeps the origin — and
+ *  most of the disk — always covered, while small/sparse patches (small ρ) drift
+ *  proportionally less than deep ones. |a| = tanh(δ/2) = tanh(DRIFT_MARGIN·atanh(R_out)). */
+export function driftCap(tiles: Tile[]): number {
+  let rMax = 0
+  for (const t of tiles) {
+    for (const [x, y] of t.vertices) {
+      const r = Math.sqrt(x * x + y * y)
+      if (r > rMax) rMax = r
+    }
+  }
+  rMax = Math.min(rMax, 0.9995) // atanh guard: a near-rim vertex must not blow the cap up to 1
+  return Math.min(MAX_MAGNITUDE, Math.tanh(DRIFT_MARGIN * Math.atanh(rMax)))
+}
 
 /** The disk-automorphism translation parameter `a` (as a point) at time t: its
- *  magnitude eases up toward MAX_MAGNITUDE (a hyperbolic "constant velocity"
- *  translation — translations along a fixed axis commute, so accumulated
- *  rapidity is linear in t and the Euclidean magnitude is tanh of that) while
- *  its direction keeps slowly orbiting — so the flow never settles into a
- *  static picture even once the magnitude has saturated. */
-export function moebiusOffset(time: number, driftSpeed: number): Pt {
+ *  magnitude eases up toward `maxMag` (a hyperbolic "constant velocity" translation —
+ *  translations along a fixed axis commute, so accumulated rapidity is linear in t
+ *  and the Euclidean magnitude is tanh of that) while its direction keeps slowly
+ *  orbiting — so the flow never settles into a static picture even once the magnitude
+ *  has saturated. `maxMag` is the per-patch `driftCap` so the disk never empties
+ *  (defaults to the absolute ceiling for callers that don't have the patch). */
+export function moebiusOffset(time: number, driftSpeed: number, maxMag: number = MAX_MAGNITUDE): Pt {
   if (driftSpeed <= 0) return [0, 0]
-  const mag = MAX_MAGNITUDE * Math.tanh(driftSpeed * RAPIDITY_RATE * time)
+  const mag = maxMag * Math.tanh(driftSpeed * RAPIDITY_RATE * time)
   const phase = driftSpeed * SWIRL_RATE * time
   return [mag * Math.cos(phase), mag * Math.sin(phase)]
 }

@@ -95,12 +95,13 @@ export function renderTiling(
   bins: TileBin[],
   boundaryColor: string,
   time: number,
+  driftCap: number,
 ): void {
   ctx.fillStyle = cfg.background
   ctx.fillRect(0, 0, w, h)
 
   const scale = (Math.min(w, h) / 2) * 0.97 // fit the unit disk to the smaller viewport dimension
-  const a = moebiusOffset(time, cfg.driftSpeed)
+  const a = moebiusOffset(time, cfg.driftSpeed, driftCap)
 
   ctx.save()
   ctx.translate(w / 2, h / 2)

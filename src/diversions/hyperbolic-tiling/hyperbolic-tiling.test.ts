@@ -2,9 +2,15 @@ import { describe, it, expect } from 'vitest'
 import {
   isValidPQ, resolvePQ, centerRadius, centralPolygon,
   geodesicCircle, invert, reflectLine, reflectAcrossGeodesic, arcSpan,
-  generateTiling, moebiusOffset, applyMoebius,
-  type Pt,
+  generateTiling, moebiusOffset, applyMoebius, driftCap,
+  type Pt, type Tile,
 } from './tiling'
+
+const patchOuterRadius = (tiles: Tile[]): number => {
+  let r = 0
+  for (const t of tiles) for (const [x, y] of t.vertices) r = Math.max(r, Math.hypot(x, y))
+  return r
+}
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -218,5 +224,34 @@ describe('moebiusOffset / applyMoebius', () => {
   })
   it('is deterministic in time', () => {
     expect(moebiusOffset(12.3, 0.5)).toEqual(moebiusOffset(12.3, 0.5))
+  })
+})
+
+describe('driftCap — the disk never empties (regression #261)', () => {
+  it('caps drift below the patch outer radius so the origin stays covered', () => {
+    // The bug: drift saturated at 0.88 and slid the whole finite patch off-centre,
+    // baring the origin. The cap must stay strictly inside the patch's own reach.
+    for (const [p, q, depth] of [[7, 3, 4], [3, 7, 5], [5, 4, 3], [8, 3, 3]] as const) {
+      const tiles = generateTiling(p, q, depth)
+      const cap = driftCap(tiles)
+      const rOut = patchOuterRadius(tiles)
+      expect(cap).toBeGreaterThan(0) // there IS still visible drift
+      expect(cap).toBeLessThan(rOut) // ...but the origin never leaves the tessellated ball
+      // and the max saturated offset the renderer can ever apply stays under that reach
+      const maxOffset = Math.hypot(...moebiusOffset(1e6, 1, cap))
+      expect(maxOffset).toBeLessThanOrEqual(cap + 1e-9)
+      expect(maxOffset).toBeLessThan(rOut)
+    }
+  })
+
+  it('a sparse/small patch drifts proportionally less than a deep one', () => {
+    const shallow = driftCap(generateTiling(7, 3, 2)) // few rings, small hyperbolic radius
+    const deep = driftCap(generateTiling(7, 3, 5)) // many rings, reaches near the rim
+    expect(deep).toBeGreaterThan(shallow)
+  })
+
+  it('the default patch drifts well below the old 0.88 ceiling that emptied it', () => {
+    const cap = driftCap(generateTiling(7, 3, 4)) // default config
+    expect(cap).toBeLessThan(0.88)
   })
 })
