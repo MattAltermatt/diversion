@@ -110,11 +110,21 @@ function delta(a: number, b: number, span: number): number {
   return d
 }
 
+// Reused top-K scratch. senseList is synchronous and non-reentrant, so module scope is safe —
+// this avoids two typed-array allocs per creature per pellet-list per substep (real GC pressure
+// at high creature counts × substeps, #273). Grows on demand; the first K entries are refilled.
+let bestIdxScratch = new Int32Array(0)
+let bestD2Scratch = new Float32Array(0)
+function topKScratch(K: number): [Int32Array, Float32Array] {
+  if (bestIdxScratch.length < K) { bestIdxScratch = new Int32Array(K); bestD2Scratch = new Float32Array(K) }
+  bestIdxScratch.fill(-1, 0, K); bestD2Scratch.fill(Infinity, 0, K)
+  return [bestIdxScratch, bestD2Scratch]
+}
+
 /** Write [sin(relBearing), cos(relBearing), proximity] for the nearest K of
  *  `pellets` into `inBuf` starting at `offset`. Empty slots stay zero. */
 function senseList(self: Creature, pellets: Pellet[], K: number, inBuf: Float32Array, offset: number): void {
-  const bestIdx = new Int32Array(K).fill(-1)
-  const bestD2 = new Float32Array(K).fill(Infinity)
+  const [bestIdx, bestD2] = topKScratch(K)
   for (let o = 0; o < pellets.length; o++) {
     const p = pellets[o]
     const dx = delta(self.x, p.x, WORLD_W)

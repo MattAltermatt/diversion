@@ -35,6 +35,7 @@ const waTor = defineDiversion<typeof waTorSchema, WaTorState, '2d'>({
     state.cfg = config
     state.tickMs = 1000 / config.simSpeed
     state.lut = buildLut(config)
+    state.dirty = true // colours may have changed → repaint the field next render
     return true
   },
 

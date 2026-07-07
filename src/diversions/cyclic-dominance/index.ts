@@ -36,6 +36,7 @@ const cyclicDominance = defineDiversion<typeof cyclicDominanceSchema, CDState, '
     state.tickMs = 1000 / config.simSpeed
     state.thresh = buildRates(config)
     state.lut = buildLut(config)
+    state.dirty = true // colour/rate edits must repaint the field even if the sim is paused
     return true
   },
 

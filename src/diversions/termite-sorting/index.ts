@@ -33,6 +33,7 @@ const termiteSorting = defineDiversion<typeof termiteSortingSchema, TermiteState
     }
     state.cfg = config
     state.tickMs = 1000 / config.simSpeed
+    state.dirty = true // colors may have changed → repaint the field next render
     return true
   },
 

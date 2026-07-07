@@ -135,6 +135,10 @@ export interface Ecosystem {
   neigh: number[]
   acc: Float32Array
   navOut: Float32Array // sampleField writes a unit direction here
+  // reused: indices of alive non-zombie (human) agents, rebuilt once per step so the
+  // global nearest-human fallback scans only survivors instead of the whole arena (#273).
+  humanList: Int32Array
+  humanCount: number
 }
 
 export function createSim(cfg: SimConfig): Ecosystem {
@@ -210,6 +214,7 @@ export function createSim(cfg: SimConfig): Ecosystem {
     civAlive: cfg.civilianCount, fighterAlive: cfg.fighterCount, zombieAlive: cfg.zombieCount,
     outcome: null, resolvedHold: 0, anyFear: false, screamed: false,
     neigh: [], acc: new Float32Array(2), navOut: new Float32Array(2),
+    humanList: new Int32Array(n), humanCount: 0,
   }
   return eco
 }
@@ -233,9 +238,12 @@ function nearestOf(e: Ecosystem, i: number, r: number, want: number, want2?: num
 function nearestHumanGlobal(e: Ecosystem, i: number): number {
   let best = -1, bestD2 = Infinity
   const xi = e.px[i], yi = e.py[i]
-  for (let j = 0; j < e.n; j++) {
-    if (!e.alive[j] || e.faction[j] === ZOMBIE) continue
-    const dx = e.px[j] - xi, dy = e.py[j] - yi
+  // Scan only the pre-collected survivor list (rebuilt once per step) — in the horde-win
+  // endgame few humans remain, so this is the O(n²)→O(n·survivors) win (#273).
+  const { humanList, humanCount, px, py } = e
+  for (let s = 0; s < humanCount; s++) {
+    const j = humanList[s]
+    const dx = px[j] - xi, dy = py[j] - yi
     const d2 = dx * dx + dy * dy
     if (d2 < bestD2) { bestD2 = d2; best = j }
   }
@@ -253,6 +261,11 @@ export function stepSim(e: Ecosystem): void {
   const { px, py, vx, vy, faction, alive, infecting, infectTimer, acc } = e
   e.screamed = false // set true in loop 1 when a civilian sights a zombie (a fresh scream)
   e.hash.rebuild(px, py, e.n, alive)
+  // Collect alive humans once so the global nearest-human fallback (nearestHumanGlobal)
+  // scans survivors instead of the whole arena every zombie-with-no-local-prey (#273).
+  let hc = 0
+  for (let j = 0; j < e.n; j++) if (alive[j] && faction[j] !== ZOMBIE) e.humanList[hc++] = j
+  e.humanCount = hc
   // Refresh the flow fields every NAV_REBUILD steps (keyed off stepCount so slow-mo /
   // fast-forward stay correct). Agents route these when their target is behind a wall.
   if (e.stepCount % NAV_REBUILD === 0) {

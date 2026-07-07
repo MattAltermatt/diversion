@@ -38,9 +38,10 @@ export interface SugarState {
   tickAccum: number
   tickMs: number
   fieldLut: Uint8Array // 65×3 rgb ramp barren→low→high
-  field: ImageData | null // offscreen n×n sugar image, rebuilt each render
+  field: ImageData | null // offscreen n×n sugar image
   buf: OffscreenCanvas | HTMLCanvasElement | null
   meanWealth: number
+  dirty: boolean // field needs a pixel rebuild (a step ran / colors edited); else just re-blit (#273)
 }
 
 // ── color ─────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ export function createSugarState(cfg: SugarscapeConfig, w: number, h: number): S
     cfg, w, h, n, cap, sugar, occupied, agents, rng,
     tick: 0, tickAccum: 0, tickMs: 1000 / cfg.simSpeed,
     fieldLut: buildFieldLut(cfg), field: null, buf: null, meanWealth: 0,
+    dirty: true,
   }
 }
 
@@ -259,6 +261,7 @@ export function advance(state: SugarState, dt: number): void {
   while (state.tickAccum >= state.tickMs && budget-- > 0) {
     state.tickAccum -= state.tickMs
     step(state)
+    state.dirty = true // the field changed → it needs a pixel rebuild this frame
   }
 }
 
@@ -297,23 +300,29 @@ function ensureBuf(state: SugarState): void {
   state.buf = canvas as OffscreenCanvas
   const bctx = (canvas as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
   state.field = bctx.createImageData(n, n)
+  state.dirty = true // fresh (blank) field must be painted before the first blit
 }
 
 export function render(state: SugarState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h, n, sugar, fieldLut } = state
   ensureBuf(state)
-  const img = state.field!
-  const data = img.data
-  const scale = 64 / MAX_CAP
-  for (let i = 0; i < n * n; i++) {
-    let li = (sugar[i] * scale) | 0
-    if (li > 64) li = 64
-    const o = li * 3
-    const p = i * 4
-    data[p] = fieldLut[o]; data[p + 1] = fieldLut[o + 1]; data[p + 2] = fieldLut[o + 2]; data[p + 3] = 255
+  // Only rebuild the n×n field when it actually changed (a step ran / colors edited);
+  // otherwise the offscreen buffer already holds it and we just re-blit it (#273).
+  if (state.dirty) {
+    const img = state.field!
+    const data = img.data
+    const scale = 64 / MAX_CAP
+    for (let i = 0; i < n * n; i++) {
+      let li = (sugar[i] * scale) | 0
+      if (li > 64) li = 64
+      const o = li * 3
+      const p = i * 4
+      data[p] = fieldLut[o]; data[p + 1] = fieldLut[o + 1]; data[p + 2] = fieldLut[o + 2]; data[p + 3] = 255
+    }
+    const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
+    bctx.putImageData(img, 0, 0)
+    state.dirty = false
   }
-  const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
-  bctx.putImageData(img, 0, 0)
 
   ctx.imageSmoothingEnabled = cfg.softField
   ctx.drawImage(state.buf as unknown as CanvasImageSource, 0, 0, n, n, 0, 0, w, h)

@@ -99,15 +99,25 @@ function delta(a: number, b: number, span: number, wrap: boolean): number {
 /** Fill `inBuf` for creature `self` sensing the `opponents` list: for each of the
  *  nearest K opponents [sin(relBearing), cos(relBearing), proximity], then own
  *  normalized speed, then a constant bias. Empty slots are zero. */
+// Reused top-K scratch. sense is synchronous and non-reentrant, so module scope is safe — avoids
+// two typed-array allocs per creature per substep (real GC pressure at scale, #273). Grows on
+// demand; the first K entries are refilled each call.
+let bestIdxScratch = new Int32Array(0)
+let bestD2Scratch = new Float32Array(0)
+function topKScratch(K: number): [Int32Array, Float32Array] {
+  if (bestIdxScratch.length < K) { bestIdxScratch = new Int32Array(K); bestD2Scratch = new Float32Array(K) }
+  bestIdxScratch.fill(-1, 0, K); bestD2Scratch.fill(Infinity, 0, K)
+  return [bestIdxScratch, bestD2Scratch]
+}
+
 function sense(arena: Arena, self: Creature, opponents: Creature[], maxSpeed: number): void {
   const { cfg, inBuf } = arena
   const wrap = cfg.arenaWrap
   const K = cfg.sensorCount
   inBuf.fill(0)
   // Collect distances² to all opponents, then pick the K nearest (small K, small N).
-  // Track the K best by simple insertion.
-  const bestIdx = new Int32Array(K).fill(-1)
-  const bestD2 = new Float32Array(K).fill(Infinity)
+  // Track the K best by simple insertion (reused scratch).
+  const [bestIdx, bestD2] = topKScratch(K)
   for (let o = 0; o < opponents.length; o++) {
     const op = opponents[o]
     const dx = delta(self.x, op.x, WORLD_W, wrap)

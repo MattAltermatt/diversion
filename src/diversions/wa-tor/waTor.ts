@@ -33,8 +33,9 @@ export interface WaTorState {
   tickAccum: number
   tickMs: number
   lut: Uint8Array // 3×3 rgb: background, fish, shark
-  field: ImageData | null // offscreen n×n image, rebuilt each render
+  field: ImageData | null // offscreen n×n image, rebuilt only when dirty
   buf: OffscreenCanvas | HTMLCanvasElement | null
+  dirty: boolean // field needs a pixel rebuild (a chronon ran / colors edited); else just re-blit (#273)
   fishCount: number
   sharkCount: number
 }
@@ -105,7 +106,7 @@ export function createWaTorState(cfg: WaTorConfig, w: number, h: number): WaTorS
     rng,
     tick: 0, tickAccum: 0, tickMs: 1000 / cfg.simSpeed,
     lut: buildLut(cfg),
-    field: null, buf: null,
+    field: null, buf: null, dirty: true,
     fishCount: 0, sharkCount: 0,
   }
   countPopulation(state)
@@ -129,6 +130,7 @@ export function step(state: WaTorState): void {
   const { cfg, n, kind, energy, breed, rng, processed, nbr } = state
   const total = n * n
   state.tick++
+  state.dirty = true // a chronon mutates the grid → the field needs a pixel rebuild this frame
   processed.fill(0)
 
   // This chronon's creature order — original cell indices, shuffled (Fisher–Yates).
@@ -275,20 +277,26 @@ function ensureBuf(state: WaTorState): void {
   state.buf = canvas as OffscreenCanvas
   const bctx = (canvas as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
   state.field = bctx.createImageData(n, n)
+  state.dirty = true // fresh (blank) field must be painted before the first blit
 }
 
 export function render(state: WaTorState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h, n, kind, lut } = state
   ensureBuf(state)
-  const img = state.field!
-  const data = img.data
-  for (let i = 0; i < n * n; i++) {
-    const o = kind[i] * 3
-    const p = i * 4
-    data[p] = lut[o]; data[p + 1] = lut[o + 1]; data[p + 2] = lut[o + 2]; data[p + 3] = 255
+  // Only rebuild the n×n field when it actually changed (a chronon ran / colors edited);
+  // otherwise the offscreen buffer already holds it and we just re-blit it (#273).
+  if (state.dirty) {
+    const img = state.field!
+    const data = img.data
+    for (let i = 0; i < n * n; i++) {
+      const o = kind[i] * 3
+      const p = i * 4
+      data[p] = lut[o]; data[p + 1] = lut[o + 1]; data[p + 2] = lut[o + 2]; data[p + 3] = 255
+    }
+    const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
+    bctx.putImageData(img, 0, 0)
+    state.dirty = false
   }
-  const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
-  bctx.putImageData(img, 0, 0)
 
   ctx.imageSmoothingEnabled = false
   ctx.drawImage(state.buf as unknown as CanvasImageSource, 0, 0, n, n, 0, 0, w, h)

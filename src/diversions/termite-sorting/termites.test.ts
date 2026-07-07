@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { termiteSortingSchema } from './schema'
 import { createTermiteState, step, advance, countPiles } from './termites'
+import termiteSorting from './index'
 
 const cfg = (over = {}) => termiteSortingSchema.parse({ ...over })
 
@@ -60,5 +61,30 @@ describe('sorting dynamics', () => {
     advance(s, 260)
     expect(s.tick).toBeGreaterThanOrEqual(5)
     expect(s.tick).toBeLessThanOrEqual(6)
+  })
+})
+
+describe('termite-sorting render gate (#273)', () => {
+  it('marks dirty only when a step actually runs', () => {
+    const s = createTermiteState(cfg({ seed: 4, simSpeed: 10 }), 800, 600)
+    expect(s.dirty).toBe(true) // fresh state must paint once
+
+    s.dirty = false
+    advance(s, 0) // no time → no step
+    expect(s.dirty).toBe(false) // nothing changed → no field rebuild
+
+    s.dirty = false
+    advance(s, 1000) // plenty of time → steps run
+    expect(s.dirty).toBe(true)
+  })
+
+  it('a live config edit marks dirty so a paused colour change still repaints', () => {
+    const s = createTermiteState(cfg({ seed: 4 }), 800, 600)
+    s.dirty = false
+    // A non-structural (colour) edit: update applies live and must flag a repaint.
+    const edited = cfg({ seed: 4, color: { background: '#123456', chips: ['#ffffff'] } })
+    const applied = termiteSorting.update!(s, edited, { width: 800, height: 600 })
+    expect(applied).toBe(true) // colour edit is live, not a re-setup
+    expect(s.dirty).toBe(true)
   })
 })

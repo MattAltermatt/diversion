@@ -98,6 +98,21 @@ describe('ant-colony field dynamics', () => {
   })
 })
 
+describe('ant-colony render gate (#273)', () => {
+  it('marks dirty only when a step actually runs', () => {
+    const s = createAntColonyState(cfg({ seed: 4, simSpeed: 10 }), 800, 600)
+    expect(s.dirty).toBe(true) // fresh state must paint once
+
+    s.dirty = false
+    advance(s, 0) // no time → no step
+    expect(s.dirty).toBe(false) // nothing changed → no field rebuild
+
+    s.dirty = false
+    advance(s, 1000) // plenty of time → steps run
+    expect(s.dirty).toBe(true)
+  })
+})
+
 describe('trail LUT', () => {
   it('builds 256 distinct rgb entries per colony, background at 0 and trail color at 255', () => {
     const c = cfg()

@@ -125,6 +125,21 @@ describe('cyclic-dominance rules', () => {
   })
 })
 
+describe('cyclic-dominance render gate (#273)', () => {
+  it('marks dirty only when a sweep actually runs', () => {
+    const s = createState(cfg({ seed: 4, simSpeed: 10, gridResolution: 60 }), 800, 600)
+    expect(s.dirty).toBe(true) // fresh state must paint once
+
+    s.dirty = false
+    advance(s, 0) // no time → no sweep
+    expect(s.dirty).toBe(false) // nothing changed → no field rebuild
+
+    s.dirty = false
+    advance(s, 1000) // plenty of time → sweeps run
+    expect(s.dirty).toBe(true)
+  })
+})
+
 describe('colour LUT', () => {
   it('has 4 distinct rgb entries', () => {
     const lut = buildLut(cfg())

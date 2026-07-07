@@ -45,6 +45,7 @@ export interface TermiteState {
   wantReseed: boolean
   field: ImageData | null
   buf: OffscreenCanvas | HTMLCanvasElement | null
+  dirty: boolean // field needs a pixel rebuild (a step ran / colors edited); else just re-blit (#273)
 }
 
 // ── build ─────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ export function createTermiteState(cfg: TermiteSortingConfig, w: number, h: numb
     cfg, w, h, n, chips, termites, rng,
     tick: 0, tickAccum: 0, tickMs: 1000 / cfg.simSpeed,
     piles: target, minPiles: cells, lastImprove: 0, wantReseed: false,
-    field: null, buf: null,
+    field: null, buf: null, dirty: true,
   }
 }
 
@@ -183,6 +184,7 @@ export function advance(state: TermiteState, dt: number): void {
   while (state.tickAccum >= state.tickMs && budget-- > 0) {
     state.tickAccum -= state.tickMs
     step(state)
+    state.dirty = true // chips changed → the field needs a pixel rebuild this frame
   }
 }
 
@@ -202,23 +204,29 @@ function ensureBuf(state: TermiteState): void {
   state.buf = canvas as OffscreenCanvas
   const bctx = (canvas as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
   state.field = bctx.createImageData(n, n)
+  state.dirty = true // fresh (blank) field must be painted before the first blit
 }
 
 export function render(state: TermiteState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h, n, chips } = state
   ensureBuf(state)
-  const img = state.field!
-  const data = img.data
-  const bg = hexRgb(cfg.color.background)
-  const chipRgb = cfg.color.chips.map(hexRgb)
-  for (let i = 0; i < n * n; i++) {
-    const v = chips[i]
-    const rgb = v === -1 ? bg : chipRgb[v % chipRgb.length]
-    const p = i * 4
-    data[p] = rgb[0]; data[p + 1] = rgb[1]; data[p + 2] = rgb[2]; data[p + 3] = 255
+  // Only rebuild the n×n field when it actually changed (a step ran / colors edited);
+  // otherwise the offscreen buffer already holds it and we just re-blit it (#273).
+  if (state.dirty) {
+    const img = state.field!
+    const data = img.data
+    const bg = hexRgb(cfg.color.background)
+    const chipRgb = cfg.color.chips.map(hexRgb)
+    for (let i = 0; i < n * n; i++) {
+      const v = chips[i]
+      const rgb = v === -1 ? bg : chipRgb[v % chipRgb.length]
+      const p = i * 4
+      data[p] = rgb[0]; data[p + 1] = rgb[1]; data[p + 2] = rgb[2]; data[p + 3] = 255
+    }
+    const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
+    bctx.putImageData(img, 0, 0)
+    state.dirty = false
   }
-  const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
-  bctx.putImageData(img, 0, 0)
 
   ctx.imageSmoothingEnabled = cfg.softField
   ctx.drawImage(state.buf as unknown as CanvasImageSource, 0, 0, n, n, 0, 0, w, h)

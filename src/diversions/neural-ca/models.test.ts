@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import rawJson from './models.json'
-import { CURATED, MODEL_IDS, parseLayer, type RawLayer, type RawModels } from './models'
+import { CURATED, MODEL_IDS, parseLayer, loadLayers, type RawLayer, type RawModels } from './models'
 
 const models = rawJson as unknown as RawModels
 
@@ -49,5 +49,19 @@ describe('neural-ca models', () => {
       scale: 2.2,
       quantScaleZero: [2, 0],
     })
+  })
+})
+
+describe('loadLayers memoization (#273)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('fetches models.json once across repeated (re)builds', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { ok: true, json: async () => ({ model_names: [], layers: [] }) } as Response,
+    )
+    const a = await loadLayers()
+    const b = await loadLayers()
+    expect(fetchSpy).toHaveBeenCalledTimes(1) // second call reuses the cached parse
+    expect(a).toBe(b) // same immutable parsed result
   })
 })

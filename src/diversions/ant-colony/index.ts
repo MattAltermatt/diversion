@@ -35,6 +35,7 @@ const antColony = defineDiversion<typeof antColonySchema, AntColonyState, '2d'>(
     state.cfg = config
     state.tickMs = 1000 / config.simSpeed
     state.lut = buildTrailLuts(config)
+    state.dirty = true // palette/color edits must repaint the field next render (#273)
     return true
   },
 

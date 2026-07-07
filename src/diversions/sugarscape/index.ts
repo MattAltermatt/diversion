@@ -35,6 +35,7 @@ const sugarscape = defineDiversion<typeof sugarscapeSchema, SugarState, '2d'>({
     state.cfg = config
     state.tickMs = 1000 / config.simSpeed
     state.fieldLut = buildFieldLut(config)
+    state.dirty = true // palette/color edits must repaint the field (#273)
     return true
   },
 

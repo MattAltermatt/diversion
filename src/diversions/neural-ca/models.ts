@@ -80,10 +80,22 @@ export function curatedById(id: string): CuratedModel {
   return CURATED.find((m) => m.id === id) ?? CURATED[0]
 }
 
-/** Fetch + parse models.json at runtime (code-split). Returns the two parsed dense layers. */
-export async function loadLayers(): Promise<ParsedLayer[]> {
-  const res = await fetch(modelsUrl)
-  if (!res.ok) throw new Error(`neural-ca: failed to load models.json (${res.status})`)
-  const raw = (await res.json()) as RawModels
-  return raw.layers.map(parseLayer)
+/** Fetch + parse models.json at runtime (code-split). Returns the two parsed dense layers.
+ *  Memoized: models.json is a static 1.16 MB asset, so every neural-ca (re)build shares one
+ *  fetch+parse instead of re-downloading it. The parsed layers are treated as immutable by all
+ *  consumers (read-only), so the shared result is safe. A rejection is NOT cached — a transient
+ *  network failure must not poison later loads (cf. the WebGPU device-cache fix, #265). */
+let layersPromise: Promise<ParsedLayer[]> | null = null
+
+export function loadLayers(): Promise<ParsedLayer[]> {
+  if (!layersPromise) {
+    layersPromise = (async () => {
+      const res = await fetch(modelsUrl)
+      if (!res.ok) throw new Error(`neural-ca: failed to load models.json (${res.status})`)
+      const raw = (await res.json()) as RawModels
+      return raw.layers.map(parseLayer)
+    })()
+    layersPromise.catch(() => { layersPromise = null })
+  }
+  return layersPromise
 }

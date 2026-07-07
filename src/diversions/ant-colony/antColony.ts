@@ -58,6 +58,7 @@ export interface AntColonyState {
   lut: Uint8Array[] // per-colony 256×rgb background→trail ramp
   buf: OffscreenCanvas | HTMLCanvasElement | null
   img: ImageData | null
+  dirty: boolean // field needs a pixel rebuild (a step ran / colors edited); else just re-blit (#273)
 }
 
 // ── color ─────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ export function createAntColonyState(cfg: AntColonyConfig, w: number, h: number)
     scratch: new Float32Array(res * res),
     ants, rng, tick: 0, tickAccum: 0, tickMs: 1000 / cfg.simSpeed,
     collected: new Array(numColonies).fill(0),
-    lut: buildTrailLuts(cfg), buf: null, img: null,
+    lut: buildTrailLuts(cfg), buf: null, img: null, dirty: true,
   }
 }
 
@@ -302,6 +303,7 @@ export function advance(state: AntColonyState, dt: number): void {
   while (state.tickAccum >= state.tickMs && budget-- > 0) {
     state.tickAccum -= state.tickMs
     step(state)
+    state.dirty = true // fields diffuse/decay + trails deposit → the pixel field changed
   }
 }
 
@@ -316,6 +318,7 @@ function ensureBuf(state: AntColonyState): void {
   state.buf = canvas as OffscreenCanvas
   const bctx = (canvas as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
   state.img = bctx.createImageData(n, n)
+  state.dirty = true // fresh (blank) field must be painted before the first blit
 }
 
 // Compression constant for mapping unbounded pheromone density into 0..1 before
@@ -326,30 +329,35 @@ const INTENSITY_K = 4
 export function render(state: AntColonyState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h, res, fields, numColonies, lut } = state
   ensureBuf(state)
-  const img = state.img!
-  const data = img.data
-  const bg = hexRgb(cfg.palette.background)
+  // Only rebuild the res×res pheromone field when it actually changed (a step ran /
+  // colors edited); otherwise the offscreen buffer already holds it and we just re-blit (#273).
+  if (state.dirty) {
+    const img = state.img!
+    const data = img.data
+    const bg = hexRgb(cfg.palette.background)
 
-  for (let i = 0; i < res * res; i++) {
-    let r = bg[0], g = bg[1], b = bg[2]
-    for (let c = 0; c < numColonies; c++) {
-      const f = fields[c]
-      const val = f.toFood[i] + f.toHome[i] * 0.5 // to-home trail reads dimmer (secondary)
-      if (val <= 0) continue
-      const t = val / (val + INTENSITY_K)
-      let o = (t * 255) | 0
-      if (o > 255) o = 255
-      o *= 3
-      const l = lut[c]
-      r += (l[o] - r) * t
-      g += (l[o + 1] - g) * t
-      b += (l[o + 2] - b) * t
+    for (let i = 0; i < res * res; i++) {
+      let r = bg[0], g = bg[1], b = bg[2]
+      for (let c = 0; c < numColonies; c++) {
+        const f = fields[c]
+        const val = f.toFood[i] + f.toHome[i] * 0.5 // to-home trail reads dimmer (secondary)
+        if (val <= 0) continue
+        const t = val / (val + INTENSITY_K)
+        let o = (t * 255) | 0
+        if (o > 255) o = 255
+        o *= 3
+        const l = lut[c]
+        r += (l[o] - r) * t
+        g += (l[o + 1] - g) * t
+        b += (l[o + 2] - b) * t
+      }
+      const p = i * 4
+      data[p] = r | 0; data[p + 1] = g | 0; data[p + 2] = b | 0; data[p + 3] = 255
     }
-    const p = i * 4
-    data[p] = r | 0; data[p + 1] = g | 0; data[p + 2] = b | 0; data[p + 3] = 255
+    const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
+    bctx.putImageData(img, 0, 0)
+    state.dirty = false
   }
-  const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
-  bctx.putImageData(img, 0, 0)
 
   ctx.imageSmoothingEnabled = true
   ctx.drawImage(state.buf as unknown as CanvasImageSource, 0, 0, res, res, 0, 0, w, h)

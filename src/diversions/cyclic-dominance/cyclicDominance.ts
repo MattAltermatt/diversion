@@ -37,6 +37,7 @@ export interface CDState {
   extinctStreak: number // consecutive sweeps with a species at zero population
   field: ImageData | null
   buf: OffscreenCanvas | HTMLCanvasElement | null
+  dirty: boolean // field needs a pixel rebuild (a sweep ran / colors edited); else just re-blit (#273)
 }
 
 // ── colour ──────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ export function createState(cfg: CyclicDominanceConfig, w: number, h: number): C
     tick: 0, tickAccum: 0, tickMs: 1000 / cfg.simSpeed,
     fractions: new Float32Array(4),
     extinctStreak: 0,
-    field: null, buf: null,
+    field: null, buf: null, dirty: true,
   }
 }
 
@@ -162,6 +163,7 @@ export function advance(state: CDState, dt: number): void {
   while (state.tickAccum >= state.tickMs && budget-- > 0) {
     state.tickAccum -= state.tickMs
     step(state)
+    state.dirty = true // grid changed → the field needs a pixel rebuild this frame
   }
 }
 
@@ -176,20 +178,26 @@ function ensureBuf(state: CDState): void {
   state.buf = canvas as OffscreenCanvas
   const bctx = (canvas as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
   state.field = bctx.createImageData(n, n)
+  state.dirty = true // fresh (blank) field must be painted before the first blit
 }
 
 export function render(state: CDState, ctx: CanvasRenderingContext2D): void {
   const { cfg, w, h, n, grid, lut } = state
   ensureBuf(state)
-  const img = state.field!
-  const data = img.data
-  for (let i = 0; i < n * n; i++) {
-    const o = (grid[i] + 1) * 3
-    const p = i * 4
-    data[p] = lut[o]; data[p + 1] = lut[o + 1]; data[p + 2] = lut[o + 2]; data[p + 3] = 255
+  // Only rebuild the n×n field when it actually changed (a sweep ran / colors edited);
+  // otherwise the offscreen buffer already holds it and we just re-blit it (#273).
+  if (state.dirty) {
+    const img = state.field!
+    const data = img.data
+    for (let i = 0; i < n * n; i++) {
+      const o = (grid[i] + 1) * 3
+      const p = i * 4
+      data[p] = lut[o]; data[p + 1] = lut[o + 1]; data[p + 2] = lut[o + 2]; data[p + 3] = 255
+    }
+    const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
+    bctx.putImageData(img, 0, 0)
+    state.dirty = false
   }
-  const bctx = (state.buf as OffscreenCanvas).getContext('2d') as OffscreenCanvasRenderingContext2D
-  bctx.putImageData(img, 0, 0)
 
   ctx.imageSmoothingEnabled = false
   ctx.drawImage(state.buf as unknown as CanvasImageSource, 0, 0, n, n, 0, 0, w, h)

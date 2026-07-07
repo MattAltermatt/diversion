@@ -19,6 +19,11 @@ export type Flake = {
   rotDir: 1 | -1     // spin direction
   vxJit: number      // -1..1 per-flake sideways drift bias
   colorIndex: number // index into the active palette (mod length at draw time)
+  // Cached glow-disc gradient (#273): rebuilt only when this flake's colour or the
+  // fuzziness changes, not per frame. glowR is a function of the (fixed) size, so it
+  // isn't part of the key. See drawFlake.
+  glowGrad?: CanvasGradient
+  glowKey?: string
 }
 
 // Named palettes — err toward contrast so flakes read clearly on a deep field.
@@ -177,13 +182,20 @@ function drawFlake(ctx: CanvasRenderingContext2D, f: Flake, cfg: FuzzyflakesConf
   ctx.lineJoin = 'round'
 
   // Soft plush glow disc under everything (radial gradient, low alpha — never
-  // additive, so overlapping flakes don't white out).
+  // additive, so overlapping flakes don't white out). The gradient is cached on the
+  // flake and only rebuilt when its colour or the fuzziness changes — avoids a
+  // createRadialGradient + 3 addColorStop per flake per frame (#273).
   const glowR = f.size * 1.15
-  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR)
-  grad.addColorStop(0, rgba(col, 0.05 + 0.12 * fuzz))
-  grad.addColorStop(0.5, rgba(col, 0.03 + 0.04 * fuzz))
-  grad.addColorStop(1, rgba(col, 0))
-  ctx.fillStyle = grad
+  const glowKey = `${pal[f.colorIndex % pal.length]}|${fuzz}`
+  if (f.glowKey !== glowKey) {
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR)
+    grad.addColorStop(0, rgba(col, 0.05 + 0.12 * fuzz))
+    grad.addColorStop(0.5, rgba(col, 0.03 + 0.04 * fuzz))
+    grad.addColorStop(1, rgba(col, 0))
+    f.glowGrad = grad
+    f.glowKey = glowKey
+  }
+  ctx.fillStyle = f.glowGrad!
   ctx.beginPath()
   ctx.arc(0, 0, glowR, 0, TAU)
   ctx.fill()

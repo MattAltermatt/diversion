@@ -41,22 +41,33 @@ const firefly = defineDiversion<typeof fireflySchema, FireflyState, '2d'>({
     ctx.fillStyle = cfg.background
     ctx.fillRect(0, 0, w, h)
 
+    // One unit-radius halo gradient reused for every firefly this frame (positioned via
+    // transform, brightness via globalAlpha) instead of createRadialGradient per flash —
+    // Canvas2D gradient creation is genuinely costly at many flashing elements (#273). The
+    // unit stops carry the original 0.9 : 0.35 : 0 alpha *ratio* (1 : 0.35/0.9 : 0); globalAlpha
+    // = 0.9·g then reproduces the per-stop alphas to within sub-1/255 rounding (visually identical).
+    const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 1)
+    halo.addColorStop(0, `rgba(${flash},1)`)
+    halo.addColorStop(0.4, `rgba(${flash},${(0.35 / 0.9).toFixed(4)})`)
+    halo.addColorStop(1, `rgba(${flash},0)`)
+
     for (let i = 0; i < n; i++) {
       const x = nx[i] * w
       const y = ny[i] * h
       const g = glow[i]
 
       if (g > 0.04) {
-        // Actively flashing: bloom a radial-gradient halo (normal compositing).
+        // Actively flashing: bloom the shared halo gradient (normal compositing).
         const r = size * (0.5 + 0.9 * g)
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
-        grad.addColorStop(0, `rgba(${flash},${(0.9 * g).toFixed(3)})`)
-        grad.addColorStop(0.4, `rgba(${flash},${(0.35 * g).toFixed(3)})`)
-        grad.addColorStop(1, `rgba(${flash},0)`)
-        ctx.fillStyle = grad
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.scale(r, r)
+        ctx.globalAlpha = 0.9 * g
+        ctx.fillStyle = halo
         ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.arc(0, 0, 1, 0, Math.PI * 2)
         ctx.fill()
+        ctx.restore()
         // Hot near-white core for a sharp, high-contrast spark.
         ctx.fillStyle = `rgba(255,255,235,${(0.85 * g).toFixed(3)})`
         ctx.beginPath()
