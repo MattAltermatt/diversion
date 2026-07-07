@@ -156,6 +156,16 @@ export function AnimationHost({
     const run = { ctx, state, size }
     runRef.current = run
     lastConfigRef.current = config
+
+    // Free the diversion's state exactly once. Re-setup paths (auto-reseed, GL restore,
+    // and the [config] effect) teardown-then-setup; if setup() THROWS, run.state must be
+    // nulled so the effect-cleanup teardown below can't free the same GL/GPU resources a
+    // SECOND time (double free, #266). teardown() is only ever called on live state.
+    const freeState = () => {
+      if (run.state == null) return
+      diversion.teardown?.(run.state)
+      run.state = null
+    }
     onLiveRef.current?.(config) // initial world → chrome can pin it before any restart
 
     // #39: honor prefers-reduced-motion. We paint exactly ONE frame (so the
@@ -179,7 +189,7 @@ export function AnimationHost({
       // that prop and discard the reseeded world's seed.
       if (diversion.shouldRestart?.(run.state, t, dt)) {
         const next = applyFreshLoadRandomization(diversion.schema, lastConfigRef.current as never, EMPTY_PARAMS)
-        diversion.teardown?.(run.state)
+        freeState()
         try {
           run.state = diversion.setup(ctx, next, run.size)
         } catch (e) {
@@ -276,7 +286,7 @@ export function AnimationHost({
       // free any CPU-side state the diversion stashed before rebuilding, so a
       // restore doesn't leak it. (The GL resources are already gone with the
       // context; this frees the diversion's own bookkeeping.)
-      diversion.teardown?.(run.state)
+      freeState()
       run.size = sizeOf()
       try {
         run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
@@ -353,7 +363,7 @@ export function AnimationHost({
       loop.stop()
       loopRef.current = null
       runRef.current = null
-      diversion.teardown?.(run.state)
+      freeState()
       // Defer the context release to a macrotask (listeners already removed above). If
       // this cleanup is a REUSE — StrictMode's dev remount or a same-kind swap — the
       // very next setup run (synchronous, same commit) clears this timer before it
@@ -372,7 +382,8 @@ export function AnimationHost({
     lastConfigRef.current = config
     const handled = diversion.update?.(run.state, config, run.size)
     if (!handled) {
-      diversion.teardown?.(run.state)
+      if (run.state != null) diversion.teardown?.(run.state)
+      run.state = null // if setup() throws below, the [diversion] cleanup must not re-free (#266)
       try {
         run.state = diversion.setup(run.ctx, config, run.size)
       } catch (e) {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
+import { Component, type ReactNode } from 'react'
 import { z } from 'zod'
 import { AnimationHost } from './AnimationHost'
 import type { Diversion, Size } from './types'
@@ -403,6 +404,51 @@ describe('AnimationHost teardown frees resources (#128)', () => {
     expect(removedEvents).toContain('webglcontextlost')
     expect(removedEvents).toContain('webglcontextrestored')
     expect(docRemoveSpy.mock.calls.map((c) => c[0])).toContain('visibilitychange')
+  })
+})
+
+// Minimal boundary so an intentional setup()-throw is caught (mirrors DiversionErrorBoundary)
+// instead of failing the test render — lets us assert on the teardown that ran underneath.
+class TestBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? null : this.props.children }
+}
+
+describe('AnimationHost double-teardown guard (#266)', () => {
+  it('does not teardown already-freed state when a re-setup setup() throws', () => {
+    const calls: string[] = []
+    let setups = 0
+    const div: Diversion = {
+      id: 'throwing-resetup',
+      title: '', description: '', kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        setups++
+        calls.push('setup')
+        if (setups === 2) throw new Error('re-setup boom') // the 2nd (re-)setup fails
+        return { s: 1 }
+      },
+      frame: () => {},
+      update: () => { calls.push('update'); return false }, // force a full re-setup on config change
+      teardown: () => { calls.push('teardown') },
+    }
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { rerender, unmount } = render(
+        <TestBoundary><AnimationHost diversion={div} config={{ v: 0 }} /></TestBoundary>,
+      )
+      expect(calls).toEqual(['setup'])
+      // Config edit → update() returns false → teardown-then-setup; the setup() throws.
+      // The teardown before it runs ONCE; run.state must be nulled so the effect-cleanup
+      // (fired when the boundary unmounts the failed subtree) can't free it a 2nd time.
+      act(() => rerender(<TestBoundary><AnimationHost diversion={div} config={{ v: 1 }} /></TestBoundary>))
+      expect(calls.filter((c) => c === 'teardown').length).toBe(1) // exactly once, not twice
+      unmount()
+      expect(calls.filter((c) => c === 'teardown').length).toBe(1) // still once after full unmount
+    } finally {
+      errSpy.mockRestore()
+    }
   })
 })
 
