@@ -183,9 +183,11 @@ export function applyTwoOpt(tour: number[], i: number, j: number): void {
  *  loop. Returns the (negative) delta applied, or 0 if nothing was accepted. */
 function tryTwoOpt(state: TourState): number {
   const { rng, n, tour } = state
-  // pick 0<=i<j<=n-1, excluding the degenerate whole-cycle case (i=0, j=n-1)
-  let i = (rng() * (n - 1)) | 0
-  let j = (rng() * (n - 1)) | 0
+  // pick 0<=i<j<=n-1, excluding the degenerate whole-cycle case (i=0, j=n-1).
+  // Both endpoints must range over the full 0..n-1 so that j can reach n-1 —
+  // otherwise the wrap edge (n-1→0) and tour positions 0 and n-1 never move.
+  let i = (rng() * n) | 0
+  let j = (rng() * n) | 0
   if (i === j) return 0
   if (i > j) { const t = i; i = j; j = t }
   if (i === 0 && j === n - 1) return 0

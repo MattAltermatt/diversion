@@ -85,6 +85,22 @@ describe('2-opt move', () => {
     }
   })
 
+  it('2-opt reaches the wrap edge — position n-1 is not frozen (regression #276)', () => {
+    // A prior off-by-one sampled i,j from 0..n-2, so `j` never reached n-1: the wrap
+    // edge (n-1→0) and tour position n-1 could never be swapped and stayed pinned for
+    // the whole run. (tour[0]'s city is an inherent rotation anchor — that one is fine.)
+    const state = createTourState({ ...defaults(), seed: 17, optimizer: '2-opt' }, 800, 600)
+    const n = state.n
+    const last = state.tour[n - 1]
+    let lastMoved = false
+    for (let f = 0; f < 400 && !lastMoved; f++) {
+      optimizeStep(state, 400)
+      if (state.tour[n - 1] !== last) lastMoved = true
+    }
+    expect(lastMoved).toBe(true)
+    expect(isPermutation(state.tour, n)).toBe(true)
+  })
+
   it('optimizeStep never increases the tour length (only accepts improving moves)', () => {
     for (const optimizer of ['2-opt', 'or-opt', 'mixed'] as const) {
       const state = createTourState({ ...defaults(), seed: 9, optimizer }, 800, 600)
