@@ -79,9 +79,18 @@ export function MatrixEditor({ config, onConfigChange, meta }: {
     const target = e.currentTarget as HTMLElement
     target.setPointerCapture?.(e.pointerId)
     const move = (ev: PointerEvent) => commit(i, j, startV + (startY - ev.clientY) * 0.008)
-    const up = () => { target.removeEventListener('pointermove', move as EventListener); target.removeEventListener('pointerup', up as EventListener) }
+    // End the drag on pointerup OR pointercancel (an interrupting gesture). Missing the
+    // cancel path leaked the move listener, so hovering the cell kept silently mutating
+    // the matrix after a cancelled drag (#267). Release the capture on either exit too.
+    const end = () => {
+      target.removeEventListener('pointermove', move as EventListener)
+      target.removeEventListener('pointerup', end as EventListener)
+      target.removeEventListener('pointercancel', end as EventListener)
+      target.releasePointerCapture?.(e.pointerId)
+    }
     target.addEventListener('pointermove', move as EventListener)
-    target.addEventListener('pointerup', up as EventListener)
+    target.addEventListener('pointerup', end as EventListener)
+    target.addEventListener('pointercancel', end as EventListener)
   }
   const typeValue = (i: number, j: number) => {
     const s = prompt(`${speciesLabel(config, i)} → ${speciesLabel(config, j)} (−1…1)`, String((m[i * n + j] ?? 0).toFixed(2)))

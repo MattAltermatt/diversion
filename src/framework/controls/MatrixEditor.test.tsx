@@ -40,6 +40,20 @@ describe('MatrixEditor (editing)', () => {
     expect(latest.matrix[1 * 3 + 2]).toBeGreaterThan(effectiveMatrix(config, meta)[1 * 3 + 2])
   })
 
+  it('a cancelled drag stops mutating — no leaked pointermove after pointercancel (#267)', () => {
+    let latest: any = null
+    const config = { ...particleLifeGpuSchema.parse({ colors: 3 }) }
+    render(<MatrixEditor config={config} onConfigChange={(n) => (latest = n)} meta={meta} />)
+    const cell = screen.getByTestId('mcell-1-2')
+    fireEvent.pointerDown(cell, { clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(cell, { clientY: 40, pointerId: 1 })
+    expect(latest).not.toBeNull() // drag is live and writing
+    fireEvent.pointerCancel(cell, { pointerId: 1 }) // an interrupting gesture cancels the drag
+    latest = null
+    fireEvent.pointerMove(cell, { clientY: 10, pointerId: 1 }) // hovering the cell afterwards
+    expect(latest).toBeNull() // the move listener was removed → matrix is NOT silently mutated
+  })
+
   it('Zero all writes an all-zero full-length matrix (Custom)', () => {
     let latest: any = null
     const config = { ...particleLifeGpuSchema.parse({ colors: 3 }) }
