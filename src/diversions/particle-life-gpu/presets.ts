@@ -1,18 +1,31 @@
-// presets.ts — declared data, not chrome. Mirrors the CPU Particle Life's two
-// independent axes (how the broth MOVES = Feel, how it LOOKS = Look); the GPU schema
-// carries the same fields, so the patches are identical. Each option patches a
-// consistent key-set within its group (matchPresets assumes equal key-sets per group),
-// so picking one flips only its axis and manual edits drop that axis to "Custom".
+// presets.ts — declared data, not chrome. Two independent axes:
+//   • Worlds — WHICH world (the dynamics/identity axis). Every option pins the
+//     same 8 keys. The 🎲 Random entries keep matrixSeed:0 (rules follow the
+//     rerolling soup seed — these are the old "Feel" presets); the named,
+//     curated worlds pin a nonzero matrixSeed (fixed rules) so the same
+//     who-chases-whom character grows every visit while the soup rerolls fresh
+//     (see the #214 design spec). A curated world is reproducible from
+//     matrixSeed ALONE, so no option ever patches the derived `matrix` array.
+//   • Look — how it LOOKS (palette/glow/trails). Unchanged; fully orthogonal.
+// matchPresets assumes one key-set per group, so picking a world flips only the
+// Worlds axis and a manual dynamics edit drops it to "Custom".
 import type { PresetGroup } from '../../framework/types'
 import type { ParticleLifeGpuConfig } from './schema'
 
 export const particleLifeGpuPresets: PresetGroup<ParticleLifeGpuConfig>[] = [
   {
-    label: 'Feel',
+    label: 'Worlds',
     options: [
-      { name: 'Calm', patch: { forceScale: 0.6, friction: 0.08, beta: 0.32, attractBias: 0.15, symmetry: 'Symmetric' } },
-      { name: 'Balanced', patch: { forceScale: 1, friction: 0.04, beta: 0.3, attractBias: 0.1, symmetry: 'Asymmetric' } },
-      { name: 'Lively', patch: { forceScale: 1.6, friction: 0.025, beta: 0.28, attractBias: 0.05, symmetry: 'Asymmetric' } },
+      { name: '🎲 Calm',     patch: { matrixSeed: 0, colors: 6, symmetry: 'Symmetric',  attractBias: 0.15, forceScale: 0.6, friction: 0.08,  beta: 0.32, rMax: 80 } },
+      { name: '🎲 Balanced', patch: { matrixSeed: 0, colors: 6, symmetry: 'Asymmetric', attractBias: 0.10, forceScale: 1.0, friction: 0.04,  beta: 0.30, rMax: 80 } },
+      { name: '🎲 Lively',   patch: { matrixSeed: 0, colors: 6, symmetry: 'Asymmetric', attractBias: 0.05, forceScale: 1.6, friction: 0.025, beta: 0.28, rMax: 80 } },
+      // Curated worlds (#214) — hand-picked matrixSeeds at the Balanced feel (defaults);
+      // matrixSeed pins the who-chases-whom character, the soup seed rerolls each visit.
+      { name: 'Tide Pool',     patch: { matrixSeed: 1,  colors: 6, symmetry: 'Asymmetric', attractBias: 0.1, forceScale: 1, friction: 0.04, beta: 0.3, rMax: 80 } },
+      { name: 'Little Planets', patch: { matrixSeed: 4,  colors: 6, symmetry: 'Asymmetric', attractBias: 0.1, forceScale: 1, friction: 0.04, beta: 0.3, rMax: 80 } },
+      { name: 'Trilobites',    patch: { matrixSeed: 3,  colors: 6, symmetry: 'Asymmetric', attractBias: 0.1, forceScale: 1, friction: 0.04, beta: 0.3, rMax: 80 } },
+      { name: 'Starry Night',  patch: { matrixSeed: 14, colors: 6, symmetry: 'Asymmetric', attractBias: 0.1, forceScale: 1, friction: 0.04, beta: 0.3, rMax: 80 } },
+      { name: 'Terrazzo',      patch: { matrixSeed: 12, colors: 6, symmetry: 'Asymmetric', attractBias: 0.1, forceScale: 1, friction: 0.04, beta: 0.3, rMax: 80 } },
     ],
   },
   {
