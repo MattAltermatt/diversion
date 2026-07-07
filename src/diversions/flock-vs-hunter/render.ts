@@ -3,7 +3,7 @@
 import type { Size } from '../../framework/types'
 import { hexToRgb } from '../../framework/color'
 import { WORLD_W, WORLD_H, type Ecosystem } from './sim'
-import { FLOCK_SPEC, PRED_SPEC, gene } from './genome'
+import { FLOCK_SPEC, PRED_SPEC, F, gene } from './genome'
 import type { FlockVsHunterConfig } from './schema'
 
 function coverFit(size: Size): { scale: number; ox: number; oy: number } {
@@ -30,7 +30,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: Ecosystem, cfg: Floc
   for (let i = 0; i < s.n; i++) {
     if (!s.alive[i]) continue
     const sp = Math.hypot(s.vx[i], s.vy[i])
-    const maxSp = gene(s.flockGenomes[i], FLOCK_SPEC, 'maxSpeed')
+    const maxSp = s.flockGenomes[i][F.spd] // hot loop: raw index, not string-keyed gene()
     const ci = Math.min(colors.length - 1, Math.floor((sp / maxSp) * colors.length))
     ctx.fillStyle = colors[ci] ?? colors[0]
     const ang = Math.atan2(s.vy[i], s.vx[i])

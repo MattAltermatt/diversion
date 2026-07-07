@@ -1,5 +1,5 @@
 import { defineDiversion, type PresetGroup } from '../../framework/types'
-import { sampleGradient, trailFadeAlpha, toHex2 } from '../../framework/gradient'
+import { buildGradientLUT, gradientIndex, trailFadeAlpha, toHex2 } from '../../framework/gradient'
 import { parseHex6, mix, rgba } from '../../framework/color'
 import { gravityWellsSchema, type GravityWellsConfig } from './schema'
 import { motionPresets, colorPresets } from './presets'
@@ -9,10 +9,18 @@ import {
   type GravityState,
 } from './gravityWells'
 
-interface GWState extends GravityState { styles: string[] }
+interface GWState extends GravityState { styles: string[]; gradientLUT: string[] }
 
 function buildStyles(cfg: GravityWellsConfig): string[] {
   return cfg.color.colors.length ? cfg.color.colors : ['#ffffffff']
+}
+
+/** Gradient-mode colour LUT (empty in palette mode). wrap tracks the flow-angle
+ *  source (cyclic); other sources are non-cyclic. Rebuilt on config change. */
+function gradientLUTFor(cfg: GravityWellsConfig): string[] {
+  return cfg.color.mode === 'gradient'
+    ? buildGradientLUT(cfg.color.stops, cfg.color.source === 'flow-angle')
+    : []
 }
 
 function assignColorIndices(state: GWState): void {
@@ -45,7 +53,7 @@ const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
     ctx.fillStyle = config.background
     ctx.fillRect(0, 0, size.width, size.height)
     const base = createGravityState(config, size.width, size.height)
-    const state: GWState = { ...base, styles: buildStyles(config) }
+    const state: GWState = { ...base, styles: buildStyles(config), gradientLUT: gradientLUTFor(config) }
     assignColorIndices(state)
     return state
   },
@@ -55,6 +63,7 @@ const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
     if (config.particles !== state.cfg.particles || config.seed !== state.cfg.seed) return false
     state.cfg = config
     state.styles = buildStyles(config)
+    state.gradientLUT = gradientLUTFor(config)
     state.w = size.width
     state.h = size.height
     return true
@@ -97,11 +106,7 @@ const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
       p.y = py + dy * step
       if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) { respawnParticle(p, rng, w, h); continue }
       ctx.strokeStyle = cfg.color.mode === 'gradient'
-        ? sampleGradient(
-            cfg.color.stops,
-            colorT(cfg.color.source, p, Math.atan2(dy, dx), strength, w, h),
-            cfg.color.source === 'flow-angle',
-          )
+        ? state.gradientLUT[gradientIndex(colorT(cfg.color.source, p, Math.atan2(dy, dx), strength, w, h))]
         : styles[p.ci % styles.length]
       ctx.beginPath()
       ctx.moveTo(px, py)

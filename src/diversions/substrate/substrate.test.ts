@@ -417,3 +417,22 @@ describe('growth is frame-rate independent (#121)', () => {
     expect(inkedAfter(1000 / 60, 90)).toBe(inkedAfter(50, 30))
   })
 })
+
+describe('stepSubstrate dirty flag (blit-skip contract, #199)', () => {
+  it('returns false on a growing frame that ran zero steps (nothing to blit)', () => {
+    const s = createSubstrateState(cfg({ seed: 1, speed: 30 }), 100, 100)
+    // A tiny dt keeps stepAcc below 1 → zero steps → buffer untouched → false.
+    expect(stepSubstrate(s, 0.01)).toBe(false)
+  })
+
+  it('returns true while fading (every pixel is lerped toward bg)', () => {
+    const s = createSubstrateState(cfg({ seed: 1 }), 100, 100)
+    s.phase = 'fading'
+    expect(stepSubstrate(s, 16)).toBe(true)
+  })
+
+  it('returns true on a growing frame that actually advanced ≥1 step', () => {
+    const s = createSubstrateState(cfg({ seed: 1, speed: 60 }), 100, 100)
+    expect(stepSubstrate(s, 100)).toBe(true) // 100ms at speed 60 → many steps
+  })
+})

@@ -1,5 +1,7 @@
 import { makeNoise3D, mulberry32 } from '../../framework/rng'
-import { hexToRgba, trailFadeAlpha, toHex2, sampleGradient } from '../../framework/gradient'
+import {
+  hexToRgba, trailFadeAlpha, toHex2, sampleGradient, buildGradientLUT, gradientIndex,
+} from '../../framework/gradient'
 import type { FlowFieldConfig } from './schema'
 
 // Colour + trail-fade helpers now live in the framework; re-exported so existing
@@ -39,10 +41,27 @@ export interface FlowState {
   noise: (x: number, y: number, z: number) => number
   rng: () => number // seeded — keeps respawns deterministic per seed
   styles: string[] // one precomputed rgba() per palette color — see hexToRgba
+  gradientLUT: string[] // precomputed rgba() LUT for gradient mode ([] in palette mode)
+  fadeFillStyle: string // precomputed trail-fade wash ("#rrggbb"+alpha byte); config-only
   cfg: FlowFieldConfig
   fieldTime: number // morph clock; advances by dt·fieldDrift·DRIFT_RATE
   w: number
   h: number
+}
+
+/** The per-frame trail-fade wash colour — derived only from background + trail
+ *  config, so precompute it on config change instead of every frame. */
+function fadeFillStyleFor(cfg: FlowFieldConfig): string {
+  const fadeAlpha = cfg.fadeTrails ? trailFadeAlpha(cfg.trailLength) : 1
+  return `${cfg.background}${toHex2(fadeAlpha)}`
+}
+
+/** Precompute the gradient-mode colour LUT (empty in palette mode). The wrap flag
+ *  matches the flow-angle source, which is cyclic. Rebuilt on config change. */
+function gradientLUTFor(cfg: FlowFieldConfig): string[] {
+  return cfg.color.mode === 'gradient'
+    ? buildGradientLUT(cfg.color.stops, cfg.color.source === 'flow-angle')
+    : []
 }
 
 // Particle lifespans are derived from the `lifespan` slider (seconds -> ms) so
@@ -75,7 +94,11 @@ export function createFlowState(cfg: FlowFieldConfig, w: number, h: number): Flo
     life: randomLife(rng, cfg.lifespan),
     ci: Math.floor(rng() * n), // pick a palette color for this particle's life
   }))
-  return { particles, noise, rng, styles, cfg, fieldTime: 0, w, h }
+  return {
+    particles, noise, rng, styles,
+    gradientLUT: gradientLUTFor(cfg), fadeFillStyle: fadeFillStyleFor(cfg),
+    cfg, fieldTime: 0, w, h,
+  }
 }
 
 /** Apply a config change to a live FlowState in place. Returns false when the
@@ -86,6 +109,8 @@ export function updateFlowState(state: FlowState, cfg: FlowFieldConfig): boolean
   if (cfg.particles !== state.cfg.particles || cfg.seed !== state.cfg.seed) return false
   state.cfg = cfg
   state.styles = cfg.color.colors.map(hexToRgba)
+  state.gradientLUT = gradientLUTFor(cfg)
+  state.fadeFillStyle = fadeFillStyleFor(cfg)
   return true
 }
 
@@ -93,8 +118,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
   const { particles, noise, rng, styles, cfg, w, h } = state
   // fade the canvas for trails (alpha from the Trail length slider), or hard-clear
   ctx.globalCompositeOperation = 'source-over'
-  const fadeAlpha = cfg.fadeTrails ? trailFadeAlpha(cfg.trailLength) : 1
-  ctx.fillStyle = `${cfg.background}${toHex2(fadeAlpha)}`
+  ctx.fillStyle = state.fadeFillStyle // precomputed from background + trail config
   ctx.fillRect(0, 0, w, h)
 
   // 'normal' is not a valid composite op — map it to the canvas default.
@@ -127,11 +151,7 @@ export function stepFlow(state: FlowState, ctx: CanvasRenderingContext2D, dt: nu
     // at the particle's color-source position (flow-angle wraps; x/y clamp).
     // styles.length is >=1 (schema min); modulo keeps a stale index valid if the set shrank
     ctx.strokeStyle = cfg.color.mode === 'gradient'
-      ? sampleGradient(
-          cfg.color.stops,
-          colorSourceT(cfg.color.source, p.x, p.y, angle, w, h),
-          cfg.color.source === 'flow-angle',
-        )
+      ? state.gradientLUT[gradientIndex(colorSourceT(cfg.color.source, p.x, p.y, angle, w, h))]
       : styles[p.ci % styles.length]
     ctx.beginPath()
     ctx.moveTo(p.x, p.y)

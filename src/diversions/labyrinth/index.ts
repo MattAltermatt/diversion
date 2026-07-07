@@ -24,14 +24,17 @@ const SOLVE_MIX_MAX = 1.3
 
 type Built = {
   wallData: Uint8Array; pathData: Uint8Array; attractData: Float32Array
-  agentData: Float32Array; startCell: Vec2; endUV: Vec2
+  agentData?: Float32Array; startCell: Vec2; endUV: Vec2
   rasterW: number; rasterH: number
 }
 
 /** Generate a maze sized to fill the trail field, solve it, and rasterize the
  *  wall + path masks. The trail texture is sized to the raster dims so masks line
- *  up 1:1 with the sim field. */
-function buildMaze(cfg: LabyrinthConfig, trailW: number, trailH: number, subSeed: number): Built {
+ *  up 1:1 with the sim field. `withAgents` is false for the initial setup() call —
+ *  initGL seeds its own agent texture internally (same seed/cols/rows), so building
+ *  it here too would just double the O(agents) init and discard the result; the
+ *  regenerate path (a genuinely new sub-seed) still needs it and passes true. */
+function buildMaze(cfg: LabyrinthConfig, trailW: number, trailH: number, subSeed: number, withAgents: boolean): Built {
   const { cols, rows, cellPx } = mazeGridFor(cfg.mazeSize, trailW, trailH)
   const maze = generateMaze(subSeed, cols, rows)
   const path = solvePath(maze)
@@ -43,7 +46,7 @@ function buildMaze(cfg: LabyrinthConfig, trailW: number, trailH: number, subSeed
   const attractData = rasterizeAttractant(maze, distanceFromExit(maze), cellPx)
   const startCell: Vec2 = { x: 1 / cols, y: 1 / rows }
   const endUV: Vec2 = { x: (cols - 0.5) / cols, y: (rows - 0.5) / rows }
-  const agentData = initAgentsAtStart(subSeed, cfg.agents, startCell.x, startCell.y)
+  const agentData = withAgents ? initAgentsAtStart(subSeed, cfg.agents, startCell.x, startCell.y) : undefined
   return { wallData, pathData, attractData, agentData, startCell, endUV, rasterW: cols * cellPx, rasterH: rows * cellPx }
 }
 
@@ -62,7 +65,7 @@ const labyrinth = defineDiversion<typeof labyrinthSchema, LabyrinthState, 'webgl
 
   setup(gl, cfg, size: Size) {
     const { tw, th } = trailDims(size.width, size.height)
-    const b = buildMaze(cfg, tw, th, cfg.seed)
+    const b = buildMaze(cfg, tw, th, cfg.seed, false)
     const res = initGL(gl, cfg, b.rasterW, b.rasterH, b.wallData, b.pathData, b.attractData, b.startCell, b.endUV)
     return {
       gl, res, cfg, trailW: b.rasterW, trailH: b.rasterH,
@@ -84,8 +87,8 @@ const labyrinth = defineDiversion<typeof labyrinthSchema, LabyrinthState, 'webgl
       if (state.solveTimer >= state.cfg.holdAfterSolve) {
         state.regenCount++
         const sub = state.cfg.seed + state.regenCount * 1000
-        const b = buildMaze(state.cfg, state.trailW, state.trailH, sub)
-        regenerate(gl, state.res, b.wallData, b.pathData, b.attractData, b.agentData, b.startCell, b.endUV)
+        const b = buildMaze(state.cfg, state.trailW, state.trailH, sub, true)
+        regenerate(gl, state.res, b.wallData, b.pathData, b.attractData, b.agentData!, b.startCell, b.endUV)
         state.solved = false; state.solveTimer = 0; state.solveMix = 0
       }
     }

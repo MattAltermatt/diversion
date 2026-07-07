@@ -64,6 +64,30 @@ export function sampleGradient(stops: string[], t: number, wrap: boolean): strin
   )
 }
 
+// A precomputed gradient lookup: `GRADIENT_LUT_SIZE` rgba() strings sampled at
+// evenly-spaced t. A hot loop (per particle / per point, in flow-field, gravity-
+// wells, strange-attractors) indexes this instead of re-parsing the hex stops and
+// allocating fresh objects + a string on every sample. Build once per config
+// change; index with `lut[gradientIndex(t)]`. Bonus: the strings are stable
+// instances, so a canvas fillStyle/strokeStyle also hits its own colour-parse
+// cache on repeats. 256 levels across a gradient is sub-perceptual.
+export const GRADIENT_LUT_SIZE = 256
+
+/** Precompute the rgba() LUT for `stops`. `wrap` matches sampleGradient's cyclic
+ *  mode (the flow-angle source rolls over at 2π). */
+export function buildGradientLUT(stops: string[], wrap: boolean): string[] {
+  const last = GRADIENT_LUT_SIZE - 1
+  const lut = new Array<string>(GRADIENT_LUT_SIZE)
+  for (let i = 0; i < GRADIENT_LUT_SIZE; i++) lut[i] = sampleGradient(stops, i / last, wrap)
+  return lut
+}
+
+/** Map t∈[0,1] to a nearest-neighbour LUT index in [0, GRADIENT_LUT_SIZE-1]. */
+export function gradientIndex(t: number): number {
+  const i = (t * (GRADIENT_LUT_SIZE - 1) + 0.5) | 0 // round to nearest
+  return i < 0 ? 0 : i > GRADIENT_LUT_SIZE - 1 ? GRADIENT_LUT_SIZE - 1 : i
+}
+
 /** Linear-interpolate RGBA across evenly-spaced hex8 `stops` at t in [0,1].
  *  Returns interpolated channels (0-255, a 0..1) without rounding. */
 export function sampleGradientRGBA(stops: string[], t: number): RGBA {

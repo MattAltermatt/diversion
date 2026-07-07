@@ -298,6 +298,13 @@ export type LabyrinthGL = {
   startCell: Vec2
   endUV: Vec2
   locs: Record<string, Record<string, WebGLUniformLocation | null>>
+  /** Reused readPixels scratch (endReached) — avoids a fresh alloc per solve check. */
+  readbackBuf: Float32Array
+  /** Cached wall/path colour → vec3 (hexToVec3 only re-parses on an actual colour edit). */
+  wallColorHex: string
+  wallColorVec: [number, number, number]
+  pathColorHex: string
+  pathColorVec: [number, number, number]
 }
 
 export function initGL(
@@ -360,6 +367,9 @@ export function initGL(
     agentTex, agentFbo, trailTex, trailFbo, wallTex, pathTex, attractTex, lutTex,
     agentDim, trailW, trailH, cur: { agent: 0, trail: 0 },
     frame: 0, stepAcc: 0, emitClock: 0, solveCheckFrame: 0, startCell, endUV, locs,
+    readbackBuf: new Float32Array(4),
+    wallColorHex: cfg.wallColor, wallColorVec: hexToVec3(cfg.wallColor),
+    pathColorHex: cfg.pathColor, pathColorVec: hexToVec3(cfg.pathColor),
   }
 }
 
@@ -483,7 +493,7 @@ export function endReached(gl: WebGL2RenderingContext, res: LabyrinthGL): boolea
   const px = Math.min(res.trailW - 1, Math.max(0, Math.round(res.endUV.x * res.trailW)))
   const py = Math.min(res.trailH - 1, Math.max(0, Math.round(res.endUV.y * res.trailH)))
   gl.bindFramebuffer(gl.FRAMEBUFFER, res.trailFbo[res.cur.trail])
-  const out = new Float32Array(4)
+  const out = res.readbackBuf
   gl.readPixels(px, py, 1, 1, gl.RGBA, gl.FLOAT, out)
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   return out[0] >= SOLVE_THRESHOLD
@@ -513,7 +523,11 @@ export function render(
   gl.uniform1i(res.locs.display.u_lut, 3)
   gl.uniform2f(res.locs.display.u_texel, 1 / gl.drawingBufferWidth, 1 / gl.drawingBufferHeight)
   gl.uniform1f(res.locs.display.u_exposure, EXPOSURE)
-  const wc = hexToVec3(cfg.wallColor), pc = hexToVec3(cfg.pathColor)
+  // wall/path colours only change on a config edit — cache the parsed vec3, keyed
+  // by the hex string, instead of re-parsing (allocating two arrays + slices) every frame.
+  if (res.wallColorHex !== cfg.wallColor) { res.wallColorVec = hexToVec3(cfg.wallColor); res.wallColorHex = cfg.wallColor }
+  if (res.pathColorHex !== cfg.pathColor) { res.pathColorVec = hexToVec3(cfg.pathColor); res.pathColorHex = cfg.pathColor }
+  const wc = res.wallColorVec, pc = res.pathColorVec
   gl.uniform3f(res.locs.display.u_wallColor, wc[0], wc[1], wc[2])
   gl.uniform3f(res.locs.display.u_pathColor, pc[0], pc[1], pc[2])
   gl.uniform2f(res.locs.display.u_cellFrac, res.startCell.x, res.startCell.y)

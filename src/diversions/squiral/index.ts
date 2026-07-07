@@ -4,7 +4,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { squiralSchema, type SquiralConfig } from './schema'
 import {
   createSquiralState, stepSquiral, updateSquiralState, resizeSquiralState,
-  parseHex6, type RGBA, type SquiralState,
+  type RGBA, type SquiralState,
 } from './squiral'
 import { mix, rgba } from '../../framework/color'
 import { motionPresets, colorPresets } from './presets'
@@ -62,7 +62,7 @@ const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
     stepSquiral(state, dt)
     const cs = state.cfg.cellSize, gap = state.cfg.gap
     const bg = state.cfg.background
-    const bgRGBA = parseHex6(bg)
+    const bgRGBA = state.bg // parsed once at setup/config-change, not per frame
     if (state.phase === 'fading') {
       ctx.fillStyle = css(bgRGBA, state.fadeAlpha)
       ctx.fillRect(0, 0, state.w, state.h)
@@ -72,9 +72,9 @@ const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
     // A cell recycled this frame must cancel any in-flight bloom at that slot —
     // otherwise the bloom keeps repainting a bright cell over the now-empty (bg)
     // slot, and in rolling mode (no full clear) those strand as stuck specks.
-    const recycled = state.expired.length
-      ? new Set(state.expired.map((c) => c.row * state.cols + c.col))
-      : null
+    const recycled = state.recycledSet // reused across frames (cleared, not reallocated)
+    recycled.clear()
+    for (const c of state.expired) recycled.add(c.row * state.cols + c.col)
     // newly-filled cells enter the bloom list instead of popping at full opacity
     for (const cell of state.dirty) state.appearing.push({ col: cell.col, row: cell.row, c: cell.c, age: 0 })
     state.dirty.length = 0
@@ -84,7 +84,7 @@ const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
     const style = state.cfg.cellStyle
     let live = 0
     for (const a of state.appearing) {
-      if (recycled?.has(a.row * state.cols + a.col)) continue // recycled → bloom canceled
+      if (recycled.has(a.row * state.cols + a.col)) continue // recycled → bloom canceled
       a.age += dt
       const t = Math.min(1, a.age / BLOOM_MS)
       const s = t * t * (3 - 2 * t) // smoothstep ease

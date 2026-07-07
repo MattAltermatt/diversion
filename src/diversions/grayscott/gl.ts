@@ -160,6 +160,14 @@ export function initGL(gl: WebGL2RenderingContext, cfg: GrayScottConfig, w: numb
     sim: u(simProg, ['u_state', 'u_texel', 'u_feed', 'u_kill']),
     display: u(displayProg, ['u_state', 'u_lut', 'u_texel']),
   }
+  // Loop-invariant GL state, set once: BLEND is never enabled anywhere in this
+  // diversion (no additive/deposit pass, unlike labyrinth), and the display
+  // program's sampler-unit uniforms never change (always texture units 0/1) —
+  // both used to be reissued every frame/step for no reason.
+  gl.disable(gl.BLEND)
+  gl.useProgram(displayProg)
+  gl.uniform1i(locs.display.u_state, 0)
+  gl.uniform1i(locs.display.u_lut, 1)
   return { simProg, displayProg, vao, stateTex, stateFbo, lutTex, simW, simH, cur: 0, stepAcc: 0, locs }
 }
 
@@ -180,18 +188,14 @@ function fullscreen(gl: WebGL2RenderingContext, res: GrayScottGL) {
   gl.drawArrays(gl.TRIANGLES, 0, 3)
 }
 
-/** One reaction-diffusion step: render src→dst over the state field. */
-export function step(gl: WebGL2RenderingContext, res: GrayScottGL, cfg: GrayScottConfig): void {
+/** One reaction-diffusion step: render src→dst over the state field. The sim
+ *  program, its loop-invariant uniforms, and the viewport are set once by the
+ *  caller (render(), before the step loop) — this only does the part that
+ *  actually varies per step: which ping-pong buffer is src/dst. */
+export function step(gl: WebGL2RenderingContext, res: GrayScottGL): void {
   const src = res.cur, dst = src ^ 1
-  gl.disable(gl.BLEND)
   gl.bindFramebuffer(gl.FRAMEBUFFER, res.stateFbo[dst])
-  gl.viewport(0, 0, res.simW, res.simH)
-  gl.useProgram(res.simProg)
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, res.stateTex[src])
-  gl.uniform1i(res.locs.sim.u_state, 0)
-  gl.uniform2f(res.locs.sim.u_texel, 1 / res.simW, 1 / res.simH)
-  gl.uniform1f(res.locs.sim.u_feed, cfg.feed)
-  gl.uniform1f(res.locs.sim.u_kill, cfg.kill)
   fullscreen(gl, res)
   res.cur = dst
 }
@@ -203,14 +207,22 @@ export function render(gl: WebGL2RenderingContext, res: GrayScottGL, cfg: GraySc
   res.stepAcc += cfg.simSpeed
   const steps = Math.floor(res.stepAcc)
   res.stepAcc -= steps
-  for (let i = 0; i < steps; i++) step(gl, res, cfg)
+  if (steps > 0) {
+    // Sim uniforms only depend on cfg (which is constant across this frame's steps)
+    // and res.simW/simH (fixed at setup) — set once here instead of every step.
+    gl.viewport(0, 0, res.simW, res.simH)
+    gl.useProgram(res.simProg)
+    gl.uniform1i(res.locs.sim.u_state, 0)
+    gl.uniform2f(res.locs.sim.u_texel, 1 / res.simW, 1 / res.simH)
+    gl.uniform1f(res.locs.sim.u_feed, cfg.feed)
+    gl.uniform1f(res.locs.sim.u_kill, cfg.kill)
+    for (let i = 0; i < steps; i++) step(gl, res)
+  }
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
   gl.useProgram(res.displayProg)
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, res.stateTex[res.cur])
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, res.lutTex)
-  gl.uniform1i(res.locs.display.u_state, 0)
-  gl.uniform1i(res.locs.display.u_lut, 1)
   gl.uniform2f(res.locs.display.u_texel, 1 / gl.drawingBufferWidth, 1 / gl.drawingBufferHeight)
   fullscreen(gl, res)
 }

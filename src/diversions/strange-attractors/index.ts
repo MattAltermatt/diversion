@@ -1,5 +1,5 @@
 import { defineDiversion, type PresetGroup } from '../../framework/types'
-import { hexToRgba, trailFadeAlpha, toHex2, sampleGradient } from '../../framework/gradient'
+import { hexToRgba, trailFadeAlpha, toHex2, buildGradientLUT, gradientIndex } from '../../framework/gradient'
 import { strangeAttractorsSchema, type StrangeAttractorsConfig } from './schema'
 import {
   MAPS, sampleCoeffs, driftedCoeffs, attractorColorT, screenScale, type Coeffs,
@@ -13,8 +13,15 @@ interface AttractorState {
   y: number
   driftTime: number // morph clock; accumulates clamped dt so pause doesn't teleport
   styles: string[]  // precomputed rgba() per palette color
+  gradientLUT: string[] // precomputed rgba() LUT for gradient mode ([] in palette mode)
   w: number
   h: number
+}
+
+/** Gradient-mode colour LUT (empty in palette mode). The attractor colour source
+ *  is always non-cyclic → wrap=false. Rebuilt on config change. */
+function gradientLUTFor(cfg: StrangeAttractorsConfig): string[] {
+  return cfg.color.mode === 'gradient' ? buildGradientLUT(cfg.color.stops, false) : []
 }
 
 const POINT_ALPHA = 0.16 // per-point additive opacity — low, so density builds up
@@ -27,6 +34,7 @@ function makeState(cfg: StrangeAttractorsConfig, w: number, h: number): Attracto
     y: 0.1,
     driftTime: 0,
     styles: cfg.color.colors.map(hexToRgba),
+    gradientLUT: gradientLUTFor(cfg),
     w,
     h,
   }
@@ -101,7 +109,7 @@ const strangeAttractors = defineDiversion<typeof strangeAttractorsSchema, Attrac
       if (sx < 0 || sx >= w || sy < 0 || sy >= h) continue // off-screen, skip draw
       const tCol = attractorColorT(cfg.color.source, sx, sy, cx, cy, maxR, w, h)
       ctx.fillStyle = cfg.color.mode === 'gradient'
-        ? sampleGradient(cfg.color.stops, tCol, false)
+        ? state.gradientLUT[gradientIndex(tCol)]
         : state.styles[Math.min(n - 1, Math.floor(tCol * n))]
       ctx.fillRect(sx, sy, dotSize, dotSize)
     }
@@ -123,6 +131,7 @@ const strangeAttractors = defineDiversion<typeof strangeAttractorsSchema, Attrac
     if (config.attractor !== state.cfg.attractor || config.seed !== state.cfg.seed) return false
     state.cfg = config
     state.styles = config.color.colors.map(hexToRgba)
+    state.gradientLUT = gradientLUTFor(config)
     return true
   },
 

@@ -7,8 +7,8 @@
  * function across the viewport (no stored array). Cars are drawn as wireframes —
  * outline + centre spokes + translucent fill — so the structure of each car reads clearly.
  */
-import { getBodyPosition, getBodyAngle, SCALE } from './physics'
-import { carCentroid, type CarShape } from './car'
+import { getBodyPosition, getBodyAngle, SCALE, type Vec2 } from './physics'
+import { type CarShape } from './car'
 import { ghostPoseAt } from './ghost'
 import type { BoxCarState } from './index'
 
@@ -292,7 +292,7 @@ function drawFurthestFlag(
 /** Start→goal progress ribbon (#229): a thin always-visible bar at the top with the
  *  current car's dot and a furthest-reached / record marker — cheaper to read than the
  *  HUD distance number. Time mode spans 0→goal; distance mode spans 0→best-so-far. */
-function drawRibbon(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
+function drawRibbon(ctx: CanvasRenderingContext2D, s: BoxCarState, cp: Vec2): void {
   const { width } = s.size
   const pad = 14
   const y = 1
@@ -302,7 +302,7 @@ function drawRibbon(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   const w = width - pad * 2
   const isTime = s.cfg.mode === 'time'
   const span = isTime ? s.cfg.goalDistance : Math.max(1, s.bestDistMeters, s.furthestMeters)
-  const cur = Math.max(0, carCentroid(s.current).x - s.spawnX)
+  const cur = Math.max(0, cp.x - s.spawnX)
   const marker = isTime ? s.furthestMeters : s.bestDistMeters
   // track
   ctx.fillStyle = 'rgba(255,255,255,0.20)'
@@ -463,21 +463,25 @@ function drawLeaderboard(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   ctx.textBaseline = 'alphabetic'
 }
 
-export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
+export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState, cp: Vec2): void {
   const { width, height } = s.size
   const m2px = SCALE * ZOOM
   // car sits ~32% from the left, ~60% down
   const sx = (wx: number) => (wx - s.camMX) * m2px + width * 0.32
   const sy = (wy: number) => height * 0.6 - (wy - s.camMY) * m2px
 
-  // sky gradient — cached; only rebuilt when height or sky colour changes
-  const skyKey = `${height}|${s.cfg.color.sky}`
-  if (s.skyKey !== skyKey || !s.skyGradient) {
+  // sky gradient + derived ink — cached; only rebuilt when height or sky colour
+  // changes (scalar comparison against stored fields, no per-frame string alloc).
+  if (s.skyGradientH !== height || s.skyGradientSky !== s.cfg.color.sky || !s.skyGradient) {
     const g = ctx.createLinearGradient(0, 0, 0, height)
     g.addColorStop(0, s.cfg.color.sky)
     g.addColorStop(1, horizonColor(s.cfg.color.sky))
     s.skyGradient = g
-    s.skyKey = skyKey
+    s.skyGradientH = height
+    s.skyGradientSky = s.cfg.color.sky
+    const skyLight = isLight(s.cfg.color.sky)
+    const inkRGB = skyLight ? '20,24,32' : '255,255,255'
+    s.ink = `rgba(${inkRGB},0.92)`
   }
   ctx.fillStyle = s.skyGradient
   ctx.fillRect(0, 0, width, height)
@@ -487,7 +491,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
 
   const skyLight = isLight(s.cfg.color.sky)
   const inkRGB = skyLight ? '20,24,32' : '255,255,255'
-  const ink = `rgba(${inkRGB},0.92)`
+  const ink = s.ink!
 
   // endless terrain: sample the height function across the visible x-range.
   // Sample at FIXED world-x grid positions (snapped to RENDER_STEP) — NOT relative
@@ -538,37 +542,45 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
   }
 
   if (s.cfg.mode === 'distance') {
-    // record flag at the best distance reached so far (pole uses contrasting ink)
+    // record flag at the best distance reached so far (pole uses contrasting ink) —
+    // skip entirely while off-screen (cheap perf guard, #199: no visual change).
     const flagX = sx(s.spawnX + s.bestDistMeters)
-    ctx.strokeStyle = ink
-    ctx.globalAlpha = 0.5
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(flagX, 0)
-    ctx.lineTo(flagX, height)
-    ctx.stroke()
-    ctx.globalAlpha = 1
-    ctx.fillStyle = '#ff5d5d'
-    ctx.beginPath()
-    ctx.moveTo(flagX, 18)
-    ctx.lineTo(flagX + 15, 24)
-    ctx.lineTo(flagX, 30)
-    ctx.closePath()
-    ctx.fill()
+    if (flagX > -20 && flagX < width + 20) {
+      ctx.strokeStyle = ink
+      ctx.globalAlpha = 0.5
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(flagX, 0)
+      ctx.lineTo(flagX, height)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+      ctx.fillStyle = '#ff5d5d'
+      ctx.beginPath()
+      ctx.moveTo(flagX, 18)
+      ctx.lineTo(flagX + 15, 24)
+      ctx.lineTo(flagX, 30)
+      ctx.closePath()
+      ctx.fill()
+    }
   } else {
-    // time mode: checkered finish line at the goal
+    // time mode: checkered finish line at the goal — skip the stroke + checker loop
+    // entirely while off-screen (cheap perf guard, #199: no visual change).
     const fx = sx(s.spawnX + s.cfg.goalDistance)
-    ctx.strokeStyle = ink
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(fx, 0)
-    ctx.lineTo(fx, height)
-    ctx.stroke()
     const sq = 10
-    for (let r = 0; r * sq < height; r++) {
-      for (let c = 0; c < 2; c++) {
-        ctx.fillStyle = (r + c) % 2 === 0 ? '#f5f7fa' : '#11161f'
-        ctx.fillRect(fx + c * sq, r * sq, sq, sq)
+    // checker block spans fx..fx+2·sq, so cull on -2·sq (not -sq) or the right
+    // column would be wrongly dropped while still on-screen.
+    if (fx > -2 * sq && fx < width + sq) {
+      ctx.strokeStyle = ink
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(fx, 0)
+      ctx.lineTo(fx, height)
+      ctx.stroke()
+      for (let r = 0; r * sq < height; r++) {
+        for (let c = 0; c < 2; c++) {
+          ctx.fillStyle = (r + c) % 2 === 0 ? '#f5f7fa' : '#11161f'
+          ctx.fillRect(fx + c * sq, r * sq, sq, sq)
+        }
       }
     }
     // Until any car finishes, also show the furthest-reached flag + Dist readout (#221②)
@@ -637,7 +649,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
 
   // HUD — backing plate guarantees legibility over any sky/terrain underneath
   if (s.cfg.showHud) {
-    const cp = carCentroid(car)
     const text =
       s.cfg.mode === 'time'
         ? `Gen ${s.generation}   Car ${s.carIndex + 1}/${s.cfg.population}   Time ${(s.stepsThisCar / 60).toFixed(1)}s   Best ${Number.isFinite(s.bestTimeSec) ? s.bestTimeSec.toFixed(1) + 's' : '—'}   Goal ${s.cfg.goalDistance}m`
@@ -656,7 +667,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: BoxCarState): void {
 
     // Race feedback, part of the HUD chrome (hidden with it): the start→goal ribbon
     // (#229) and the transient finish-delta (#230) + split (#221) flashes under the plate.
-    drawRibbon(ctx, s)
+    drawRibbon(ctx, s, cp)
     drawFlash(ctx, width, s.finishFlash, 40, 17)
     drawFlash(ctx, width, s.splitFlash, 66, 14)
   }

@@ -168,8 +168,8 @@ export function fieldAt(state: GravityState, px: number, py: number): FieldSampl
   const a = noise(px * cfg.noiseScale, py * cfg.noiseScale, fieldTime) * Math.PI * 2
   const fx = gx + Math.cos(a) * FLOW_FLOOR
   const fy = gy + Math.sin(a) * FLOW_FLOOR
-  const len = Math.hypot(fx, fy) || 1
-  return { dx: fx / len, dy: fy / len, strength: fieldStrength(Math.hypot(gx, gy)) }
+  const len = Math.sqrt(fx * fx + fy * fy) || 1
+  return { dx: fx / len, dy: fy / len, strength: fieldStrength(Math.sqrt(gx * gx + gy * gy)) }
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)

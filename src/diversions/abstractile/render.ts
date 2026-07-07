@@ -30,9 +30,16 @@ export interface AbstractileState {
 // ── timing (derived per frame; cheap, keeps fillSpeed/hold edits live) ──
 function timing(m: Mosaic, cfg: AbstractileConfig) {
   const nFund = m.layOrder.length
-  const fillDur = Math.min(16, Math.max(2.5, nFund / cfg.fillSpeed))
+  // fillSpeed is tiles-per-second: fillDur = tiles / rate. The clamp only bounds
+  // pathological extremes (a huge 48² quilt at min speed, a tiny 6² one at max) —
+  // it's deliberately WIDE so the slider spans a real slow↔fast range instead of
+  // pinning to a narrow floor. On square/portrait canvases the default (24) is well
+  // inside the band and unchanged; on a wide 16:9 canvas it previously sat ON the old
+  // 2.5s floor and now unpins to its true nFund/rate (~2.25s, marginally faster) —
+  // which IS the intent (#258): unstick the default and open the range at both ends.
+  const fillDur = Math.min(30, Math.max(0.5, nFund / cfg.fillSpeed))
   const holdEnd = fillDur + cfg.holdSeconds
-  const dissolveDur = Math.min(10, Math.max(1.5, nFund / (cfg.fillSpeed * 1.5)))
+  const dissolveDur = Math.min(20, Math.max(0.4, nFund / (cfg.fillSpeed * 1.5)))
   return { nFund, fillDur, holdEnd, dissolveDur, end: holdEnd + dissolveDur }
 }
 

@@ -114,12 +114,19 @@ export function updateDemonState(st: DemonState, cfg: DemonConfig, _size: Size):
       || cfg.colors !== st.cfg.colors || cfg.seed !== st.cfg.seed) {
     return false // structural: grid geometry or state-space changed → teardown + setup
   }
+  // A full-grid repaint is only needed when current pixels actually change colour —
+  // a recolor (palette/hue/sat/light → new lut) or a background change. Pure-dynamics
+  // tweaks (speed/threshold/dominanceReach) leave the painted field untouched, so
+  // dragging those sliders shouldn't trigger a needless repaint of every cell.
+  const bgChanged = cfg.background !== st.cfg.background
+  const newLut = makeLut(cfg)
+  const lutChanged = newLut.length !== st.lut.length || newLut.some((c, i) => c !== st.lut[i])
   st.cfg = cfg
   st.kEff = clampK(cfg.dominanceReach, st.n)
   st.tEff = clamp(cfg.threshold, 1, st.tess.degree)
-  st.lut = makeLut(cfg)
+  st.lut = newLut
   st.quietSteps = 0 // dynamics just changed → give the new regime a fresh quiescence window
-  st.needsClear = true // recolor / background change → repaint whole field next frame
+  st.needsClear = lutChanged || bgChanged
   return true
 }
 

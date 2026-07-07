@@ -109,6 +109,9 @@ export interface SubstrateState {
   rayAvg: number                      // EMA of regionFill ray lengths (saturation signal)
   stepAcc: number                     // fractional-step accumulator (speed → integer steps)
   cycle: number                       // cycle index; varies the per-cycle seed
+  forceBlit: boolean                  // repaint next frame regardless of step count (after
+                                      // setup/resize: the canvas backing store was cleared, so
+                                      // a run of zero-step frames must not leave it blank)
 }
 
 /** Fill an RGBA buffer with an opaque colour. */
@@ -175,6 +178,7 @@ export function createSubstrateState(cfg: SubstrateConfig, w: number, h: number)
     w: W, h: H,
     phase: 'growing', elapsed: 0, fadeElapsed: 0,
     rayAvg: Math.min(W, H), stepAcc: 0, cycle: 0,
+    forceBlit: true,
   }
 }
 
@@ -305,13 +309,15 @@ function reseed(state: SubstrateState): void {
   state.stepAcc = 0
 }
 
-/** Per-frame driver. */
-export function stepSubstrate(state: SubstrateState, dt: number): void {
+/** Per-frame driver. Returns whether the pixel buffer changed this tick (fading
+ *  always mutates; growing only when it actually ran ≥1 step) — the renderer skips
+ *  the full-canvas blit on unchanged frames (common at calm/low-speed defaults). */
+export function stepSubstrate(state: SubstrateState, dt: number): boolean {
   if (state.phase === 'fading') {
     state.fadeElapsed += dt
     fadeStep(state, dt)
     if (state.fadeElapsed >= state.cfg.fadeTime * 1000) reseed(state)
-    return
+    return true // fadeStep (or reseed's clear) mutated every pixel
   }
   // GROWING
   state.elapsed += dt
@@ -339,6 +345,7 @@ export function stepSubstrate(state: SubstrateState, dt: number): void {
     state.phase = 'fading'
     state.fadeElapsed = 0
   }
+  return steps > 0 // only inked the buffer if at least one step actually ran
 }
 
 /** Apply a config change live; false for structural changes (→ framework re-setup). */
@@ -373,4 +380,5 @@ export function resizeSubstrateState(state: SubstrateState, size: Size): void {
   state.rayAvg = fresh.rayAvg
   state.stepAcc = 0
   state.cycle = 0
+  state.forceBlit = true // canvas backing store was cleared by the resize → repaint next frame
 }

@@ -51,6 +51,7 @@ export interface SquiralState {
   expired: DirtyCell[]       // cells cleared this frame → repaint bg (renderer drains)
   appearing: BloomCell[]     // cells fading in (renderer ages + redraws; #zen leading-edge)
   needsClear: boolean        // repaint whole bg next frame (after resize)
+  recycledSet: Set<number>   // reused per frame (cleared, not reallocated) — cells recycled this frame
 }
 
 /** A cell mid fade-in: redrawn each frame as its colour lerps bg→target. */
@@ -168,6 +169,7 @@ export function createSquiralState(cfg: SquiralConfig, w: number, h: number): Sq
     cycle: 0,
     phase: 'spiraling', fadeElapsed: 0, fadeAlpha: 0, wipeRow: 0, wipeAcc: 0,
     stepAcc: 0, dirty: [], expired: [], appearing: [], needsClear: false,
+    recycledSet: new Set(),
   }
   st.worms = Array.from({ length: cfg.count }, () => {
     const wm: Worm = { col: 0, row: 0, type: 0, dir: 0, fixed: st.palette[0], colorPos: 0, colorStep: 0 }

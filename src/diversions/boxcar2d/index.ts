@@ -134,9 +134,12 @@ export interface BoxCarState {
    *  (gen 3 exercises the post-setup rng stream: breeding + selection + mutation). */
   firstGenFitness?: number[]
   thirdGenFitness?: number[]
-  /** Render-only cache (sky gradient), keyed by height|skyColour. */
+  /** Render-only cache (sky gradient + derived ink colour), recomputed only when
+   *  height or sky colour changes (scalars compared directly — no per-frame string key). */
   skyGradient?: CanvasGradient
-  skyKey?: string
+  skyGradientH?: number
+  skyGradientSky?: string
+  ink?: string
   /** Seed of the CURRENT track (terrain derives from it; reseeded on regen). */
   trackSeed: number
   /** Physics steps elapsed for the current car (time-mode clock). */
@@ -486,7 +489,7 @@ export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
     const BAND = 2 // meters
     if (cp.y > state.camMY + BAND) state.camMY = cp.y - BAND
     else if (cp.y < state.camMY - BAND) state.camMY = cp.y + BAND
-    drawScene(ctx, state)
+    drawScene(ctx, state, cp)
   },
 
   resize(state, size) {

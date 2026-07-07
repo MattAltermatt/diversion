@@ -73,6 +73,13 @@ function buildHexagon(size: number, W: number, H: number): Tessellation {
   const { nbrStart, nbrIdx } = toCSR(lists)
   const cx = (c: number, r: number) => hexW * c + hexW * 0.5 * (r & 1) + hexW / 2
   const cy = (r: number) => size + hexV * r
+  // Vertex offsets are identical for every hexagon — precompute the six (dx,dy)
+  // once instead of 12 trig ops per cell paint (fillCell runs per changed cell).
+  const hx = new Float64Array(6), hy = new Float64Array(6)
+  for (let k = 0; k < 6; k++) {
+    const a = ((-90 + 60 * k) * Math.PI) / 180
+    hx[k] = size * Math.cos(a); hy[k] = size * Math.sin(a)
+  }
   return {
     cellCount: cols * rows, cols, rows, degree: 6, nbrStart, nbrIdx,
     fillCell(ctx, i, fillStyle) {
@@ -80,11 +87,8 @@ function buildHexagon(size: number, W: number, H: number): Tessellation {
       const x = cx(c, r), y = cy(r)
       ctx.fillStyle = fillStyle
       ctx.beginPath()
-      for (let k = 0; k < 6; k++) {
-        const a = ((-90 + 60 * k) * Math.PI) / 180
-        const vx = x + size * Math.cos(a), vy = y + size * Math.sin(a)
-        if (k === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy)
-      }
+      ctx.moveTo(x + hx[0], y + hy[0])
+      for (let k = 1; k < 6; k++) ctx.lineTo(x + hx[k], y + hy[k])
       ctx.closePath()
       ctx.fill()
     },

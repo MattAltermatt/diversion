@@ -40,10 +40,18 @@ const substrate = defineDiversion<typeof substrateSchema, SubstrateState, '2d'>(
   },
 
   frame(state, ctx, _t, dt) {
-    stepSubstrate(state, dt)
-    const off = getOffscreen(state)
-    off.ctx.putImageData(new ImageData(state.buf, state.w, state.h), 0, 0)
-    ctx.drawImage(off.canvas, 0, 0, state.w, state.h)
+    const dirty = stepSubstrate(state, dt)
+    // Skip the full-canvas putImageData + scaled drawImage when the buffer didn't
+    // change this tick — at calm/low-speed defaults most frames run zero steps.
+    // Always blit on a forced dt===0 repaint (post-resize/config/context-restore)
+    // and on the first frame after setup/resize (forceBlit), when the canvas
+    // backing store was cleared and must be repainted even with zero steps.
+    if (dirty || dt === 0 || state.forceBlit) {
+      const off = getOffscreen(state)
+      off.ctx.putImageData(new ImageData(state.buf, state.w, state.h), 0, 0)
+      ctx.drawImage(off.canvas, 0, 0, state.w, state.h)
+      state.forceBlit = false
+    }
   },
 
   resize(state, size) {
