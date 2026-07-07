@@ -6,6 +6,7 @@ import {
   createGravityState, respawnParticle, outOfBounds, colorT, fieldAt, fieldStrength,
   BOUNDS_MARGIN, type Well, type Particle, type GravityState,
 } from './gravityWells'
+import gravityWells from './index'
 
 const cfg = gravityWellsSchema.parse({})
 
@@ -177,6 +178,41 @@ describe('fieldStrength (tonemap, not hard clamp)', () => {
     expect(fieldStrength(5)).toBeGreaterThan(fieldStrength(2))
     expect(fieldStrength(20)).toBeGreaterThan(fieldStrength(5))
     expect(fieldStrength(5)).toBeLessThan(1) // would be 1 (clamped) under the old map
+  })
+})
+
+describe('gravity-wells live palette update (#270 — new colours get used)', () => {
+  const size = { width: 800, height: 600 }
+
+  // Mirror the diversion's setup(): build a live state and spread each
+  // particle's colour index across the palette length.
+  function makeState(startCfg: typeof cfg): GravityState & { styles: string[]; gradientLUT: string[] } {
+    const base = createGravityState(startCfg, size.width, size.height)
+    const styles = startCfg.color.colors.length ? startCfg.color.colors : ['#ffffffff']
+    const state = { ...base, styles, gradientLUT: [] as string[] }
+    for (const p of state.particles) p.ci = Math.floor(base.rng() * styles.length)
+    return state
+  }
+
+  it('re-spreads particle colour indices when the palette grows so added colours are referenced', () => {
+    const startCfg = gravityWellsSchema.parse({
+      particles: 500,
+      color: { colors: ['#ff0000ff', '#00ff00ff'] }, // 2-colour palette
+    })
+    const state = makeState(startCfg)
+    // baseline: every index sits inside the old 2-colour range
+    expect(state.particles.every((p) => p.ci < 2)).toBe(true)
+
+    const grown = {
+      ...startCfg,
+      color: { ...startCfg.color, colors: [...startCfg.color.colors, '#0000ffff', '#ffff00ff', '#00ffffff'] },
+    }
+    const applied = gravityWells.update!(state, grown, size)
+    expect(applied).toBe(true)
+    // at least one particle now points at an index that only exists in the new palette
+    expect(state.particles.some((p) => p.ci >= 2)).toBe(true)
+    // and none escapes the new length
+    expect(state.particles.every((p) => p.ci < 5)).toBe(true)
   })
 })
 

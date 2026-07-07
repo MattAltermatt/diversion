@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { swirlingMagicSchema } from './schema'
 import { createSwirlState, renderSwirl, resizeSwirl } from './swirl'
+import swirlingMagic from './index'
 
 // renderSwirl uses Path2D + a 2D context, neither of which jsdom provides. Stub
 // both with minimal no-op recorders so the render path is exercised in-test.
@@ -67,6 +68,15 @@ describe('swirling-magic render', () => {
     const ctx = fakeCtx() as ReturnType<typeof fakeCtx>
     expect(() => renderSwirl(st, ctx, 1 / 60)).not.toThrow()
     expect(ctx.strokes).toBeGreaterThan(0)
+  })
+
+  it('re-setups (update → false) when Breathe changes; applies live for an unrelated field (#270)', () => {
+    const st = createSwirlState({ ...cfg, generator: 'Vortex' }, 800, 600)
+    // Breathe is baked into ribbon periods at seed time → must force a re-setup.
+    expect(swirlingMagic.update!(st, { ...cfg, generator: 'Vortex', breathe: cfg.breathe + 10 }, { width: 800, height: 600 })).toBe(false)
+    // Spin reads live every frame → applies in place and returns true.
+    expect(swirlingMagic.update!(st, { ...cfg, generator: 'Vortex', spin: cfg.spin + 0.01 }, { width: 800, height: 600 })).toBe(true)
+    expect(st.cfg.spin).toBeCloseTo(cfg.spin + 0.01)
   })
 
   it('resize recenters and flags a clear', () => {

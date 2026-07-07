@@ -37,6 +37,15 @@ function configCurve(cfg: PedalRoseConfig): RoseCurve {
   return { type: cfg.curveType, n: cfg.n, d: cfg.d }
 }
 
+// Fields that define the curve geometry / RNG stream / bloom source. A change to any
+// of these needs a fresh sampled curve, so update() re-setups (returns false).
+// Everything else (colors, line width, glow, copies, rotation, speed, hold,
+// background) is read live from state.cfg every frame, so it applies without
+// restarting the bloom.
+function structuralKey(c: PedalRoseConfig): string {
+  return `${c.curveType}|${c.n}|${c.d}|${c.seed}|${c.randomizeEachBloom}`
+}
+
 function reseed(state: PedalState): void {
   state.bloom++
   state.curve = state.cfg.randomizeEachBloom
@@ -176,6 +185,17 @@ const pedalRose = defineDiversion<typeof pedalRoseSchema, PedalState, '2d'>({
       strokeCopy(ctx, state, phi, c, nPts, scale, baseHue)
     }
     ctx.globalAlpha = 1
+  },
+
+  update(state, config, size) {
+    // Structural edit (geometry / seed / bloom source) → rebuild via a full setup.
+    if (structuralKey(config) !== structuralKey(state.cfg)) return false
+    // Cosmetic edit — everything the frame reads live from cfg. Swap and carry on;
+    // no curve rebuild, no accumulation buffer to re-bake, so nothing pops.
+    state.cfg = config
+    state.w = size.width
+    state.h = size.height
+    return true
   },
 
   resize(state, size, ctx) {

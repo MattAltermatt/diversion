@@ -133,6 +133,7 @@ const mandala = defineDiversion<typeof mandalaSchema, MandalaState, '2d'>({
       || config.motifStyle !== prev.motifStyle || config.seed !== prev.seed
     const geomRebuild = newMandala || config.sizeScale !== prev.sizeScale
       || config.growthSpeed !== prev.growthSpeed
+      || config.mirror !== prev.mirror || config.lineWidth !== prev.lineWidth
     const paletteChanged = config.palette.join() !== prev.palette.join()
     s.cfg = config
     s.lut = buildLut(config.palette)

@@ -61,11 +61,16 @@ const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
   update(state, config, size) {
     // structural changes (particle count, seed) → full re-setup
     if (config.particles !== state.cfg.particles || config.seed !== state.cfg.seed) return false
+    // A palette-length change must re-spread the per-particle colour indices:
+    // each particle's ci was drawn against the OLD palette length, so a newly
+    // added colour (a larger index) is never referenced until we re-assign.
+    const paletteLenChanged = config.color.colors.length !== state.cfg.color.colors.length
     state.cfg = config
     state.styles = buildStyles(config)
     state.gradientLUT = gradientLUTFor(config)
     state.w = size.width
     state.h = size.height
+    if (paletteLenChanged) assignColorIndices(state)
     return true
   },
 

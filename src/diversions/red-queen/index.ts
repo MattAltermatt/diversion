@@ -3,9 +3,10 @@ import { redQueenSchema, type RedQueenConfig } from './schema'
 import { advance, buildColors, buildKernel, createRedQueenState, render, type RedQueenState } from './redQueen'
 import { redQueenPresets } from './presets'
 
-// Changing the genotype set (count / breadth) or the seed rebuilds the run; the rest
-// — virulence, pressure, mutation, colours, speed — applies live to the ongoing chase.
-const STRUCTURAL: (keyof RedQueenConfig)[] = ['genotypeCount', 'matchBreadth', 'seed']
+// Changing the genotype count or the seed rebuilds the run; the rest — virulence,
+// pressure, mutation, colours, speed, AND match breadth (the kernel rebuilds live) —
+// applies live to the ongoing chase.
+const STRUCTURAL: (keyof RedQueenConfig)[] = ['genotypeCount', 'seed']
 
 const redQueen = defineDiversion<typeof redQueenSchema, RedQueenState, '2d'>({
   id: 'red-queen',

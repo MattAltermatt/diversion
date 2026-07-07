@@ -34,6 +34,14 @@ function configRosette(cfg: SpirographConfig): Rosette {
   return { R: cfg.R, r: cfg.r, d: cfg.d, mode: cfg.mode }
 }
 
+// Fields that define the rosette geometry / RNG stream / bloom source. A change to
+// any of these needs a fresh sampled curve, so update() re-setups (returns false).
+// Everything else (colors, line width, glow, pen count, speed, hold, background) is
+// read live from state.cfg every frame, so it applies without restarting the bloom.
+function structuralKey(c: SpirographConfig): string {
+  return `${c.R}|${c.r}|${c.d}|${c.mode}|${c.seed}|${c.randomizeEachBloom}`
+}
+
 function reseed(state: SpiroState): void {
   state.bloom++
   state.ros = state.cfg.randomizeEachBloom
@@ -173,6 +181,17 @@ const spirograph = defineDiversion<typeof spirographSchema, SpiroState, '2d'>({
       strokePen(ctx, state, phi, k, nPts, scale, baseHue)
     }
     ctx.globalAlpha = 1
+  },
+
+  update(state, config, size) {
+    // Structural edit (geometry / seed / bloom source) → rebuild via a full setup.
+    if (structuralKey(config) !== structuralKey(state.cfg)) return false
+    // Cosmetic edit — everything the frame reads live from cfg. Swap and carry on;
+    // no curve rebuild, no accumulation buffer to re-bake, so nothing pops.
+    state.cfg = config
+    state.w = size.width
+    state.h = size.height
+    return true
   },
 
   resize(state, size, ctx) {

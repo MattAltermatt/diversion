@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { applyTurn, parseRule, createTurmiteState, DIRS, stepOnce, shouldReseed, stepsForDt } from './turmite'
+import { applyTurn, parseRule, createTurmiteState, DIRS, stepOnce, shouldReseed, stepsForDt, hex8ToRgba } from './turmite'
 import { turmiteSchema, RULES, type TurmiteConfig } from './schema'
 import { encodeConfig, decodeConfig } from '../../framework/urlCodec'
 import { rulePresets, palettePresets } from './presets'
+import turmite from './index'
 
 const base = turmiteSchema.parse({})
 
@@ -150,6 +151,28 @@ describe('shouldReseed', () => {
     const s = createTurmiteState(base, 100, 100)
     s.painted = 5
     expect(shouldReseed(s)).toBe(false)
+  })
+})
+
+describe('turmite live update (#270 — palette recolours the accumulated pattern)', () => {
+  const size = { width: 200, height: 200 }
+
+  it('flags a full repaint when the palette changes so painted cells recolour', () => {
+    const state = createTurmiteState(base, size.width, size.height)
+    state.bgDirty = false
+    const palette = [...base.palette]
+    palette[1] = '#123456ff' // change one stop
+    const applied = turmite.update!(state, { ...base, palette }, size)
+    expect(applied).toBe(true)
+    expect(state.bgDirty).toBe(true) // repaintBackground() will redraw the grid with new styles
+    expect(state.styles).toContain(hex8ToRgba('#123456ff'))
+  })
+
+  it('does not flag a repaint when no visual field changed', () => {
+    const state = createTurmiteState(base, size.width, size.height)
+    state.bgDirty = false
+    turmite.update!(state, { ...base }, size)
+    expect(state.bgDirty).toBe(false)
   })
 })
 

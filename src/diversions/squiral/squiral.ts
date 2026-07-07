@@ -260,11 +260,16 @@ export function stepSquiral(st: SquiralState, dt: number): void {
 export function updateSquiralState(st: SquiralState, cfg: SquiralConfig, _size: Size): boolean {
   // fillThreshold is read live every frame (threshold()), so it applies without
   // a re-setup — listing it here would needlessly wipe the painting on change.
+  // Gap + cellStyle are baked into the mosaic (each cell is stamped once by the
+  // renderer, never re-drawn), so they force a re-setup like Background does —
+  // otherwise a live edit only reaches cells filled after the change (#270).
   if (
     cfg.count !== st.cfg.count ||
     cfg.cellSize !== st.cfg.cellSize ||
     cfg.seed !== st.cfg.seed ||
-    cfg.background !== st.cfg.background
+    cfg.background !== st.cfg.background ||
+    cfg.gap !== st.cfg.gap ||
+    cfg.cellStyle !== st.cfg.cellStyle
   ) return false
   const paletteChanged = JSON.stringify(cfg.color.colors) !== JSON.stringify(st.cfg.color.colors)
   const cycleChanged = cfg.cycle !== st.cfg.cycle

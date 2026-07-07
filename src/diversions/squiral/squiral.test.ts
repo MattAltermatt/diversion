@@ -174,6 +174,11 @@ describe('lifecycle', () => {
   it('update returns false for structural changes, true for live ones', () => {
     const st = createSquiralState(squiralSchema.parse({}), 160, 120)
     expect(updateSquiralState(st, squiralSchema.parse({ count: 60 }), { width: 160, height: 120 })).toBe(false)
+    // Gap + cellStyle are baked into the mosaic, so they force a re-setup (#270).
+    expect(updateSquiralState(st, squiralSchema.parse({ gap: 2 }), { width: 160, height: 120 })).toBe(false)
+    expect(updateSquiralState(st, squiralSchema.parse({ cellStyle: 'ribbon' }), { width: 160, height: 120 })).toBe(false)
+    // fillThreshold stays live on purpose (read every frame), so it must NOT re-setup.
+    expect(updateSquiralState(st, squiralSchema.parse({ fillThreshold: 40 }), { width: 160, height: 120 })).toBe(true)
     expect(updateSquiralState(st, squiralSchema.parse({ disorder: 0.02 }), { width: 160, height: 120 })).toBe(true)
     expect(st.cfg.disorder).toBe(0.02)
   })

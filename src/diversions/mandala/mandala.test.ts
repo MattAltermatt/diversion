@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mandalaSchema } from './schema'
 import { buildMandala, buildLut, ringReveal, REVEAL_SPAN } from './mandala'
+import mandala from './index'
 
 const cfg = (over: Partial<ReturnType<typeof mandalaSchema.parse>> = {}) =>
   ({ ...mandalaSchema.parse({}), ...over })
@@ -116,5 +117,37 @@ describe('well-formed geometry', () => {
     const lut = buildLut(['#ff8800', '#0a0812'])
     expect(lut[0]).toEqual({ r: 255, g: 136, b: 0 })
     expect(lut[1]).toEqual({ r: 10, g: 8, b: 18 })
+  })
+})
+
+describe('live update re-bakes the accumulation buffer (#270)', () => {
+  // The baked buffer holds already-drawn rings using cfg.mirror / cfg.lineWidth (only
+  // consumed at bake time via drawRing). A live edit to either must reset the buffer
+  // (bakedCount → 0) so the whole mandala re-bakes with the new value — otherwise the
+  // change is silently ignored until a structural rebuild.
+  const fakeCtx = { canvas: { width: 800 } } as unknown as CanvasRenderingContext2D
+  const mkState = () => {
+    const s = mandala.setup(fakeCtx, cfg(), { width: 800, height: 600 })
+    s.bakedCount = 5 // pretend some rings are already baked in
+    return s
+  }
+
+  it('changing mirror re-bakes (bakedCount reset to 0, update returns true)', () => {
+    const s = mkState()
+    const applied = mandala.update!(s, cfg({ mirror: false }), { width: 800, height: 600 })
+    expect(applied).toBe(true)
+    expect(s.bakedCount).toBe(0)
+  })
+
+  it('changing lineWidth re-bakes (bakedCount reset to 0)', () => {
+    const s = mkState()
+    mandala.update!(s, cfg({ lineWidth: 5 }), { width: 800, height: 600 })
+    expect(s.bakedCount).toBe(0)
+  })
+
+  it('an unrelated no-op edit does NOT reset the buffer', () => {
+    const s = mkState()
+    mandala.update!(s, cfg(), { width: 800, height: 600 })
+    expect(s.bakedCount).toBe(5) // holdSeconds/mirror/lineWidth unchanged → no re-bake
   })
 })

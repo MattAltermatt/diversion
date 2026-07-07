@@ -47,6 +47,9 @@ const swirlingMagic = defineDiversion<typeof swirlingMagicSchema, SwirlState, '2
     if (config.generator !== state.cfg.generator) return false
     if (config.seed !== state.cfg.seed) return false
     if (config.generator === 'Vortex' && config.ribbons !== state.cfg.ribbons) return false
+    // Breathe is baked into each ribbon's period at seed time (createSwirlState),
+    // never read live — so a change must re-setup to reach existing ribbons (#270).
+    if (config.breathe !== state.cfg.breathe) return false
     // Everything else reads live; a palette / background edit re-bakes the ramp.
     const recolor =
       config.palette.join() !== state.cfg.palette.join() ||

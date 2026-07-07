@@ -297,12 +297,16 @@ export function shouldReseed(state: GardenState): boolean {
   return state.phase === 'fading' && state.fadeMs >= FADE_MS
 }
 
-// Only the seed count and RNG seed require a full rebuild (they fix the seed
-// crystals' positions and the growth walk). Buoyancy/branchRate/wander/
-// growthSpeed/lineWidth/taper/glow/background all apply live: the growth loop
-// and renderer read `state.cfg` fresh every step/frame. A palette edit keeps
-// the already-grown geometry but reassigns each seed's salt and asks render.ts
-// for a full rebake (mirrors DLA's colorByAge/bands live-appearance edits).
+// Only the seed count and RNG seed require a full re-setup (they change the grown
+// geometry itself). Buoyancy/branchRate/wander/growthSpeed/glow/background apply
+// live — the growth loop and renderer read `state.cfg` fresh every step/frame.
+// The baked tube geometry (tube width `lineWidth` + `taper`) is stamped once per
+// finished segment and never re-stamped, so a live edit alone wouldn't reach an
+// already-grown tube — but rather than restart the whole bloom, we keep the grown
+// geometry and ask render.ts to re-stamp every `bakedSegments` at the new width
+// (`needsFullRedraw`; `stamp` re-reads cfg.lineWidth/taper with geometry-hashed,
+// order-independent jitter). That mirrors the palette edit below and mandala's own
+// lineWidth handling (#270).
 function needsRebuild(a: ChemicalGardenConfig, b: ChemicalGardenConfig): boolean {
   return a.seed !== b.seed || a.seeds !== b.seeds
 }
@@ -310,11 +314,12 @@ function needsRebuild(a: ChemicalGardenConfig, b: ChemicalGardenConfig): boolean
 export function updateGardenState(state: GardenState, cfg: ChemicalGardenConfig): boolean {
   if (needsRebuild(state.cfg, cfg)) return false
   const paletteChanged = cfg.palette !== state.cfg.palette
+  const geomRebake = cfg.lineWidth !== state.cfg.lineWidth || cfg.taper !== state.cfg.taper
   state.cfg = cfg
   if (paletteChanged) {
     const salts = assignSalts(cfg)
     state.seeds = state.seeds.map((s, i) => ({ ...s, salt: salts[i] }))
-    state.needsFullRedraw = true
   }
+  if (paletteChanged || geomRebake) state.needsFullRedraw = true // re-stamp in place, keep the garden
   return true
 }

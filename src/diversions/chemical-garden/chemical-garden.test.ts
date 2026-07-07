@@ -6,6 +6,7 @@ import {
   createGardenState,
   createSeeds,
   stepTip,
+  updateGardenState,
   computeWorldBounds,
   type GardenState,
   type Tip,
@@ -149,6 +150,35 @@ describe('determinism', () => {
     const a = grow(cfg({ seed: 1, growthSpeed: 300 }), 300)
     const b = grow(cfg({ seed: 2, growthSpeed: 300 }), 300)
     expect(a.bakedSegments).not.toEqual(b.bakedSegments)
+  })
+})
+
+describe('live-edit triggers (#270)', () => {
+  it('re-bakes in place (returns true + needsFullRedraw) when tube width or taper changes', () => {
+    // Baked per segment, but re-stamped from bakedSegments on needsFullRedraw — so a
+    // live edit keeps the grown garden instead of restarting the bloom.
+    const base = cfg()
+    const sW = createGardenState(base, 480, 360)
+    sW.needsFullRedraw = false
+    expect(updateGardenState(sW, cfg({ lineWidth: base.lineWidth + 4 }))).toBe(true)
+    expect(sW.needsFullRedraw).toBe(true)
+    const sT = createGardenState(base, 480, 360)
+    sT.needsFullRedraw = false
+    expect(updateGardenState(sT, cfg({ taper: base.taper + 0.05 }))).toBe(true)
+    expect(sT.needsFullRedraw).toBe(true)
+  })
+
+  it('forces a re-setup (returns false) only for structural seed/seeds changes', () => {
+    const base = cfg()
+    const s = createGardenState(base, 480, 360)
+    expect(updateGardenState(s, cfg({ seed: base.seed + 1 }))).toBe(false)
+  })
+
+  it('still applies live (returns true) for a genuinely live field like glow', () => {
+    const base = cfg()
+    const s = createGardenState(base, 480, 360)
+    expect(updateGardenState(s, cfg({ glow: base.glow + 0.1 }))).toBe(true)
+    expect(s.cfg.glow).toBeCloseTo(base.glow + 0.1)
   })
 })
 

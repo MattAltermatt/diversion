@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import spirograph from './index'
 import { spirographSchema } from './schema'
 import {
   gcd, petalCount, revolutions, thetaMax, penAt, maxRadius,
   sampleCurve, pickRosette, mulberry32, type Rosette,
 } from './spiro'
+
+// Minimal 2D context stub — setup only paints the background (fillStyle + fillRect).
+const stubCtx = () => ({ fillRect() {}, set fillStyle(_v: string) {} }) as unknown as CanvasRenderingContext2D
+const SIZE = { width: 800, height: 600 }
 
 describe('spirograph schema', () => {
   it('parses with valid defaults', () => {
@@ -23,6 +28,29 @@ describe('spirograph schema', () => {
   it('flags the seed field randomizeOnFreshLoad (pin-only in codec)', () => {
     const meta = (spirographSchema.shape.seed as { meta: () => any }).meta()
     expect(meta.randomizeOnFreshLoad).toBe(true)
+  })
+})
+
+describe('update(): cosmetic edits apply live, structural edits re-setup (#270)', () => {
+  const setup = () => spirograph.setup(stubCtx(), spirographSchema.parse({}), SIZE)
+
+  it('returns true (applies live) for a cosmetic-only change', () => {
+    const state = setup()
+    const cfg = spirographSchema.parse({})
+    // Line width / glow / colors / speed all read live each frame — no rebuild.
+    expect(spirograph.update!(state, { ...cfg, lineWidth: 2.4, glow: 0.8, background: '#111111' }, SIZE)).toBe(true)
+    expect(state.cfg.lineWidth).toBe(2.4)
+  })
+
+  it('returns false (forces re-setup) for a geometry change', () => {
+    const cfg = spirographSchema.parse({})
+    expect(spirograph.update!(setup(), { ...cfg, R: cfg.R + 1 }, SIZE)).toBe(false)
+    expect(spirograph.update!(setup(), { ...cfg, mode: 'outside' }, SIZE)).toBe(false)
+  })
+
+  it('returns false for a seed change (fresh RNG stream)', () => {
+    const cfg = spirographSchema.parse({})
+    expect(spirograph.update!(setup(), { ...cfg, seed: cfg.seed + 7 }, SIZE)).toBe(false)
   })
 })
 

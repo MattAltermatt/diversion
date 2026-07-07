@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import pedalRose from './index'
 import { pedalRoseSchema } from './schema'
 import {
   mulberry32, pickCurve, sampleCurve, penAt, petalCount, petalPeriod, reduce,
   type RoseCurve,
 } from './pedal'
+
+// Minimal 2D context stub — setup only paints the background (fillStyle + fillRect).
+const stubCtx = () => ({ fillRect() {}, set fillStyle(_v: string) {} }) as unknown as CanvasRenderingContext2D
+const SIZE = { width: 800, height: 600 }
 
 // Count local maxima of the radial distance from the origin over one fundamental
 // period, treating the sampled loop as circular. Each rose petal tip is one such
@@ -40,6 +45,29 @@ describe('pedal-rose schema', () => {
 
   it('rejects an out-of-range petal count', () => {
     expect(() => pedalRoseSchema.parse({ n: 99 })).toThrow()
+  })
+})
+
+describe('update(): cosmetic edits apply live, structural edits re-setup (#270)', () => {
+  const setup = () => pedalRose.setup(stubCtx(), pedalRoseSchema.parse({}), SIZE)
+
+  it('returns true (applies live) for a cosmetic-only change', () => {
+    const state = setup()
+    const cfg = pedalRoseSchema.parse({})
+    // Line width / glow / copies / rotation / colors all read live each frame.
+    expect(pedalRose.update!(state, { ...cfg, lineWidth: 2.4, glow: 0.8, copies: 3, background: '#111111' }, SIZE)).toBe(true)
+    expect(state.cfg.copies).toBe(3)
+  })
+
+  it('returns false (forces re-setup) for a geometry change', () => {
+    const cfg = pedalRoseSchema.parse({})
+    expect(pedalRose.update!(setup(), { ...cfg, n: cfg.n + 1 }, SIZE)).toBe(false)
+    expect(pedalRose.update!(setup(), { ...cfg, curveType: 'pedal' }, SIZE)).toBe(false)
+  })
+
+  it('returns false for a seed change (fresh RNG stream)', () => {
+    const cfg = pedalRoseSchema.parse({})
+    expect(pedalRose.update!(setup(), { ...cfg, seed: cfg.seed + 7 }, SIZE)).toBe(false)
   })
 })
 

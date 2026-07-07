@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { redQueenSchema } from './schema'
 import { createRedQueenState, step, advance, buildKernel, buildColors } from './redQueen'
+import redQueen from './index'
 
 const cfg = (over = {}) => redQueenSchema.parse({ ...over })
 
@@ -97,5 +98,25 @@ describe('kernel + colours', () => {
   it('builds one rgb per genotype', () => {
     const c = buildColors(cfg({ genotypeCount: 8 }))
     expect(c.length).toBe(8 * 3)
+  })
+})
+
+describe('matchBreadth applies live, not as a full re-setup (#270)', () => {
+  // update() rebuilds the kernel live (state.kernel = buildKernel(config)) on every
+  // non-structural edit, so a matchBreadth change can apply WITHOUT wiping the whole
+  // waterfall. It must therefore return true and swap in the new-breadth kernel.
+  it('changing only matchBreadth returns true and rebuilds the kernel', () => {
+    const s = createRedQueenState(cfg({ genotypeCount: 8, matchBreadth: 0 }), 800, 600)
+    const before = Array.from(s.kernel)
+    const applied = redQueen.update!(s, cfg({ genotypeCount: 8, matchBreadth: 3 }), { width: 800, height: 600 })
+    expect(applied).toBe(true)
+    expect(Array.from(s.kernel)).toEqual(Array.from(buildKernel(cfg({ genotypeCount: 8, matchBreadth: 3 }))))
+    expect(Array.from(s.kernel)).not.toEqual(before)
+  })
+
+  it('changing genotypeCount is still structural (returns false → full re-setup)', () => {
+    const s = createRedQueenState(cfg({ genotypeCount: 8 }), 800, 600)
+    const applied = redQueen.update!(s, cfg({ genotypeCount: 12 }), { width: 800, height: 600 })
+    expect(applied).toBe(false)
   })
 })

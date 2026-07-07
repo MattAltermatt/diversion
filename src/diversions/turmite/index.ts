@@ -41,11 +41,14 @@ const turmite = defineDiversion<typeof turmiteSchema, TurmiteState, '2d'>({
       return false
     }
     // Visual-only: swap cfg + recompute fill styles.
-    // Background has no per-frame repaint of its own (only setup/resize/reseed
-    // fill it), so a live edit would otherwise sit dead until the next reseed —
-    // flag it for a one-off full repaint (bg fill + redraw grid) on the next
-    // advance() call, which also covers the paused dt=0 static-repaint case.
-    if (config.background !== prev.background) state.bgDirty = true
+    // Neither the background nor the accumulated grid cells have a per-frame
+    // repaint of their own (only setup/resize/reseed paint them), so a live
+    // Background OR Palette edit would otherwise sit dead until the next reseed
+    // — new styles would apply only to future ant draws. Flag a one-off full
+    // repaint (bg fill + redraw every painted cell with the new styles) on the
+    // next advance() call, which also covers the paused dt=0 static-repaint case.
+    const paletteChanged = config.palette.join() !== prev.palette.join()
+    if (config.background !== prev.background || paletteChanged) state.bgDirty = true
     state.cfg = config
     state.styles = config.palette.map((c) => hex8ToRgba(c))
     void size
