@@ -38,9 +38,9 @@ export const pottsSchema = z.object({
   boundaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#080810')
     .meta({ section: 'Color', ui: 'color', label: 'Wall color',
             help: 'Color of the grain-boundary outline (used only when Grain boundaries is on).' }),
-  background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#05060a')
-    .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'The ground color behind the lattice (shows at the grid-edge margin).' }),
+  // No background field: the grain mosaic fills every pixel (gw = ceil(w/cell) over-covers),
+  // so a ground colour could never show — a full-field palette piece legitimately omits it
+  // per the Background canon (#271).
   palette: z.object({
     hueStart: z.number().min(0).max(360).default(0)
       .meta({ ui: 'slider', min: 0, max: 360, step: 1, label: 'Hue start',

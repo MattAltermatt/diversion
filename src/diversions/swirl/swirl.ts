@@ -72,12 +72,19 @@ export function makeCenters(cfg: SwirlConfig, epoch: number): CenterSpec[] {
 }
 
 /** The live centre of a source at time `t`, in normalized 0..1 coords: its home plus
- *  a `drift`-scaled bounded orbit. Pure — a frame is fully reconstructable. */
-export function centerXY(spec: CenterSpec, t: number, drift: number): { x: number; y: number } {
-  return {
-    x: spec.homeX + drift * spec.ampX * Math.sin(spec.freqX * t + spec.phaseX),
-    y: spec.homeY + drift * spec.ampY * Math.sin(spec.freqY * t + spec.phaseY),
-  }
+ *  a `drift`-scaled bounded orbit, then the whole field rotated about screen centre by
+ *  `rotSpeed` deg/s. Rotating the POSITIONS (here) alongside the arm angles (armAnglesAt /
+ *  spiralArmPoints, which also add rotSpeed) makes "Rotation" a true rigid turn of the
+ *  composition — genuinely independent of "Arm spin" (swirlSpeed), which only winds the
+ *  arms relative to that field (#271). Pure — a frame is fully reconstructable. */
+export function centerXY(spec: CenterSpec, t: number, drift: number, rotSpeed = 0): { x: number; y: number } {
+  const x = spec.homeX + drift * spec.ampX * Math.sin(spec.freqX * t + spec.phaseX)
+  const y = spec.homeY + drift * spec.ampY * Math.sin(spec.freqY * t + spec.phaseY)
+  if (!rotSpeed) return { x, y }
+  const a = rotSpeed * DEG * (t / 1000)
+  const ca = Math.cos(a), sa = Math.sin(a)
+  const ox = x - 0.5, oy = y - 0.5
+  return { x: 0.5 + ox * ca - oy * sa, y: 0.5 + ox * sa + oy * ca }
 }
 
 /** Normalized radius (0 centre … 1 rim) at arm-parameter `u` (0..1). Monotonically
@@ -114,7 +121,7 @@ export function spiralArmPoints(
   const M = cfg.armsPerCenter
   const step = TWO_PI / M
   const reach = cfg.spread * minDim
-  const { x: nx, y: ny } = centerXY(spec, t, cfg.drift)
+  const { x: nx, y: ny } = centerXY(spec, t, cfg.drift, cfg.rotationSpeed)
   const cx = nx * w
   const cy = ny * h
   const spin = spec.armPhase0

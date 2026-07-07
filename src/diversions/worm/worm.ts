@@ -126,7 +126,7 @@ export function updateWormState(state: WormState, cfg: WormConfig): boolean {
 /** Base body colour for a segment at fraction `fr` (0 head .. 1 tail). */
 export function segColor(worm: Worm, fr: number, cfg: WormConfig, alpha = 1): string {
   let hue: number
-  if (cfg.colorMode === 'rainbow') hue = worm.hue0 + worm.t * 300
+  if (cfg.colorMode === 'rainbow') hue = worm.t * 300 // fan by flock slot ONLY — a random hue0 base swamped the spectral read (#271)
   else if (cfg.colorMode === 'shift-along-body') hue = worm.hue0 + fr * cfg.bodyHueShift
   else hue = worm.hue0
   return rgba(hslToRgb(hue, cfg.saturation, cfg.lightness), alpha)
@@ -178,7 +178,7 @@ export function drawWorms(state: WormState, ctx: CanvasRenderingContext2D): void
 
 function highlight(worm: Worm, fr: number, cfg: WormConfig): string {
   let hue: number
-  if (cfg.colorMode === 'rainbow') hue = worm.hue0 + worm.t * 300
+  if (cfg.colorMode === 'rainbow') hue = worm.t * 300 // fan by flock slot ONLY — a random hue0 base swamped the spectral read (#271)
   else if (cfg.colorMode === 'shift-along-body') hue = worm.hue0 + fr * cfg.bodyHueShift
   else hue = worm.hue0
   return rgba(hslToRgb(hue, cfg.saturation * 0.6, Math.min(96, cfg.lightness + 32)), 0.4)

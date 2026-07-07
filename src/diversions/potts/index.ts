@@ -21,7 +21,7 @@ const potts = defineDiversion<typeof pottsSchema, PottsState, '2d'>({
 
   setup(ctx, config, size) {
     const st = createPottsState(config, size.width, size.height)
-    ctx.fillStyle = config.background
+    ctx.fillStyle = '#05060a' // fixed dark ground for the very first paint before the mosaic covers it
     ctx.fillRect(0, 0, size.width, size.height)
     renderPotts(st, ctx)
     return st
@@ -42,10 +42,9 @@ const potts = defineDiversion<typeof pottsSchema, PottsState, '2d'>({
     if (config.states !== state.cfg.states) return false
     if (config.seed !== state.cfg.seed) return false
     // Everything else applies live over the CURRENT grains: temperature, speed read straight
-    // off cfg next frame; colours / walls / background re-cache and repaint.
+    // off cfg next frame; colours / walls re-cache and repaint.
     const colorsChanged = config.boundary !== state.cfg.boundary
       || config.boundaryColor !== state.cfg.boundaryColor
-      || config.background !== state.cfg.background
       || config.palette.hueStart !== state.cfg.palette.hueStart
       || config.palette.hueSpan !== state.cfg.palette.hueSpan
       || config.palette.saturation !== state.cfg.palette.saturation

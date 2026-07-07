@@ -39,7 +39,6 @@ export type PottsState = {
   checkAcc: number // generations since the last grain-count check
   lut: RGB[] // q orientation colours
   wall: RGB
-  bg: RGB
   off: HTMLCanvasElement
   offCtx: CanvasRenderingContext2D
   img: ImageData
@@ -96,7 +95,6 @@ export function createPottsState(cfg: PottsConfig, w: number, h: number): PottsS
     checkAcc: 0,
     lut: buildLut(cfg),
     wall: hexRGB(cfg.boundaryColor),
-    bg: hexRGB(cfg.background),
     off, offCtx, img: offCtx.createImageData(gw, gh),
     needBlit: true,
   }
@@ -234,11 +232,10 @@ export function advancePotts(st: PottsState, steps: number): void {
   st.needBlit = true
 }
 
-/** Rebuild the colour caches from config (a live palette / wall / bg edit — keeps grains). */
+/** Rebuild the colour caches from config (a live palette / wall edit — keeps grains). */
 export function applyColors(st: PottsState, cfg: PottsConfig): void {
   st.lut = buildLut(cfg)
   st.wall = hexRGB(cfg.boundaryColor)
-  st.bg = hexRGB(cfg.background)
   st.needBlit = true
 }
 
