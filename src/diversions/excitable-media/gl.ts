@@ -57,23 +57,29 @@ void main() {
   fragColor = vec4(ns, ns / q, 0.0, 1.0);
 }`
 
-// PERSIST: phosphor-decay smoothing of the display field. The sim's intensity flips
-// in discrete jumps (a cell snaps rest→crest in one step), which strobes as a white
-// flash — worst in the turbulent (non-spiral) regime. This eases a persistent display
-// texture toward the live field each frame by a dt-scaled factor, so a jump fades over
-// a fixed wall-time (~persistence·τ) instead of snapping. Runs at sim resolution, 1:1.
+// PERSIST: asymmetric phosphor-decay smoothing of the display field. The sim's
+// intensity flips in discrete jumps (a cell snaps rest→crest in one step), which
+// strobes as a white flash — worst in the turbulent (non-spiral) regime, where a cell
+// oscillates rest↔crest every few steps. A *symmetric* ease can't fix this: rising and
+// falling at the same slow rate just parks the cell at a muddy mid-brightness shimmer.
+// So this models a CRT phosphor — **instant attack, slow release**: brightening snaps to
+// the field immediately (crisp spiral fronts, crests show at once), dimming eases toward
+// it over a fixed wall-time (~persistence·τ). A re-flashing turbulent cell is caught
+// bright and held while it fades, so it reads as a steady glow instead of a flicker.
+// Runs at sim resolution, 1:1.
 const PERSIST_FRAG = `#version 300 es
 precision highp float;
 uniform sampler2D u_field;   // live sim state (intensity in .y)
 uniform sampler2D u_prev;    // last frame's smoothed display (.x)
 uniform vec2  u_texel;       // 1/simSize
-uniform float u_k;           // ease factor 0..1 toward the field this frame
+uniform float u_k;           // release ease 0..1 toward the field this frame (dimming only)
 out vec4 fragColor;
 void main() {
   vec2 uv = gl_FragCoord.xy * u_texel;
   float field = texture(u_field, uv).y;
   float prev  = texture(u_prev, uv).x;
-  float v = prev + (field - prev) * u_k;
+  // Instant attack (field ≥ prev → snap up), slow release (field < prev → ease down by u_k).
+  float v = field >= prev ? field : prev + (field - prev) * u_k;
   fragColor = vec4(v, v, v, 1.0);
 }`
 
@@ -256,8 +262,8 @@ export function render(gl: WebGL2RenderingContext, res: ExcitableGL, cfg: Excita
   res.stepAcc -= steps
   for (let i = 0; i < steps; i++) step(gl, res, cfg)
 
-  // ── Persistence pass: ease dispTex toward the live intensity. A discrete rest→crest
-  // jump now fades over ~persistence·τ instead of snapping (kills the white strobe).
+  // ── Persistence pass: asymmetric phosphor. Brightening snaps instantly; a discrete
+  // crest→rest drop fades over ~persistence·τ (holds crests, kills the turbulent strobe).
   const tau = cfg.persistence * PERSIST_TAU_MAX
   let k = tau <= 0 ? 1 : 1 - Math.exp(-dt / tau)
   if (!res.dispReady) { k = 1; res.dispReady = true } // frame 1: seed disp straight from the field

@@ -21,10 +21,10 @@ export const excitableMediaSchema = z.object({
                 + 'and the ceiling of 2 flickers fast.' }),
   persistence: z.number().min(0).max(1).default(0.6)
     .meta({ section: 'Simulation', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Smoothing',
-            help: 'Phosphor-style trailing that fades each cell between its discrete rest→crest '
-                + 'jumps instead of snapping — this is what tames the white flicker in the turbulent, '
-                + 'non-spiral patches. 0 is the raw hard-edged automaton; higher is a smoother, '
-                + 'more liquid glow (too high smears the crisp spiral fronts).' }),
+            help: 'Phosphor-style trailing: a cell brightens instantly (crisp fronts) but fades '
+                + 'slowly between its discrete crest→rest jumps — this is what tames the white flicker '
+                + 'in the turbulent, non-spiral patches. 0 is the raw hard-edged automaton; higher '
+                + 'holds a longer, more liquid afterglow (too high smears the spiral tails).' }),
   seed: z.number().int().default(1)
     .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true, collapsed: true,
             help: 'Any integer. The same seed always restarts the dish the same way. A shared '
