@@ -27,6 +27,15 @@ describe('forestFireSchema', () => {
     }
   })
 
+  it('floors lightning above zero so ignition can never be fully disabled (regression #264)', () => {
+    // lightning=0 leaves `rng() < f` (f=lightning) unable to ever ignite → the grid
+    // grows to a static all-green screen forever. A tiny floor keeps criticality alive.
+    expect(() => forestFireSchema.parse({ lightning: 0 })).toThrow() // 0 is rejected
+    expect(forestFireSchema.parse({ lightning: 1e-6 }).lightning).toBe(1e-6) // floor is valid
+    const slider = forestFireSchema.shape.lightning.meta()
+    expect(slider?.min as number).toBeGreaterThan(0) // the UI can't drag to 0 either
+  })
+
   it('marks the seed as randomize-on-fresh-load', () => {
     const meta = forestFireSchema.shape.seed.meta()
     expect(meta?.randomizeOnFreshLoad).toBe(true)

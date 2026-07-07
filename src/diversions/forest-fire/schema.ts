@@ -20,8 +20,8 @@ export const forestFireSchema = z.object({
     .meta({ section: 'Fire', ui: 'slider', min: 0.002, max: 0.1, step: 0.001, label: 'Growth (p)',
             help: 'Chance each step an empty cell sprouts a new tree. Higher regrows the forest '
                 + 'faster between fires.' }),
-  lightning: z.number().min(0).max(0.001).default(0.00002)
-    .meta({ section: 'Fire', ui: 'slider', min: 0, max: 0.001, step: 0.00001, label: 'Lightning (f)',
+  lightning: z.number().min(1e-6).max(0.001).default(0.00002)
+    .meta({ section: 'Fire', ui: 'slider', min: 1e-6, max: 0.001, step: 0.00001, label: 'Lightning (f)',
             help: 'Chance each step a lone tree spontaneously ignites. Tiny — with growth far '
                 + 'greater than lightning the forest self-organizes to criticality, so fires of '
                 + 'every size sweep through, forever.' }),
