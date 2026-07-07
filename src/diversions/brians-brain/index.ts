@@ -20,8 +20,8 @@ const briansBrain = defineDiversion<typeof briansBrainSchema, BrainState, '2d'>(
   title: 'Brian’s Brain',
   description: 'Two excitable cellular automata by Brian Silverman. Brian’s Brain — cells wake, '
     + 'flash, and die by their neighbours, spawning endless diagonal spaceships that stream across '
-    + 'a dark field and never settle. Switch rules for Wireworld, where electrons flow along wire '
-    + 'paths like current through a circuit.',
+    + 'a dark field and never settle. Switch rules for Wireworld, where electron heads and tails '
+    + 'race along the conductive filaments that thread through the field.',
   kind: '2d',
   schema: briansBrainSchema,
   presets,

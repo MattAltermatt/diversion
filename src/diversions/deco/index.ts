@@ -10,7 +10,7 @@ const presets: PresetGroup<DecoConfig>[] = [
 const deco = defineDiversion<typeof decoSchema, DecoState, '2d'>({
   id: 'deco',
   title: 'Deco',
-  description: 'An art-deco composition builds itself: a single rectangle subdivides again and again by the golden ratio into a De Stijl mosaic of colour, settling into place depth by depth, then dissolving to compose anew.',
+  description: 'An art-deco composition builds itself: a single rectangle subdivides again and again by the golden ratio into a De Stijl mosaic of colour, settling into place depth by depth, then clearing to compose anew.',
   kind: '2d',
   schema: decoSchema,
   presets,
