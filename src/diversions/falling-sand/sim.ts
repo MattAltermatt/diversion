@@ -78,11 +78,22 @@ function enabledElements(cfg: FallingSandConfig): number[] {
   if (cfg.elements.emitWater) list.push(WATER)
   if (cfg.elements.emitFire) list.push(FIRE)
   if (cfg.elements.emitPlant) list.push(PLANT)
-  return list.length > 0 ? list : [SAND] // never an empty emitter palette
+  return list.length > 0 ? list : [SAND] // never an empty palette
+}
+
+/** The top spouts only pour FALLING materials (sand/water). Plant is static and
+ *  fire rises, so pouring them from the top would just pin them to the ceiling —
+ *  instead plant sprouts as fuses rooted in the settled sand and fire sparks on
+ *  those plants (see growGarden), which is where that interaction belongs. */
+function emitterElements(cfg: FallingSandConfig): number[] {
+  const list: number[] = []
+  if (cfg.elements.emitSand) list.push(SAND)
+  if (cfg.elements.emitWater) list.push(WATER)
+  return list.length > 0 ? list : [SAND]
 }
 
 function createEmitters(cfg: FallingSandConfig, rng: () => number): Emitter[] {
-  const pool = enabledElements(cfg)
+  const pool = emitterElements(cfg)
   const out: Emitter[] = []
   for (let i = 0; i < cfg.emitterCount; i++) {
     out.push({
@@ -330,7 +341,7 @@ function spawnGrain(st: FallingSandState, gx: number, gy: number, element: numbe
 }
 
 function updateEmitters(st: FallingSandState, dtSeconds: number): void {
-  const pool = enabledElements(st.cfg)
+  const pool = emitterElements(st.cfg)
   for (const e of st.emitters) {
     e.cycleT -= dtSeconds
     if (e.cycleT <= 0) {
@@ -350,14 +361,69 @@ function updateEmitters(st: FallingSandState, dtSeconds: number): void {
   }
 }
 
-/** One fixed physics tick: gravity/flow pass, drain the bottom sink, advance
- *  emitters. `dtSeconds` paces emitter drift/cycling/emit-rate — pass 1/simSpeed
- *  from the diversion's fixed-step accumulator so timing tracks the sim clock,
- *  not wall-clock frame rate. */
+const SPROUT_TRIES = 1       // seed placements attempted per tick
+const PLANT_GROW_CHANCE = 0.045 // per rooted plant cell per tick, grow one cell up
+const MAX_FUSE = 16         // tallest a plant reed climbs above its sand root (cells)
+const FIRE_SPARK_CHANCE = 0.05 // per tick, ignite one random plant so a reed catches
+
+/** Plant + fire live at the ground, not the ceiling. Each tick: sprout a few
+ *  plant seeds on the sand surface, grow rooted plants upward into empty space
+ *  (fuses climbing from the sand), and occasionally spark one plant alight so
+ *  fire climbs and consumes it (updateFire handles the burn + water dousing).
+ *  Gated on the element toggles; scans top-down so a freshly grown cell isn't
+ *  regrown the same tick. */
+function growGarden(st: FallingSandState): void {
+  const { grid, gw, gh, rng, cfg } = st
+  if (cfg.elements.emitPlant) {
+    for (let s = 0; s < SPROUT_TRIES; s++) {
+      const gx = Math.floor(rng() * gw)
+      // Find the column's topmost occupied cell; sprout only on a SETTLED sand
+      // surface (sand with support below) — never on a mid-air falling grain,
+      // which would fall away and strand the static plant in the sky.
+      for (let y = 1; y < gh; y++) {
+        const el = grid[y * gw + gx]
+        if (el === EMPTY || el === WATER) continue // skip down through the water column
+        // Root on a SETTLED sand bed (support below) — never a mid-air falling
+        // grain, which would fall away and strand the reed in the sky. The reed
+        // rises into the empty air or up through the water above it.
+        const settled = y === gh - 1 || grid[(y + 1) * gw + gx] !== EMPTY
+        const above = grid[(y - 1) * gw + gx]
+        if (el === SAND && settled && (above === EMPTY || above === WATER) && rng() < 0.5) grid[(y - 1) * gw + gx] = PLANT
+        break
+      }
+    }
+    for (let y = 1; y < gh; y++) {
+      for (let x = 0; x < gw; x++) {
+        const i = y * gw + x
+        if (grid[i] !== PLANT) continue
+        const up = grid[i - gw]
+        if ((up !== EMPTY && up !== WATER) || rng() >= PLANT_GROW_CHANCE) continue
+        // Walk down the reed: grow only if it's rooted in sand within MAX_FUSE
+        // cells (caps height; disconnected floating plants never grow). Water
+        // between reed segments is fine — reeds climb through it.
+        let h = 0, yy = y
+        while (yy < gh && h <= MAX_FUSE && (grid[yy * gw + x] === PLANT || grid[yy * gw + x] === WATER)) { h++; yy++ }
+        if (h <= MAX_FUSE && yy < gh && grid[yy * gw + x] === SAND) grid[i - gw] = PLANT
+      }
+    }
+  }
+  if (cfg.elements.emitFire && rng() < FIRE_SPARK_CHANCE) {
+    for (let tries = 0; tries < 24; tries++) {
+      const i = Math.floor(rng() * gw * gh)
+      if (grid[i] === PLANT) { grid[i] = FIRE; st.fireLife[i] = FIRE_LIFE_MAX; break }
+    }
+  }
+}
+
+/** One fixed physics tick: gravity/flow pass, drain the bottom sink, grow the
+ *  ground garden (plant fuses + fire), advance emitters. `dtSeconds` paces
+ *  emitter drift/cycling/emit-rate — pass 1/simSpeed from the diversion's
+ *  fixed-step accumulator so timing tracks the sim clock, not frame rate. */
 export function stepSand(st: FallingSandState, dtSeconds: number): void {
   st.t += dtSeconds
   moveGrains(st)
   drainBottom(st)
+  growGarden(st)
   updateEmitters(st, dtSeconds)
   st.needBlit = true
 }

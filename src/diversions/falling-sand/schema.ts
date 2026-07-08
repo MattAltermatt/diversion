@@ -30,7 +30,10 @@ export const fallingSandSchema = z.object({
               help: 'Static and flammable — a fuse for fire to climb and consume.' }),
   }).default({ emitSand: true, emitWater: true, emitFire: true, emitPlant: true })
     .meta({ section: 'Emitters', ui: 'group', label: 'Element mix',
-            help: 'Which elements the emitters may pour. Disabling one stops new grains of it from appearing (existing grains keep simulating).' }),
+            help: 'Which elements are active. Sand and water pour from the top spouts; '
+                + 'plant sprouts as fuses from the settled sand and fire sparks on those '
+                + 'plants (they live at the ground, not the ceiling). Disabling one stops '
+                + 'new cells of it from appearing.' }),
   // ── Color ──
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#07080c')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
