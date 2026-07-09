@@ -44,13 +44,21 @@ describe('step (the confirmed thornbird recurrence)', () => {
       { a: 1.99, c: 0.80 }, { a: 2.15, c: 0.92 }, { a: 1.55, c: 0.55 },
       { a: 2.4, c: 0.95 }, { a: 1.2, c: 0.3 }, { a: 2.9, c: 0.2 }, { a: 1.0, c: 0.1 },
     ]
+    // Hoist assertions out of the hot loop — 7×50k inline expect() calls blow
+    // the 5s CI budget (#117, gotcha-ci-test-timeout-hot-loop-expect). Track the
+    // worst case in locals and assert once per combo.
     for (const params of combos) {
       let p: ThornbirdPoint = { ...INITIAL_POINT }
+      let allFinite = true
+      let maxAbsX = 0
       for (let i = 0; i < 50000; i++) {
         p = step(p, params)
-        expect(Number.isFinite(p.x)).toBe(true)
-        expect(Math.abs(p.x)).toBeLessThanOrEqual(1.0001)
+        if (!Number.isFinite(p.x)) allFinite = false
+        const absX = Math.abs(p.x)
+        if (absX > maxAbsX) maxAbsX = absX
       }
+      expect(allFinite).toBe(true)
+      expect(maxAbsX).toBeLessThanOrEqual(1.0001)
     }
   })
 })
