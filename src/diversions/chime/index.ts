@@ -18,23 +18,29 @@ import {
 // which is nothing at the handful of fronts this piece keeps in flight.
 const LUT_SIZE = 128
 
-/** Palette → LUT of [r,g,b] triples. Alpha varies per ripple per frame, so the
- *  strings can't be cached; the parse of the palette itself is what we hoist. */
-function ensureLut(state: ChimeState): number[][] {
+/** Palette → two parallel LUTs: `parts` holds "r,g,b" for building the per-ripple
+ *  `rgba(...)` gradient stops (whose alpha changes every frame, so those strings
+ *  genuinely can't be cached), and `css` holds ready-made `rgb(...)` for the well
+ *  markers, which need no alpha. The well loop runs once per well per frame — up to
+ *  400 — so serving it a stable string instance skips both the allocation and the
+ *  canvas colour re-parse (#274). */
+function ensureLut(state: ChimeState): { parts: string[]; css: string[] } {
   const key = state.cfg.colors.join('|')
-  if (key === state.lutKey && state.lut.length) return state.lut
+  if (key === state.lutKey && state.lut) return state.lut
   const stops = state.cfg.colors.map(parseHex6)
-  const lut = new Array<number[]>(LUT_SIZE)
+  const parts = new Array<string>(LUT_SIZE)
+  const css = new Array<string>(LUT_SIZE)
   for (let i = 0; i < LUT_SIZE; i++) {
     const scaled = (i / (LUT_SIZE - 1)) * (stops.length - 1)
     let s = Math.floor(scaled)
     if (s >= stops.length - 1) s = stops.length - 2
     const c = mix(stops[s], stops[s + 1], scaled - s)
-    lut[i] = [c.r, c.g, c.b]
+    parts[i] = `${c.r},${c.g},${c.b}`
+    css[i] = `rgb(${c.r},${c.g},${c.b})`
   }
   state.lutKey = key
-  state.lut = lut
-  return lut
+  state.lut = { parts, css }
+  return state.lut
 }
 
 const toneIndex = (t: number): number => {
@@ -98,14 +104,19 @@ const chime = defineDiversion<typeof chimeSchema, ChimeState, '2d'>({
       // right on paper but spends the majority of every ripple's life below the
       // visible floor, which reads as a near-empty field.
       const a = Math.pow(amp, 0.75)
-      const [cr, cg, cb] = lut[toneIndex(rippleTone(state, k))]
-      const rgb = `${cr},${cg},${cb}`
+      const rgb = lut.parts[toneIndex(rippleTone(state, k))]
       const inner = Math.max(0, r - wakeLen)
 
       const grad = ctx.createRadialGradient(x, y, inner, x, y, r)
       grad.addColorStop(0, `rgba(${rgb},0)`)
       grad.addColorStop(0.6, `rgba(${rgb},${(a * 0.14).toFixed(4)})`)
       grad.addColorStop(1, `rgba(${rgb},${(a * 0.55).toFixed(4)})`)
+      // This ripple's amplitude is already baked into the stops, so the fill must
+      // run at FULL globalAlpha. Without this reset it inherits whatever the last
+      // iteration left behind (the previous ripple's `a`), and since the pool is
+      // swap-removed that pairing reshuffles whenever any ripple dies — so every
+      // wake but the first flickers at a neighbour's brightness.
+      ctx.globalAlpha = 1
       ctx.fillStyle = grad
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
@@ -133,12 +144,20 @@ const chime = defineDiversion<typeof chimeSchema, ChimeState, '2d'>({
     ctx.globalCompositeOperation = 'source-over'
 
     if (cfg.nodeSize > 0) {
+      // The release flare has to read against the GROUND, so it can't be hardcoded
+      // white — on a light background (the Paper palette) a white flare is simply
+      // invisible, and the flare is the only cue that says which well just fired.
+      const bg = parseHex6(cfg.background)
+      const flareRgb = 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b > 128
+        ? '25,22,18'
+        : '255,255,255'
+
       // One unit-radius halo reused for every release flare this frame (scaled by
       // transform, brightness by globalAlpha) instead of a gradient per flare.
       const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 1)
-      halo.addColorStop(0, 'rgba(255,255,255,1)')
-      halo.addColorStop(0.35, 'rgba(255,255,255,0.32)')
-      halo.addColorStop(1, 'rgba(255,255,255,0)')
+      halo.addColorStop(0, `rgba(${flareRgb},1)`)
+      halo.addColorStop(0.35, `rgba(${flareRgb},0.32)`)
+      halo.addColorStop(1, `rgba(${flareRgb},0)`)
 
       const byWell = cfg.colorBy === 'well'
       for (let i = 0; i < n; i++) {
@@ -150,9 +169,7 @@ const chime = defineDiversion<typeof chimeSchema, ChimeState, '2d'>({
         // Marker size tracks capacity, so the giants are visible as giants long
         // before one of them goes off.
         const size = cfg.nodeSize * (0.55 + cap)
-        const [cr, cg, cb] = lut[toneIndex(byWell ? state.tint[i] : cap)]
-
-        ctx.fillStyle = `rgb(${cr},${cg},${cb})`
+        ctx.fillStyle = lut.css[toneIndex(byWell ? state.tint[i] : cap)]
         ctx.globalAlpha = 0.14 + 0.66 * fill
         ctx.beginPath()
         ctx.arc(x, y, size, 0, Math.PI * 2)
@@ -170,7 +187,7 @@ const chime = defineDiversion<typeof chimeSchema, ChimeState, '2d'>({
           ctx.fill()
           ctx.restore()
           ctx.globalAlpha = 0.9 * flare
-          ctx.fillStyle = '#ffffff'
+          ctx.fillStyle = `rgb(${flareRgb})`
           ctx.beginPath()
           ctx.arc(x, y, size * (0.8 + 0.9 * flare), 0, Math.PI * 2)
           ctx.fill()

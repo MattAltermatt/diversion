@@ -52,14 +52,19 @@ export interface ChimeState {
   rx: Float32Array // centre, normalized
   ry: Float32Array
   rr: Float32Array // current radius, diagonal fractions
-  rprev: Float32Array // radius at the previous step (crossing test)
   rmax: Float32Array // reach, diagonal fractions
   renergy: Float32Array // energy released, 0..1 (colorBy: 'energy')
   rtint: Float32Array // source well's tint (colorBy: 'well')
   rsrc: Int32Array
-  // Palette LUT cache ([r,g,b] triples), rebuilt when the palette changes.
+  /** Releases that found the pool full and produced NO wave. The well still spends
+   *  its energy and goes refractory, so a drop is an invisible swallowed event, not
+   *  a deferred one — it only happens in the all-sliders-maxed corner, and this
+   *  counter is what lets a test assert that the shipped regimes never reach it. */
+  dropped: number
+  // Palette LUT cache, rebuilt when the palette changes. `parts` is "r,g,b" for
+  // per-ripple rgba() stops; `css` is ready-made rgb() for the well markers.
   lutKey: string
-  lut: number[][]
+  lut: { parts: string[]; css: string[] } | null
 }
 
 /** Place `n` wells in the unit square per the layout mode. Deterministic. */
@@ -139,7 +144,18 @@ export function createChimeState(cfg: ChimeConfig, w: number, h: number): ChimeS
 
   // A well can ring again while its previous ripple is still travelling, so the
   // pool needs headroom over n. Fixed at setup — no allocation in the hot loop.
-  const rcap = Math.max(64, n * 3)
+  //
+  // The hard ceiling is a FRAME BUDGET, not a correctness bound. Every live ripple
+  // costs a gradient-filled annulus, so cost is linear in ring count with a large
+  // constant; left at n*3 the slider corners (400 wells + fast charge) settle at
+  // ~1200 rings and ~250ms frames — and permanently, since the field saturates
+  // within seconds and never drains. 256 clears every shipped PRESET by ~3x (the
+  // busiest, Standing Waves, peaks at 76-83) while bounding the corners — though
+  // one slider off a preset can still reach it (Standing Waves at 400 wells sits
+  // right on the cap). Past it
+  // a release is swallowed (see `dropped`), which is a far better failure than a
+  // piece that degrades to 4fps a minute after it loads.
+  const rcap = Math.min(Math.max(64, n * 3), 256)
 
   return {
     cfg, w, h, n,
@@ -151,13 +167,13 @@ export function createChimeState(cfg: ChimeConfig, w: number, h: number): ChimeS
     rx: new Float32Array(rcap),
     ry: new Float32Array(rcap),
     rr: new Float32Array(rcap),
-    rprev: new Float32Array(rcap),
     rmax: new Float32Array(rcap),
     renergy: new Float32Array(rcap),
     rtint: new Float32Array(rcap),
     rsrc: new Int32Array(rcap),
+    dropped: 0,
     lutKey: '',
-    lut: [],
+    lut: null,
   }
 }
 
@@ -166,13 +182,16 @@ function release(s: ChimeState, i: number): void {
   const e = s.energy[i]
   s.energy[i] = 0
   s.refr[i] = s.cfg.refractory * s.refrMul[i]
+  if (e < MIN_RELEASE_ENERGY) return
+  // Flare only once the wave is certain to exist. Flaring first would make a
+  // swallowed release read as "the well flashed but nothing travelled" — a
+  // phantom event — where degrading to nothing visible at all is honest.
+  if (s.rn >= s.rcap) { s.dropped++; return }
   s.flare[i] = 1
-  if (e < MIN_RELEASE_ENERGY || s.rn >= s.rcap) return
   const k = s.rn++
   s.rx[k] = s.nx[i]
   s.ry[k] = s.ny[i]
   s.rr[k] = 0
-  s.rprev[k] = 0
   s.rmax[k] = Math.max(MIN_RIPPLE_REACH, e * s.cfg.reach)
   s.renergy[k] = e
   s.rtint[k] = s.tint[i]
@@ -184,7 +203,7 @@ function killRipple(s: ChimeState, k: number): void {
   const last = --s.rn
   if (k !== last) {
     s.rx[k] = s.rx[last]; s.ry[k] = s.ry[last]
-    s.rr[k] = s.rr[last]; s.rprev[k] = s.rprev[last]
+    s.rr[k] = s.rr[last]
     s.rmax[k] = s.rmax[last]; s.renergy[k] = s.renergy[last]
     s.rtint[k] = s.rtint[last]; s.rsrc[k] = s.rsrc[last]
   }
@@ -228,9 +247,15 @@ export function stepChime(state: ChimeState, dtSec: number): void {
   let k = 0
   while (k < state.rn) {
     const prev = state.rr[k]
-    const r = prev + speed * dt
-    if (r >= state.rmax[k]) { killRipple(state, k); continue }
-    state.rprev[k] = prev
+    const reach = state.rmax[k]
+    // A step that carries the front PAST its reach still has to sweep the band it
+    // crosses on the way out. Killing the ripple first — the obvious shape — skips
+    // that whole final shell, and for a ripple whose entire reach is shorter than
+    // one step (the smallest releases, or any release at a high wave speed) that
+    // skipped shell is its ONLY sweep: it would expire without ever having been
+    // able to trigger anything. So clamp to the reach, sweep, and kill afterwards.
+    const dying = prev + speed * dt >= reach
+    const r = dying ? reach : prev + speed * dt
     state.rr[k] = r
 
     const cx = state.rx[k] * state.w
@@ -253,6 +278,9 @@ export function stepChime(state: ChimeState, dtSec: number): void {
       if (1 - d * invMax < thr) continue
       release(state, j)
     }
+
+    // Spent only AFTER the final shell has been swept.
+    if (dying) { killRipple(state, k); continue }
     k++
   }
 }

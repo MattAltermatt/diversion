@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { chimeSchema, type ChimeConfig } from './schema'
 import { createChimeState, stepChime, rippleAmplitude, type ChimeState } from './chime'
+import { rhythmPresets } from './presets'
 
 const W = 800
 const H = 600
@@ -98,7 +99,7 @@ describe('chime — release mechanics', () => {
   })
 
   it('a passing front tips a charged neighbour into releasing', () => {
-    const c = cfg({ nodeCount: 2, chargeSpeed: 0.01, refractory: 10, sensitivity: 0, minCharge: 0 })
+    const c = cfg({ nodeCount: 2, chargeSpeed: 0.01, refractory: 10, sensitivity: 0, depthShield: 0, minCharge: 0 })
     const s = createChimeState(c, W, H)
     s.nx[0] = 0.5; s.ny[0] = 0.5
     s.nx[1] = 0.6; s.ny[1] = 0.5
@@ -114,7 +115,7 @@ describe('chime — release mechanics', () => {
   })
 
   it('a refractory well ignores a passing front', () => {
-    const c = cfg({ nodeCount: 2, chargeSpeed: 0.01, refractory: 10, sensitivity: 0, minCharge: 0 })
+    const c = cfg({ nodeCount: 2, chargeSpeed: 0.01, refractory: 10, sensitivity: 0, depthShield: 0, minCharge: 0 })
     const s = createChimeState(c, W, H)
     s.nx[0] = 0.5; s.ny[0] = 0.5
     s.nx[1] = 0.6; s.ny[1] = 0.5
@@ -127,7 +128,7 @@ describe('chime — release mechanics', () => {
   })
 
   it('a well under the minimum charge is not tipped', () => {
-    const c = cfg({ nodeCount: 2, chargeSpeed: 0.001, refractory: 10, sensitivity: 0, minCharge: 0.5 })
+    const c = cfg({ nodeCount: 2, chargeSpeed: 0.001, refractory: 10, sensitivity: 0, depthShield: 0, minCharge: 0.5 })
     const s = createChimeState(c, W, H)
     s.nx[0] = 0.5; s.ny[0] = 0.5
     s.nx[1] = 0.55; s.ny[1] = 0.5
@@ -139,7 +140,7 @@ describe('chime — release mechanics', () => {
   })
 
   it('a well never triggers itself with its own front', () => {
-    const c = cfg({ nodeCount: 1, chargeSpeed: 0.001, sensitivity: 0, minCharge: 0, refractory: 0.1 })
+    const c = cfg({ nodeCount: 1, chargeSpeed: 0.001, sensitivity: 0, depthShield: 0, minCharge: 0, refractory: 0.1 })
     const s = createChimeState(c, W, H)
     s.cap[0] = 1
     s.energy[0] = 1
@@ -147,16 +148,60 @@ describe('chime — release mechanics', () => {
     expect(s.rn).toBe(1)
   })
 
-  it('never exceeds the ripple pool, even with a maximally twitchy field', () => {
-    const c = cfg({ nodeCount: 200, chargeSpeed: 0.4, rateSpread: 0, refractory: 0.1,
-                    sensitivity: 0, minCharge: 0, reach: 1.6, waveSpeed: 0.04 })
+  it('sweeps its final shell before expiring, even when one step outruns its reach', () => {
+    // Regression: killing a spent ripple BEFORE running the trigger sweep skips the
+    // whole band it crosses on its last step. For a ripple whose entire reach is
+    // shorter than one step — the smallest releases, or anything at a high wave
+    // speed — that band is its only sweep, so it could never trigger at all.
+    // Reachable in-schema, though not at these values: the largest in-schema step is
+    // waveSpeed 1.2 x dt 0.0333 (60fps at tempo 2) = 0.04 diagonals, against a
+    // MIN_RIPPLE_REACH of 0.015. The exaggerated numbers here just make it one step.
+    const c = cfg({
+      nodeCount: 2, waveSpeed: 6, reach: 0.02, chargeSpeed: 0.001,
+      refractory: 10, sensitivity: 0, depthShield: 0, minCharge: 0,
+    })
     const s = createChimeState(c, W, H)
-    let worst = 0
-    for (let i = 0; i < 3600; i++) {
-      stepChime(s, 1 / 60)
-      if (s.rn > worst) worst = s.rn
+    s.nx[0] = 0.5; s.ny[0] = 0.5
+    s.nx[1] = 0.51; s.ny[1] = 0.5 // 10px away → d = 0.01 diagonals, inside the reach
+    s.cap[0] = 1; s.cap[1] = 1
+    s.energy[0] = 1
+    s.energy[1] = 0.5
+    stepChime(s, 1 / 60) // one step: born, overruns its reach, dies — but must sweep
+    expect(s.refr[1], 'neighbour inside the reach was never swept').toBeGreaterThan(0)
+  })
+
+  it('never saturates the ripple pool in a shipped regime', () => {
+    // `rn <= rcap` is true by construction (release() early-returns when full), so
+    // asserting it proves nothing. What matters is the CONSEQUENCE of that guard: a
+    // well that releases into a full pool still spends its energy and goes
+    // refractory, so the event is silently swallowed with no wave. Assert the
+    // regimes we actually ship never get there.
+    const regimes: Array<[string, Partial<ChimeConfig>]> = [
+      ['defaults', {}],
+      ...rhythmPresets.map((p) => [p.name, p.patch] as [string, Partial<ChimeConfig>]),
+    ]
+    for (const [name, patch] of regimes) {
+      const s = createChimeState(cfg(patch), W, H)
+      run(s, 300)
+      expect(s.dropped, `${name} swallowed ${s.dropped} releases at a full pool`).toBe(0)
+      expect(s.rn).toBeLessThanOrEqual(s.rcap)
     }
-    expect(worst).toBeLessThanOrEqual(s.rcap)
+  })
+
+  it('counts swallowed releases when the pool really is saturated', () => {
+    // The all-sliders-maxed corner. Not a shipped regime, but the counter has to
+    // actually fire or the assertion above is guarding nothing.
+    const s = createChimeState(cfg({
+      nodeCount: 400, chargeSpeed: 0.4, rateSpread: 0, refractory: 0.1,
+      sensitivity: 0, depthShield: 0, minCharge: 0, reach: 1.6, waveSpeed: 0.03, tempo: 2,
+    }), W, H)
+    // 2 sim-seconds, not 120: this config saturates the pool at step ~11 (0.18s) and
+    // the loop is 400 wells x a 256-ring pool per step, so a long run buys no extra
+    // coverage and costs ~3s here — several times that on CI, against vitest's 5s
+    // default. Same trap as 5e7b168 (thornbird hoisting expects out of a hot loop).
+    run(s, 2)
+    expect(s.dropped).toBeGreaterThan(0)
+    expect(s.rn).toBeLessThanOrEqual(s.rcap)
   })
 
   it('keeps running forever — the field never falls permanently silent', () => {

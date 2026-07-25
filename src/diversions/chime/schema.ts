@@ -51,14 +51,18 @@ export const chimeSchema = z.object({
             help: 'How strong a passing wave must be to set a well off. A ripple is at full strength '
                 + 'at its source and fades to nothing at the edge of its reach — so a low threshold '
                 + 'means even a spent wave can trigger a chain reaction, and a high one means only a '
-                + 'close, powerful wave will.' }),
+                + 'close, powerful wave will. Note this is the threshold for a SHALLOW well: '
+                + '“Depth resistance” below raises it further the deeper the well, and at high '
+                + 'resistance the biggest wells barely answer this slider at all.' }),
   depthShield: z.number().min(0).max(1).default(0.85)
     .meta({ section: 'Wave', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Depth resistance',
             help: 'How much harder a DEEP well is to disturb than a shallow one. At 0 every well '
-                + 'answers the same threshold — which means the big wells are always tipped '
-                + 'part-charged by the ambient chatter and a screen-wide release can never happen. '
-                + 'Turn it up and the giants shrug off passing waves and only go off when they '
-                + 'finally fill by themselves.' }),
+                + 'answers the same threshold — which in a busy field means the big wells are tipped '
+                + 'part-charged by the ambient chatter long before they fill, so a screen-wide '
+                + 'release almost never happens. Turn it up and the giants shrug off passing waves '
+                + 'and go off only when they finally fill by themselves. It stacks on top of '
+                + '“Trigger threshold”, and near 1 it effectively overrides that slider for the '
+                + 'deepest wells.' }),
   minCharge: z.number().min(0).max(0.9).default(0.3)
     .meta({ section: 'Wave', ui: 'slider', min: 0, max: 0.9, step: 0.01, label: 'Minimum charge',
             help: 'How full a well must be before a passing wave can tip it. A well always releases '

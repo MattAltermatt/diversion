@@ -6,16 +6,21 @@ import type { ChimeConfig } from './schema'
 //               how far they throw, how easily a passing wave tips them).
 // Seed and the Look knobs (wake, width, glow, blend) stay independent of both.
 
-type PaletteFields = Pick<ChimeConfig, 'colors' | 'background'>
+// `blend` rides the Palette axis, not the Look axis, because the two are coupled:
+// 'add' composites with `lighter`, which can only push channels toward white, so a
+// DARK-ink-on-light-ground palette can never draw its ink and every front reads as
+// a pale smudge. A light palette must ship with 'layer'. matchPresets needs equal
+// key-sets per group, so every option carries the key.
+type PaletteFields = Pick<ChimeConfig, 'colors' | 'background' | 'blend'>
 
 export const palettePresets: { name: string; patch: PaletteFields }[] = [
-  { name: 'Deep Water', patch: { colors: ['#2f6f9e', '#48b3cf', '#84e6e0', '#eafcff'], background: '#04070d' } },
-  { name: 'Ember', patch: { colors: ['#8f3a12', '#d8631d', '#f5a83f', '#ffdc8c', '#fff6e0'], background: '#0a0503' } },
-  { name: 'Aurora', patch: { colors: ['#2b6f7a', '#2fa877', '#68e39a', '#c2f9d2', '#eafff2'], background: '#03080a' } },
-  { name: 'Sonar', patch: { colors: ['#2a7a45', '#3fb85e', '#72ea8c', '#e2ffe9'], background: '#020604' } },
-  { name: 'Bruise', patch: { colors: ['#5b3aa0', '#8a4cc4', '#c76ad2', '#ff9fd8', '#ffe8f5'], background: '#06030c' } },
-  { name: 'Ash', patch: { colors: ['#5c5c5c', '#8f8f8f', '#d8d8d8', '#ffffff'], background: '#050505' } },
-  { name: 'Paper', patch: { colors: ['#c9c0ae', '#8a7f6b', '#4a4338', '#1d1a15'], background: '#efe9dc' } },
+  { name: 'Deep Water', patch: { blend: 'add', colors: ['#2f6f9e', '#48b3cf', '#84e6e0', '#eafcff'], background: '#04070d' } },
+  { name: 'Ember', patch: { blend: 'add', colors: ['#8f3a12', '#d8631d', '#f5a83f', '#ffdc8c', '#fff6e0'], background: '#0a0503' } },
+  { name: 'Aurora', patch: { blend: 'add', colors: ['#2b6f7a', '#2fa877', '#68e39a', '#c2f9d2', '#eafff2'], background: '#03080a' } },
+  { name: 'Sonar', patch: { blend: 'add', colors: ['#2a7a45', '#3fb85e', '#72ea8c', '#e2ffe9'], background: '#020604' } },
+  { name: 'Bruise', patch: { blend: 'add', colors: ['#5b3aa0', '#8a4cc4', '#c76ad2', '#ff9fd8', '#ffe8f5'], background: '#06030c' } },
+  { name: 'Ash', patch: { blend: 'add', colors: ['#5c5c5c', '#8f8f8f', '#d8d8d8', '#ffffff'], background: '#050505' } },
+  { name: 'Paper', patch: { blend: 'layer', colors: ['#c9c0ae', '#8a7f6b', '#4a4338', '#1d1a15'], background: '#efe9dc' } },
 ]
 
 type RhythmFields = Pick<
