@@ -151,6 +151,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 npm install
 npm run dev      # → http://localhost:5180
 npm test         # vitest
+npm run lint     # oxlint
 npm run build    # tsc -b + vite build
 ```
 
@@ -205,7 +206,7 @@ export default myDiversion
 
 ## Control vocabulary
 
-`slider` · `number` · `segmented` (enum) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested, expanded). More get added when a diversion needs them.
+`slider` · `number` · `segmented` (enum) · `select` (enum, dropdown — for long option lists) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested) · `matrix` (config-aware grid; Particle Life's interaction table) · `hidden` (round-trips through the URL but renders no control — for preset-driven values). More get added when a diversion needs them.
 
 Any field can carry `.meta({ showWhen: { field, equals } })` to render only when a sibling field holds a given value — used by Flow Field's Color panel to swap palette vs gradient controls by mode.
 
