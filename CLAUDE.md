@@ -2,6 +2,19 @@
 
 A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/superpowers/specs/` for the design spec.
 
+## Commands
+
+```bash
+npm run dev      # Vite dev server, pinned to port 5180
+npm test         # vitest run (full suite; ~25s, 5600+ tests)
+npx vitest run src/diversions/<slug>   # one diversion's co-located tests
+npm run lint     # oxlint
+npm run build    # tsc -b && vite build
+npx tsc -b --noEmit                    # typecheck only
+```
+
+Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5180/d/<slug>/play`. A brand-new diversion folder 404s until the dev server is restarted — Vite's `import.meta.glob` registry doesn't pick it up live.
+
 ## Architecture (load-bearing)
 
 - **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, update?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React. **Pointer input (#9)** rides the same black-box rule: a diversion opts in with an optional `onPointer?(state, sample)` hook, and `AnimationHost` owns the canvas listeners — it normalizes each event into the diversion's own draw space (CSS px for `2d`, device px for GPU kinds, plus 0..1 `nx/ny`) and tears them down on switch/unmount. The diversion never reaches the canvas or re-derives DPR. Listeners are wired only when the hook exists.
@@ -38,6 +51,8 @@ Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of d
 
 ## Gotchas learned
 
+- **`ctx.globalAlpha` is sticky state, and a per-item draw loop leaks it.** In a loop drawing N items where some draws set `globalAlpha` and others rely on alpha baked into a gradient/rgba fill, the un-setting draws inherit the **previous item's** value — only item 0 is right. Worse with a swap-removed pool: the pairing reshuffles when any item dies, so brightness *flickers*. Set `globalAlpha` explicitly on every path, including `= 1` before a fill whose stops already carry alpha (cost: chime's wake, shipped broken, survived a Chrome verify). Catch it by wrapping `make2DContext()` in a recording proxy and logging `globalAlpha` at each `fill`/`stroke` — invisible to static review.
+- **An entity pool's size is a FRAME BUDGET, not a correctness bound.** Sizing from "how many could coexist" (`n * 3`) leaves unbounded cost when each entity has a big draw constant — chime hit ~1200 ripples and ~250ms frames at max wells, *permanently*, since the field saturated in seconds and never drained (so a quick verify never sees it). Measure peak concurrency across every shipped preset, then cap with ~3× headroom. Count overflow drops on state so a test can assert shipped regimes never reach the cap, and order side effects so a dropped item degrades to nothing visible rather than a phantom (flare *after* the pool check, not before).
 - **A flow-field-style sim needs particle respawn/lifecycle** or all particles collapse onto one streamline. Missing-lifecycle = mechanism bug, not tuning.
 - **HiDPI:** size the canvas backing store to `cssW*dpr` and `setTransform(dpr,…)` for 2D so the sim works in CSS pixels (density + crispness). Reapply the transform on every resize (resizing a canvas resets its context state).
 - **Config changes go through `diversion.update?(state, config, size)`** first (live-apply, e.g. swap `state.cfg` + recompute derived data); return falsy and the framework falls back to a full teardown + `setup`. `AnimationHost` runs `setup` in a `[diversion]` effect (live run held in a ref) and `update` in a `[config]` effect — so visual params don't reallocate. Structural changes a diversion can't apply live (flow-field: particle count, seed) just return false. Diversions without `update` re-run `setup` on every config change (the old behavior).
