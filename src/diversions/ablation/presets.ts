@@ -1,0 +1,43 @@
+import type { PresetGroup } from '../../framework/types'
+import type { AblationConfig } from './schema'
+
+// Two independent axes: colour (Palette) and laser-swarm feel (Demolition).
+// Every option within a group patches the SAME key-set (framework matchPresets
+// rule — see src/framework/presets.ts).
+//
+// Every ramp deliberately STOPS SHORT of the ground. Quantization is by quantile,
+// so each band is an equal share of the picture — a near-black darkest stop would
+// make a sixth of every map indistinguishable from destroyed space, and the lasers
+// hunting that band invisible too (UX invariants #1 and #5). Measured WCAG ratios:
+// darkest stop vs its own background is >= 1.88 in every palette here, and every
+// adjacent pair is >= 1.31 apart.
+export const ablationPresets: PresetGroup<AblationConfig>[] = [
+  {
+    label: 'Palette',
+    options: [
+      { name: 'Bathymetric', patch: { palette: ['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'], background: '#05070a' } },
+      { name: 'Ember',       patch: { palette: ['#6b2810', '#963a12', '#c25518', '#e08128', '#f4ad46', '#ffe0a3'], background: '#070403' } },
+      { name: 'Monochrome',  patch: { palette: ['#4d4d4d', '#f2f2f2'], background: '#050505' } },
+      { name: 'Verdigris',   patch: { palette: ['#18543d', '#217a58', '#33a074', '#6fc298', '#a9dcb8', '#e6f2d9'], background: '#040806' } },
+      { name: 'Ultraviolet', patch: { palette: ['#4d2694', '#6b34b3', '#8b4cd1', '#ac72e0', '#cd9bee', '#f0d9ff'], background: '#050210' } },
+      // Old-school Seattle Mariners (1977–86 trident era): royal blue → gold, the
+      // same brand identity Flow Field, Squiral and Particle Life carry, and the
+      // same #4d9bff / gold anchors. Re-spaced for contour work — a straight
+      // navy→royal→sky→gold→cream ramp bunches at the light end (gold, cream and
+      // silver sit within 1.2 of each other), so the blues carry three of the six
+      // bands and silver is dropped entirely.
+      { name: 'Mariners',    patch: { palette: ['#1a3d9e', '#2350d0', '#3d72f0', '#4d9bff', '#f0b429', '#ffe9b0'], background: '#050810' } },
+    ],
+  },
+  {
+    label: 'Demolition',
+    options: [
+      { name: 'Patient',   patch: { capacity: 5,  arrivalRate: 0.8, charge: 30,  speed: 70,  targetingBias: 0.35, spacing: 0.6 } },
+      { name: 'Steady',    patch: { capacity: 12, arrivalRate: 2.5, charge: 60,  speed: 140, targetingBias: 0.5,  spacing: 0 } },
+      { name: 'Sentinels', patch: { capacity: 2,  arrivalRate: 4,   charge: 90,  speed: 90,  targetingBias: 0.5,  spacing: 1 } },
+      { name: 'Ring',      patch: { capacity: 16, arrivalRate: 6,   charge: 50,  speed: 120, targetingBias: 0.4,  spacing: 1 } },
+      { name: 'Swarm',     patch: { capacity: 40, arrivalRate: 12,  charge: 45,  speed: 200, targetingBias: 0.5,  spacing: 0 } },
+      { name: 'Focused',   patch: { capacity: 14, arrivalRate: 3,   charge: 120, speed: 160, targetingBias: 2.2,  spacing: 0.3 } },
+    ],
+  },
+]

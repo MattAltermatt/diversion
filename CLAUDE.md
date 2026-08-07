@@ -38,7 +38,7 @@ Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5
 
 ### Schema UX canon (#256) — the gallery reads as one system
 
-A new diversion copies this canon; it's what the majority of the 136 already do. All of it lives in `.meta({...})` — none of it touches the URL codec (the codec keys on field name + value, never `section`/`label`/`collapsed`), so aligning an existing schema to canon is codec-safe and default-preserving.
+A new diversion copies this canon; it's what the majority of the 137 already do. All of it lives in `.meta({...})` — none of it touches the URL codec (the codec keys on field name + value, never `section`/`label`/`collapsed`), so aligning an existing schema to canon is codec-safe and default-preserving.
 
 - **Palette:** a piece that *cycles many colors* uses a single `ui:'colorList'` field named **`'Palette'`**. Discrete `ui:'color'` fields (in a `ui:'group'`) are only for colors that are **distinct semantic roles** (species A/B/C, core/halo/ember, sky/terrain).
 - **Background:** the ground color is a `ui:'color'` field named **`background`**, label **`'Background'`**, with a **dark default** (err toward contrast, invariant #5). A full-field simulation whose palette paints every pixel may legitimately omit it (the palette's dark end *is* the ground) — that's the only sanctioned exception; don't editorialize the label ("Grout", "Plate") — say `'Background'`.
@@ -47,7 +47,7 @@ A new diversion copies this canon; it's what the majority of the 136 already do.
 - **Presets:** the color/appearance preset axis is a `PresetGroup` labeled **`'Palette'`** (independent axes for orthogonal choices, `Custom` fallback on manual drift — `matchPresets`).
 - **Help:** every non-obvious field carries persistent `.meta({ help })`.
 
-Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **69 of 136** pieces have no color preset axis (67 declare a `'Palette'` group) — add later. Recount before quoting these; the gap grows with every batch that skips the axis.
+Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **53 of 137** pieces have no `'Palette'` preset group (84 declare one) — add later. Recount before quoting these; the previous figures here (69/67) did not survive a recount. Count with `grep -rlz "label: 'Palette',[[:space:]]*options:"` per diversion folder — matching `label: 'Palette'` alone over-counts, because the canon `colorList` **field** carries that same label.
 
 ## Gotchas learned
 
