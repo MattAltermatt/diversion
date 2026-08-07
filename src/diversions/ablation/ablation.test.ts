@@ -103,7 +103,7 @@ describe('step', () => {
     const s = createState(cfg({ charge: 1, capacity: 1, arrivalRate: 0.001, speed: 120 }), SIZE)
     s.lasers.push({
       s: 10, band: s.field.idx[0], charge: 1, maxCharge: 1, laps: 0,
-      edge: EDGE.top, lane: -1, armed: false, spent: false,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
     })
     // Run only a fraction of a lap: it will spend its single charge almost at once,
     // then must still be riding — dark — because it has not reached the gate.
@@ -122,10 +122,94 @@ describe('step', () => {
     const s = createState(cfg({ capacity: 1, arrivalRate: 0.001, lapCap: 1, speed: 600 }), SIZE)
     s.lasers.push({
       s: 0, band: 250, charge: 99, maxCharge: 99, laps: 0,
-      edge: EDGE.top, lane: -1, armed: false, spent: false,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
     })
     run(s, 30)
     expect(s.lasers.some((l) => l.band === 250)).toBe(false)
+  })
+
+  it('ejects a laser that finishes a lap without landing a shot', () => {
+    // #280. Band 250 is in no palette, so this laser can never hit anything. It used
+    // to hold its slot until the lap cap — measured up to 3 laps, ~90s at the default
+    // speed — while a fresh arrival could have taken the slot and hit something.
+    const s = createState(cfg({ capacity: 1, arrivalRate: 0.001, lapCap: 12, speed: 600 }), SIZE)
+    s.lasers.push({
+      s: 0, band: 250, charge: 99, maxCharge: 99, laps: 0,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
+    })
+    // 3600px of travel over a 1496px perimeter — 2.4 laps, far short of the lap cap.
+    run(s, 6)
+    expect(s.lasers.some((l) => l.band === 250)).toBe(false)
+  })
+
+  it('ejects a laser that hit on its first lap but goes blank on a later one', () => {
+    // The transition case, and the one that actually pins the per-lap RESET. Without
+    // the reset the flag degrades from "hit this lap" to "hit ever", so one lucky
+    // strike buys a ride all the way to the lap cap — exactly what #280 removes.
+    const s = createState(cfg({ capacity: 1, arrivalRate: 0.001, lapCap: 12, speed: 600 }), SIZE)
+    const hist = exposedHistogram(s.field, s.front, new Uint32Array(s.field.bands))
+    let best = 0
+    for (let b = 1; b < hist.length; b++) if (hist[b] > hist[best]) best = b
+    s.lasers.push({
+      s: 0, band: best, charge: 1e9, maxCharge: 1e9, laps: 0,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
+    })
+    run(s, 6)
+    const live = s.lasers.find((l) => l.maxCharge === 1e9)
+    expect(live).toBeDefined()
+    expect(live!.laps).toBeGreaterThanOrEqual(1)
+
+    // Its colour goes extinct — but the PICTURE does not, so the empty-picture eject
+    // path stays shut and only the blank-lap rule can remove it.
+    for (let i = 0; i < s.field.idx.length; i++) {
+      if (s.field.idx[i] === best && s.field.alive[i]) { s.field.alive[i] = 0; s.field.aliveCount-- }
+    }
+    expect(s.field.aliveCount).toBeGreaterThan(0)
+
+    run(s, 12) // two more laps, still well under the lap cap of 12
+    expect(s.lasers.some((l) => l.maxCharge === 1e9)).toBe(false)
+  })
+
+  it('keeps a laser that landed at least one shot on its lap', () => {
+    // The mirror of the rule above: productive lasers must be untouched by it, or the
+    // fleet empties itself every lap.
+    const s = createState(cfg({ capacity: 1, arrivalRate: 0.001, lapCap: 12, speed: 600 }), SIZE)
+    const hist = exposedHistogram(s.field, s.front, new Uint32Array(s.field.bands))
+    let best = 0
+    for (let b = 1; b < hist.length; b++) if (hist[b] > hist[best]) best = b
+    s.lasers.push({
+      s: 0, band: best, charge: 1e9, maxCharge: 1e9, laps: 0,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
+    })
+    run(s, 6)
+    const survivor = s.lasers.find((l) => l.maxCharge === 1e9)
+    expect(survivor).toBeDefined()
+    expect(survivor!.laps).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still ejects at the lap cap a laser that keeps hitting', () => {
+    // The no-hit rule leaves the lap cap load-bearing for exactly one case: a laser
+    // that lands shots every lap and has charge to spare. Without the cap it rides
+    // forever.
+    //
+    // The window has to stay INSIDE the productive laps or this proves nothing: the
+    // band erodes away by lap 8, so a 20s run lets the blank-lap rule eject it at
+    // t=19.9 and the assertion passes with the cap deleted. 6s is 2.4 laps, so at
+    // lapCap 2 only the cap can have taken it.
+    const s = createState(cfg({ capacity: 1, arrivalRate: 0.001, lapCap: 2, speed: 600 }), SIZE)
+    const hist = exposedHistogram(s.field, s.front, new Uint32Array(s.field.bands))
+    let best = 0
+    for (let b = 1; b < hist.length; b++) if (hist[b] > hist[best]) best = b
+    s.lasers.push({
+      s: 0, band: best, charge: 1e9, maxCharge: 1e9, laps: 0,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
+    })
+    const before = s.field.aliveCount
+    run(s, 6)
+    expect(s.lasers.some((l) => l.maxCharge === 1e9)).toBe(false)
+    // ...and it was still landing strikes when the cap took it, so this is the cap
+    // firing rather than the blank-lap rule.
+    expect(s.field.aliveCount).toBeLessThan(before)
   })
 
   it('mints nothing while the picture is empty', () => {
@@ -134,7 +218,7 @@ describe('step', () => {
     // keep one laser alive so the regeneration branch stays shut
     s.lasers.push({
       s: 0, band: 0, charge: 5, maxCharge: 5, laps: 0,
-      edge: EDGE.top, lane: -1, armed: false, spent: false,
+      edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
     })
     s.queue.length = 0
     for (let i = 0; i < 60; i++) step(s, 1 / 60)
@@ -192,7 +276,7 @@ describe('step', () => {
       for (let b = 1; b < hist.length; b++) if (hist[b] > hist[best]) best = b
       s.lasers.push({
         s: 0, band: best, charge: 1e9, maxCharge: 1e9, laps: 0,
-        edge: EDGE.top, lane: -1, armed: false, spent: false,
+        edge: EDGE.top, lane: -1, armed: false, spent: false, hitThisLap: false,
       })
       const before = s.field.aliveCount
       run(s, 10)

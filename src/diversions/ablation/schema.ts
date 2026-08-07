@@ -75,8 +75,10 @@ export const ablationSchema = z.object({
                 + 'new world; pin one here to reproduce an exact run.' }),
   lapCap: z.number().int().min(1).max(12).default(3)
     .meta({ section: 'Advanced', ui: 'number', label: 'Lap cap', min: 1, max: 12,
-            help: 'A laser whose colour goes extinct before it reaches it would never fire, never '
-                + 'discharge, and never leave. After this many laps it ejects regardless.' }),
+            help: 'A backstop on how long one laser may ride. A laser that goes a whole lap '
+                + 'without a single strike leaves anyway — its colour is not showing anywhere '
+                + '— so this only catches the opposite case: one that keeps hitting and still '
+                + 'has charge left.' }),
 })
 
 export type AblationConfig = z.infer<typeof ablationSchema>

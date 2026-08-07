@@ -125,6 +125,8 @@ direction. This is what makes small cell sizes real.
    rather than popping out.
 
 6. Charge exhausted -> the dark laser rides on to the gate and ejects.
+
+7. A whole lap with no strike -> ejects at the gate too. The colour is gone.
 ```
 
 Consequences worth protecting:
@@ -227,10 +229,27 @@ survives as a stubborn permanent speck and the picture actually finishes.
 ### Anti-clog
 
 A laser whose colour goes extinct before it reaches it never fires, never spends charge,
-and therefore never ejects — it would occupy a track slot forever. Every laser
-therefore carries a **lap cap**: after L laps it ejects regardless of remaining charge.
-Charge stays exactly "strikes remaining"; the cap is a safety that rarely fires,
-because a well-matched laser burns its charge in well under one lap.
+and therefore never ejects — it would occupy a track slot forever.
+
+The primary answer is the **blank-lap rule**: a laser sees every lane of the picture
+once per lap, so a lap that lands no strike at all means its colour is not reachable
+anywhere, and it ejects at the next gate crossing. Measured over full pictures,
+76–90% of lasers that have one blank lap never fire again, so this is a cheap and
+accurate read. The freed slot is refilled from the *current* exposed histogram.
+
+Requeueing the laser instead was considered and rejected: the queue holds **bands**,
+so a requeue hands the same just-proved-dead colour straight back, and it needs a
+starvation cap that ejection does not.
+
+Behind it, every laser still carries a **lap cap**: after L laps it ejects regardless.
+With the blank-lap rule in place the cap is load-bearing for exactly one case — a laser
+that keeps landing strikes every lap and has charge to spare. Charge stays exactly
+"strikes remaining".
+
+Sizing charge to `hist[band]` at mint time was considered and rejected on measurement:
+only ~40–57% of a laser's yield comes from cells exposed when it was minted (the rest
+are uncovered as the surface recedes), so the cap would bind on 47–74% of lasers and
+destroy 28–39% of their real output.
 
 ---
 
@@ -352,8 +371,9 @@ Co-located `*.test.ts`, per repo convention.
 - **scheduler** — the histogram counts only exposed cells; tempering matches the table
   in §5 at k = 0, 0.5, 1, 2; an extinct colour is never returned; a draw always succeeds
   while any cell survives.
-- **lifecycle** — a laser ejects at zero charge; the lap cap ejects a laser that never
-  fires; the queue fills at capacity and drains below it.
+- **lifecycle** — a laser ejects at zero charge; a blank lap ejects one whose colour is
+  gone, while one that landed a strike rides on; the lap cap still catches a laser that
+  keeps hitting; the queue fills at capacity and drains below it.
 - **cycle** — reaching zero cells regenerates the field; no lasers are minted while the
   grid is empty.
 - **framework keystones** — codec round-trip and resilience; the seed contract.

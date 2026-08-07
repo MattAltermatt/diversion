@@ -62,12 +62,17 @@ export interface Laser {
   armed: boolean
   /** ran dry and has since reached the gate — eject it there, not where it ran out */
   spent: boolean
+  /** landed at least one shot since the last gate crossing. A lap that lands nothing
+   *  means the colour is no longer reachable, so the laser gives up its slot rather
+   *  than riding out the lap cap hunting it (#280). */
+  hitThisLap: boolean
 }
 
 export function makeLaser(s: number, band: number, charge: number): Laser {
   // lane -1 means "not in a lane yet", so the first `advance` establishes both the
   // edge and the lane and arms the laser wherever it was dropped.
-  return { s, band, charge, maxCharge: charge, laps: 0, edge: EDGE.top, lane: -1, armed: false, spent: false }
+  return { s, band, charge, maxCharge: charge, laps: 0, edge: EDGE.top, lane: -1,
+           armed: false, spent: false, hitThisLap: false }
 }
 
 /** Picture fills the canvas minus the track margin, snapped DOWN to whole cells so

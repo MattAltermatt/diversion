@@ -131,7 +131,18 @@ export function step(s: AblationState, dt: number): void {
       // the gate is the visible half of discharge. Once the picture is gone there
       // is nothing left to wait for, so a straggler leaves at its next crossing
       // rather than burning down the lap cap over an empty screen.
-      if (l.laps > lapsBefore && (l.charge <= 0 || field.aliveCount === 0)) l.spent = true
+      //
+      // A lap that landed NOTHING ejects too (#280). A laser sees every lane of the
+      // picture once per lap, so a blank lap means its colour is no longer reachable
+      // anywhere — and measured across a full picture, 76-90% of lasers that have one
+      // blank lap never fire again. It gives up the slot rather than hunting for up to
+      // `lapCap` laps; the freed slot is refilled from the CURRENT exposed histogram,
+      // which is the part a requeue could not do, since the queue holds bands and would
+      // hand the same dead colour straight back.
+      if (l.laps > lapsBefore) {
+        if (l.charge <= 0 || field.aliveCount === 0 || !l.hitThisLap) l.spent = true
+        l.hitThisLap = false
+      }
       // A dark laser rides, but it does not shoot.
       if (!fired || l.charge <= 0) continue
       const cell = frontCell(field, front, l.edge, l.lane)
@@ -145,6 +156,7 @@ export function step(s: AblationState, dt: number): void {
 
       const p = trackPoint(geom, l.s)
       l.charge--
+      l.hitThisLap = true
       s.bolts.push({
         x0: p.x,
         y0: p.y,
