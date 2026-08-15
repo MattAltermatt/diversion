@@ -11,9 +11,9 @@ function cfg(over: Partial<AblationConfig> = {}): AblationConfig {
   return { ...ablationSchema.parse({}), ...over }
 }
 
-/** A busy state: lasers riding, cells dying, bolts in flight, queue backed up. */
+/** A busy state: turrets riding, cells dying, bolts in flight, queue backed up. */
 function busy() {
-  const s = createState(cfg({ capacity: 6, arrivalRate: 12 }), SIZE)
+  const s = createState(cfg({ capacity: 6, fleet: 24 }), SIZE)
   for (let i = 0; i < 600; i++) step(s, 1 / 60)
   return s
 }
@@ -71,7 +71,7 @@ describe('render', () => {
 
   it('reuses the picture buffer across frames and drains the patch list', () => {
     const ctx = make2DContext() as unknown as CanvasRenderingContext2D
-    const s = createState(cfg({ capacity: 6, arrivalRate: 12 }), SIZE)
+    const s = createState(cfg({ capacity: 6, fleet: 24 }), SIZE)
     render(s, ctx)
     const first = s.buffer
     expect(first).not.toBe(null)
@@ -125,12 +125,12 @@ describe('the ablation diversion', () => {
     // A missing conversion makes the piece run 1000x fast and is invisible in a
     // still screenshot, so pin it: 1000ms of frames must advance ~1s of arrivals.
     const ctx = make2DContext()
-    const config = cfg({ capacity: 40, arrivalRate: 4 })
-    const state = ablation.setup(ctx as never, config, SIZE) as { lasers: unknown[] }
+    const config = cfg({ capacity: 40, fleet: 24 })
+    const state = ablation.setup(ctx as never, config, SIZE) as { track: unknown[] }
     let t = 0
     for (let i = 0; i < 60; i++) { t += 16.67; ablation.frame(state as never, ctx as never, t, 16.67) }
-    expect(state.lasers.length).toBeGreaterThan(0)
-    expect(state.lasers.length).toBeLessThanOrEqual(6)
+    expect(state.track.length).toBeGreaterThan(0)
+    expect(state.track.length).toBeLessThanOrEqual(6)
   })
 
   it('applies a visual config change live and rejects a structural one', () => {
@@ -147,5 +147,98 @@ describe('the ablation diversion', () => {
     const config = cfg()
     const state = ablation.setup(ctx as never, config, SIZE)
     expect(() => ablation.resize?.(state, { width: 900, height: 500 }, ctx as never)).not.toThrow()
+  })
+})
+
+describe('the parked turret rows', () => {
+  /** Records every arc+fill pair with the alpha ACTUALLY in force when it painted —
+   *  globalAlpha is sticky, so the value at `arc` time is not what fills. */
+  function recordArcs() {
+    const base = make2DContext()
+    const arcs: { x: number; y: number; r: number; alpha: number }[] = []
+    let pending: { x: number; y: number; r: number } | null = null
+    const ctx = new Proxy(base as unknown as Record<string, unknown>, {
+      set(target, prop, value) {
+        ;(target as Record<string | symbol, unknown>)[prop] = value
+        return true
+      },
+      get(target, prop) {
+        const v = (target as Record<string | symbol, unknown>)[prop]
+        if (prop === 'arc') {
+          return (x: number, y: number, r: number, ...rest: unknown[]) => {
+            pending = { x, y, r }
+            return (v as (...a: unknown[]) => unknown).apply(target, [x, y, r, ...rest])
+          }
+        }
+        if (prop === 'fill') {
+          return (...args: unknown[]) => {
+            if (pending) {
+              arcs.push({ ...pending, alpha: base.globalAlpha as number })
+              pending = null
+            }
+            return (v as (...a: unknown[]) => unknown).apply(target, args)
+          }
+        }
+        return v
+      },
+    }) as unknown as CanvasRenderingContext2D
+    return { ctx, arcs }
+  }
+
+  it('draws a dot per queued turret and per retired turret, retired smaller', () => {
+    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    s.retired.push(...s.queue.splice(0, 3))
+    const { ctx, arcs } = recordArcs()
+    render(s, ctx)
+    expect(arcs.length).toBe(20)
+    const radii = [...new Set(arcs.map((a) => a.r))].sort((x, y) => x - y)
+    expect(radii.length).toBe(2)
+    expect(radii[0]).toBeLessThan(radii[1])
+  })
+
+  it('draws both rows fully opaque, so no band can hide on the ground', () => {
+    // Telling the rows apart by ALPHA was the obvious choice and is wrong here: at
+    // 0.3 the darker half of every shipped ramp composites to 1.12-1.5 WCAG against
+    // its own background, under the 1.88 floor the palettes are built to hold, and
+    // retirement fills from the dark bands first. Size carries the signal instead.
+    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    s.retired.push(...s.queue.splice(0, 6))
+    const { ctx, arcs } = recordArcs()
+    render(s, ctx)
+    expect(arcs.every((a) => a.alpha === 1)).toBe(true)
+  })
+
+  it('keeps each parked row inside its own quarter of the track', () => {
+    // A big fleet on a small viewport used to run the pending row straight through
+    // the retired row's anchor at perimeter/2.
+    const s = createState(cfg({ fleet: 128, capacity: 1 }), { width: 640, height: 480 })
+    const { ctx, arcs } = recordArcs()
+    render(s, ctx)
+    expect(arcs.length).toBeGreaterThan(100)
+    // Measure the pitch off two adjacent dots rather than deriving it from the
+    // radius — the radius bottoms out at its own 2px floor and stops tracking.
+    const pitch = Math.hypot(arcs[1].x - arcs[0].x, arcs[1].y - arcs[0].y)
+    expect(arcs.length * pitch).toBeLessThanOrEqual(s.geom.perimeter / 4 + 1)
+    // ...and it really did shrink from the unclamped 11px it would otherwise use.
+    expect(pitch).toBeLessThan(11)
+  })
+
+  it('anchors the retired row on the corner diagonally opposite the gate', () => {
+    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    // One retired turret only, so the last arc drawn is unambiguously its dot.
+    s.retired.push(s.queue.shift()!)
+    const { ctx, arcs } = recordArcs()
+    render(s, ctx)
+    const far = arcs[arcs.length - 1]
+    // The gate is the track's top-left corner; `perimeter / 2` is the bottom-right.
+    expect(far.x).toBeGreaterThan(s.geom.px + s.geom.pw / 2)
+    expect(far.y).toBeGreaterThan(s.geom.py + s.geom.ph / 2)
+  })
+
+  it('draws nothing for an empty retired row', () => {
+    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    const { ctx, arcs } = recordArcs()
+    render(s, ctx)
+    expect(arcs.length).toBe(20)
   })
 })

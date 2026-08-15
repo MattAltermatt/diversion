@@ -2,12 +2,12 @@ import type { Field } from './field'
 
 // The erosion front: for each lane, where the outermost surviving cell sits.
 //
-// A laser may only ever strike the OUTERMOST survivor along its beam (spec §1).
+// A turret may only ever strike the OUTERMOST survivor along its beam (spec §1).
 // With axis-aligned beams that reduces to four integer arrays instead of a
 // ray-march, which is what makes small cell sizes viable rather than aspirational.
 //
 // The arrays are LAZY CACHES, not authoritative state. A cell can be killed by a
-// laser on any edge, so an edge's cached index goes stale without that edge
+// turret on any edge, so an edge's cached index goes stale without that edge
 // knowing. `frontCell` walks forward past dead cells and rewrites its cache; each
 // cell is skipped at most once per direction, so the amortised cost stays O(1)
 // and `killCell` stays trivial.

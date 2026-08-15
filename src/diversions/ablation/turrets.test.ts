@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { makeGeom, trackPoint, advance, makeLaser } from './lasers'
+import { makeGeom, trackPoint, advance, makeTurret } from './turrets'
 import { EDGE, type Edge } from './front'
 
 const SIZE = { width: 400, height: 300 }
@@ -196,9 +196,9 @@ describe('trackPoint', () => {
   })
 })
 
-describe('makeLaser', () => {
+describe('makeTurret', () => {
   it('starts unarmed and outside any lane', () => {
-    const l = makeLaser(17, 3, 40)
+    const l = makeTurret(17, 3, 40)
     expect(l.s).toBe(17)
     expect(l.band).toBe(3)
     expect(l.charge).toBe(40)
@@ -211,7 +211,7 @@ describe('makeLaser', () => {
 
 describe('advance', () => {
   it('fires at most once per lane', () => {
-    const l = makeLaser(mid(0), 0, 100)
+    const l = makeTurret(mid(0), 0, 100)
     let fires = 0
     const lanes = new Set<number>()
     for (let i = 0; i < 40; i++) {
@@ -223,7 +223,7 @@ describe('advance', () => {
   })
 
   it('re-arms on entering a new lane', () => {
-    const l = makeLaser(mid(0), 0, 100)
+    const l = makeTurret(mid(0), 0, 100)
     advance(G, l, G.cell / 4)
     l.armed = false
     const startLane = l.lane
@@ -233,7 +233,7 @@ describe('advance', () => {
   })
 
   it('fires on crossing the lane centre, not on entering the lane', () => {
-    const l = makeLaser(0, 0, 100)
+    const l = makeTurret(0, 0, 100)
     const centre = centreOf(EDGE.top, 0)
     expect(advance(G, l, centre - G.cell / 2 + 0.5)).toBe(false) // inside lane 0, short of centre
     expect(l.lane).toBe(0)
@@ -244,7 +244,7 @@ describe('advance', () => {
   })
 
   it('counts a lap on wrapping the perimeter', () => {
-    const l = makeLaser(0, 0, 100)
+    const l = makeTurret(0, 0, 100)
     expect(l.laps).toBe(0)
     advance(G, l, G.perimeter * 1.5)
     expect(l.laps).toBe(1)
@@ -255,7 +255,7 @@ describe('advance', () => {
   })
 
   it('never fires while in a corner dead zone', () => {
-    const l = makeLaser(0, 0, 100)
+    const l = makeTurret(0, 0, 100)
     let fired = false
     for (let i = 0; i < 4 && l.s < G.gap; i++) fired = advance(G, l, 1) || fired
     expect(fired).toBe(false)
@@ -267,7 +267,7 @@ describe('advance', () => {
     // The headline property, and the one a two-edges-only sign error breaks: a fine
     // step around the whole track must hand out exactly one shot per reachable lane,
     // on all four edges.
-    const l = makeLaser(0, 0, 10_000)
+    const l = makeTurret(0, 0, 10_000)
     const ds = G.cell / 4
     const steps = Math.round(G.perimeter / ds)
     const fired = new Map<string, number>()
@@ -284,7 +284,7 @@ describe('advance', () => {
   })
 
   it('never fires twice in one lane even when the step skips whole lanes', () => {
-    const l = makeLaser(0, 0, 10_000)
+    const l = makeTurret(0, 0, 10_000)
     const ds = G.cell * 3.5
     const steps = Math.ceil(G.perimeter / ds)
     const fired = new Map<string, number>()
@@ -301,7 +301,7 @@ describe('advance', () => {
     // Left lane 0 and top lane 0 carry the SAME lane number, and only 2*gap of dead
     // zone separates them — so a step longer than that crosses from one to the other
     // with no lane-index change to notice. Identity has to include the edge.
-    const l = makeLaser(0, 0, 100)
+    const l = makeTurret(0, 0, 100)
     const leftZero = centreOf(EDGE.left, 0)
     expect(advance(G, l, leftZero)).toBe(true)
     expect(trackPoint(G, l.s).edge).toBe(EDGE.left)
@@ -315,8 +315,8 @@ describe('advance', () => {
     expect(l.lane).toBe(0)
   })
 
-  it('normalises a laser parked beyond one perimeter', () => {
-    const l = makeLaser(G.perimeter + mid(0), 0, 100)
+  it('normalises a turret parked beyond one perimeter', () => {
+    const l = makeTurret(G.perimeter + mid(0), 0, 100)
     advance(G, l, G.cell / 4)
     expect(l.s).toBeGreaterThanOrEqual(0)
     expect(l.s).toBeLessThan(G.perimeter)

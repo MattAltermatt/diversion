@@ -1,6 +1,6 @@
-// New lasers draw their colour from what is EXPOSED right now (spec §5), never
+// New turrets draw their colour from what is EXPOSED right now (spec §5), never
 // from the whole picture — that is what makes deadlock structurally impossible.
-// A strictly proportional draw starves minority colours (5% of twelve lasers is
+// A strictly proportional draw starves minority colours (5% of twelve turrets is
 // 0.6, i.e. usually absent), so weights are tempered by an exponent first.
 
 /** Weights each band by count^k, renormalised so the weights sum to 1 (or to 0
@@ -10,7 +10,7 @@ export function temperedWeights(hist: Uint32Array, k: number): Float64Array {
   let sum = 0
   for (let i = 0; i < hist.length; i++) {
     // NB Math.pow(0, 0) === 1 in JS — an extinct band must be excluded
-    // explicitly, or k=0 mints lasers hunting colours that no longer exist.
+    // explicitly, or k=0 mints turrets hunting colours that no longer exist.
     const v = hist[i] === 0 ? 0 : Math.pow(hist[i], k)
     w[i] = v
     sum += v
@@ -34,4 +34,63 @@ export function temperedPick(hist: Uint32Array, k: number, rand: () => number): 
   }
   for (let i = w.length - 1; i >= 0; i--) if (w[i] > 0) return i // float slop
   return -1
+}
+
+/** The fleet size actually used. Nothing but a turret tuned to band `b` ever
+ *  destroys a cell of band `b`, so a band that draws zero turrets survives forever,
+ *  the picture never reaches zero cells, and the piece hangs permanently — no new
+ *  picture, no quiet beat, just a frozen remnant and a track going round. The clamp
+ *  is therefore a correctness requirement, not balance.
+ *
+ *  It cannot live on the `fleet` slider's `min`, because it depends on
+ *  `palette.length`, a different field; it is resolved here where both are visible. */
+export function resolveFleet(fleet: number, bands: number): number {
+  return Math.max(fleet, bands)
+}
+
+/** Distributes `fleetSize` turrets across bands in proportion to `total[band]^k`,
+ *  by LARGEST REMAINDER so the counts sum exactly. Every band holding at least one
+ *  cell is reserved a turret first (see `resolveFleet`); the rest is shared out.
+ *
+ *  `k` is the same Targeting bias the Unison lock draw uses: 0 gives every band an
+ *  equal crew regardless of mass, 1 is strictly proportional (50% of the map blue
+ *  means 50% of the turrets blue), above 1 piles onto the biggest band. */
+export function allocateFleet(total: Uint32Array, k: number, fleetSize: number): Uint32Array {
+  const n = total.length
+  const out = new Uint32Array(n)
+  const live: number[] = []
+  for (let i = 0; i < n; i++) if (total[i] > 0) live.push(i)
+  if (live.length === 0 || fleetSize <= 0) return out
+
+  // Too small to cover one each: hand them to the biggest bands. `resolveFleet`
+  // makes this unreachable from the running piece, but a direct caller must not get
+  // back a silently over-allocated fleet.
+  if (fleetSize <= live.length) {
+    const byMass = [...live].sort((a, b) => total[b] - total[a] || a - b)
+    for (let i = 0; i < fleetSize; i++) out[byMass[i]] = 1
+    return out
+  }
+
+  for (const i of live) out[i] = 1
+  const rest = fleetSize - live.length
+  const w = temperedWeights(total, k)
+  let wsum = 0
+  for (const i of live) wsum += w[i]
+
+  const rem: { band: number; frac: number }[] = []
+  for (const i of live) {
+    const share = wsum > 0 ? (w[i] / wsum) * rest : rest / live.length
+    const whole = Math.floor(share)
+    out[i] += whole
+    rem.push({ band: i, frac: share - whole })
+  }
+  let placed = 0
+  for (const i of live) placed += out[i]
+  // Largest remainder wins the leftovers; ties break toward the earlier band so the
+  // result is deterministic and testable.
+  rem.sort((a, b) => b.frac - a.frac || a.band - b.band)
+  for (let i = 0, left = fleetSize - placed; left > 0; i = (i + 1) % rem.length, left--) {
+    out[rem[i].band]++
+  }
+  return out
 }

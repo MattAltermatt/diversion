@@ -44,6 +44,22 @@ describe('ablation schema', () => {
     const cfg = ablationSchema.parse({ palette: ['#000000', '#ffffff'] })
     expect(cfg.palette).toEqual(['#000000', '#ffffff'])
   })
+
+  it('defaults to an evenly spread crew hunting proportionally', () => {
+    const d = ablationSchema.parse({})
+    expect(d.spacing).toBe(1)
+    expect(d.targetingBias).toBe(1)
+    expect(d.targeting).toBe('Mixed')
+    expect(d.fleet).toBeGreaterThan(d.capacity)
+  })
+
+  it('has no arrivalRate field', () => {
+    expect(Object.keys(ablationSchema.shape)).not.toContain('arrivalRate')
+  })
+
+  it('rejects an unknown targeting mode', () => {
+    expect(ablationSchema.safeParse({ targeting: 'Frenzy' }).success).toBe(false)
+  })
 })
 
 describe('ablation presets', () => {
@@ -64,5 +80,16 @@ describe('ablation presets', () => {
       const keys = group.options.map((o) => Object.keys(o.patch).sort().join(','))
       expect(new Set(keys).size).toBe(1)
     }
+  })
+
+  it('gives every Demolition option the identical key-set', () => {
+    const demolition = ablationPresets.find((g) => g.label === 'Demolition')!
+    const keys = demolition.options.map((o) => Object.keys(o.patch).sort().join(','))
+    expect(new Set(keys).size).toBe(1)
+  })
+
+  it('offers a Unison option in the Demolition group', () => {
+    const demolition = ablationPresets.find((g) => g.label === 'Demolition')!
+    expect(demolition.options.some((o) => o.patch.targeting === 'Unison')).toBe(true)
   })
 })

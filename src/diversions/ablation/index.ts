@@ -5,14 +5,14 @@ import { createState, step, applyConfig, resizeState, type AblationState } from 
 import { render } from './render'
 
 // Ablation: a quantized contour-map picture sits in the middle; a rectangular
-// track just outside it carries lasers that each hunt ONE palette colour. A laser
+// track just outside it carries turrets that each hunt ONE palette colour. A turret
 // strikes only the outermost surviving cell of the lane it is passing, dims as it
 // discharges, and ejects dark. The picture is peeled from the outside in until
 // nothing is left, the track goes quiet, and a new picture resolves in.
 const ablation = defineDiversion<typeof ablationSchema, AblationState, '2d'>({
   id: 'ablation',
   title: 'Ablation',
-  description: 'Lasers ride a track and peel a contour map, one colour at a time.',
+  description: 'Turrets ride a track and peel a contour map, one colour at a time.',
   kind: '2d',
   schema: ablationSchema,
   presets: ablationPresets,

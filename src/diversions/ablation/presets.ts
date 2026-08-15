@@ -1,13 +1,13 @@
 import type { PresetGroup } from '../../framework/types'
 import type { AblationConfig } from './schema'
 
-// Two independent axes: colour (Palette) and laser-swarm feel (Demolition).
+// Two independent axes: colour (Palette) and turret-crew feel (Demolition).
 // Every option within a group patches the SAME key-set (framework matchPresets
 // rule — see src/framework/presets.ts).
 //
 // Every ramp deliberately STOPS SHORT of the ground. Quantization is by quantile,
 // so each band is an equal share of the picture — a near-black darkest stop would
-// make a sixth of every map indistinguishable from destroyed space, and the lasers
+// make a sixth of every map indistinguishable from destroyed space, and the turrets
 // hunting that band invisible too (UX invariants #1 and #5). Measured WCAG ratios:
 // darkest stop vs its own background is >= 1.88 in every palette here, and every
 // adjacent pair is >= 1.31 apart.
@@ -32,12 +32,13 @@ export const ablationPresets: PresetGroup<AblationConfig>[] = [
   {
     label: 'Demolition',
     options: [
-      { name: 'Patient',   patch: { capacity: 5,  arrivalRate: 0.8, charge: 30,  speed: 70,  targetingBias: 0.35, spacing: 0.6 } },
-      { name: 'Steady',    patch: { capacity: 12, arrivalRate: 2.5, charge: 60,  speed: 140, targetingBias: 0.5,  spacing: 0 } },
-      { name: 'Sentinels', patch: { capacity: 2,  arrivalRate: 4,   charge: 90,  speed: 90,  targetingBias: 0.5,  spacing: 1 } },
-      { name: 'Ring',      patch: { capacity: 16, arrivalRate: 6,   charge: 50,  speed: 120, targetingBias: 0.4,  spacing: 1 } },
-      { name: 'Swarm',     patch: { capacity: 40, arrivalRate: 12,  charge: 45,  speed: 200, targetingBias: 0.5,  spacing: 0 } },
-      { name: 'Focused',   patch: { capacity: 14, arrivalRate: 3,   charge: 120, speed: 160, targetingBias: 2.2,  spacing: 0.3 } },
+      { name: 'Patient',    patch: { capacity: 5,  fleet: 9,   charge: 30,  speed: 70,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Steady',     patch: { capacity: 12, fleet: 20,  charge: 60,  speed: 140, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Sentinels',  patch: { capacity: 2,  fleet: 6,   charge: 90,  speed: 90,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Ring',       patch: { capacity: 16, fleet: 26,  charge: 50,  speed: 120, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Swarm',      patch: { capacity: 40, fleet: 64,  charge: 45,  speed: 200, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Relentless', patch: { capacity: 14, fleet: 24,  charge: 120, speed: 160, targetingBias: 2.2, spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Strip Mine', patch: { capacity: 14, fleet: 22,  charge: 70,  speed: 150, targetingBias: 1,   spacing: 1, targeting: 'Unison' } },
     ],
   },
 ]

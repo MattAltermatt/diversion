@@ -2,8 +2,8 @@ import { makeNoise3D } from '../../framework/rng'
 
 // The picture Ablation eats: fractal value noise sampled at cell resolution and
 // quantized into contour bands, one per palette entry. A cell stores a palette
-// INDEX, never a colour — matching a laser to a cell is an integer compare, which
-// is what lets a laser be drawn in exactly the swatch it hunts.
+// INDEX, never a colour — matching a turret to a cell is an integer compare, which
+// is what lets a turret be drawn in exactly the swatch it hunts.
 
 export interface Field {
   cols: number

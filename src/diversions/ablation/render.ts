@@ -1,5 +1,5 @@
 import { parseHex6, parseHex8, rgba, type RGB } from '../../framework/color'
-import { trackPoint } from './lasers'
+import { trackPoint, type Turret } from './turrets'
 import type { AblationState } from './ablation'
 
 // Everything that touches the canvas. The picture itself lives in a persistent
@@ -164,12 +164,12 @@ export function render(s: AblationState, ctx: CanvasRenderingContext2D): void {
   ctx.strokeStyle = rgba({ r: 120, g: 140, b: 165 }, 0.22)
   ctx.strokeRect(tx + 0.5, ty + 0.5, geom.seg[0] - 1, geom.seg[1] - 1)
 
-  // 6. Lasers: drawn in the colour they hunt, brightness = charge remaining.
-  for (const l of s.lasers) {
+  // 6. Turrets: drawn in the colour they hunt, brightness = charge remaining.
+  for (const l of s.track) {
     const pt = trackPoint(geom, l.s)
     const intensity = Math.max(0, Math.min(1, l.charge / l.maxCharge))
     const css = bandCss(p, l.band)
-    // Sized off the TRACK, not the cell: a laser is a thing riding the track, and
+    // Sized off the TRACK, not the cell: a turret is a thing riding the track, and
     // tying it to cell size makes it vanish at cell 2 and bloat at cell 40.
     const along = Math.max(7, geom.gap * 0.62)
     const across = Math.max(3, geom.gap * 0.3)
@@ -182,7 +182,7 @@ export function render(s: AblationState, ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = css
     ctx.fillRect(pt.x - bw / 2, pt.y - bh / 2, bw, bh)
 
-    // A hot core so a fresh laser reads as blazing rather than merely opaque.
+    // A hot core so a fresh turret reads as blazing rather than merely opaque.
     const core = 0.45 + 0.55 * intensity
     ctx.globalAlpha = 0.25 + 0.75 * intensity
     ctx.fillStyle = css
@@ -203,23 +203,48 @@ export function render(s: AblationState, ctx: CanvasRenderingContext2D): void {
     ctx.stroke()
   }
 
-  // 8. The queue: lasers backed up behind the gate, drawn just OUTSIDE the track so
-  //    they read as waiting rather than riding. Undrawn, a full track would be
-  //    invisible state (UX invariant #2) — and the colour mix here is a readout of
-  //    what is about to happen to the picture.
+  // 8. The two rows of turrets that are NOT riding, drawn just OUTSIDE the track so
+  //    they read as parked rather than riding. Undrawn they would be invisible state
+  //    (UX invariant #2) — and the colour mix in each row is a readout: what is about
+  //    to happen to the picture on one side, what is already finished on the other.
   const outward = Math.max(4, geom.gap * 0.55)
-  const spacing = Math.max(6, geom.gap * 0.5)
+  // Each row owns at most a quarter of the perimeter. Pitch is otherwise fixed, so a
+  // large fleet on a small viewport runs one row straight through the other's anchor
+  // — at 128 turrets and a 640x480 window the pending row alone wants 70% of the
+  // track. Shrinking the pitch keeps both rows inside their own quadrant.
+  const rowBudget = geom.perimeter / 4
+  const longest = Math.max(s.queue.length, s.retired.length, 1)
+  const spacing = Math.min(Math.max(6, geom.gap * 0.5), rowBudget / longest)
   const dot = Math.max(2, spacing * 0.32)
-  for (let i = 0; i < s.queue.length; i++) {
-    const pt = trackPoint(geom, -(i + 1) * spacing)
-    const qx = Math.max(dot, Math.min(w - dot, pt.x - pt.dx * outward))
-    const qy = Math.max(dot, Math.min(h - dot, pt.y - pt.dy * outward))
-    ctx.globalAlpha = 0.75
-    ctx.fillStyle = bandCss(p, s.queue[i])
-    ctx.beginPath()
-    ctx.arc(qx, qy, dot, 0, Math.PI * 2)
-    ctx.fill()
+  //   The two rows are told apart by SIZE, not by alpha. Dimming was the obvious
+  //   choice and is the wrong one on these palettes: composited over the ground at
+  //   alpha 0.3 the darker half of every ramp lands at 1.12-1.5 WCAG, under the 1.88
+  //   floor the palettes are built to hold, so a retired dot of a dark band is not
+  //   visible at all — and retirement fills from the dark bands first, making the row
+  //   most invisible exactly when it carries the most information (invariants #2,
+  //   #5). Reaching 1.88 on the darkest stop needs alpha 0.82-1.00 depending on the
+  //   palette, so alpha simply cannot carry a "dimmer" signal here. Both rows draw
+  //   opaque; retired draws smaller.
+  const parkedRow = (turrets: Turret[], anchor: number, scale: number) => {
+    const r = Math.max(1.5, dot * scale)
+    for (let i = 0; i < turrets.length; i++) {
+      // Walk BACKWARDS along the track from the anchor, so the row trails away from
+      // it rather than running into the turrets that are riding.
+      const pt = trackPoint(geom, anchor - (i + 1) * spacing)
+      const qx = Math.max(r, Math.min(w - r, pt.x - pt.dx * outward))
+      const qy = Math.max(r, Math.min(h - r, pt.y - pt.dy * outward))
+      ctx.globalAlpha = 1
+      ctx.fillStyle = bandCss(p, turrets[i].band)
+      ctx.beginPath()
+      ctx.arc(qx, qy, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
+  // Pending trails back from the gate at the top-left corner; retired trails back
+  // from `perimeter / 2`, which lands exactly on the bottom-right corner — the two
+  // readouts sit diagonally opposite and never crowd each other.
+  parkedRow(s.queue, 0, 1)
+  parkedRow(s.retired, geom.perimeter / 2, 0.55)
 
   ctx.globalAlpha = 1
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { temperedPick, temperedWeights } from './scheduler'
+import { temperedPick, temperedWeights, resolveFleet, allocateFleet } from './scheduler'
 
 const HIST = new Uint32Array([62, 21, 12, 5]) // the spec §5 worked example
 
@@ -66,5 +66,70 @@ describe('temperedPick', () => {
   it('is in-range for rand() at both extremes', () => {
     expect(temperedPick(HIST, 0.5, () => 0)).toBe(0)
     expect(temperedPick(HIST, 0.5, () => 0.999999)).toBe(3)
+  })
+})
+
+// ─── Fleet allocation ───────────────────────────────────────────────────────
+
+const total = (...v: number[]) => Uint32Array.from(v)
+
+describe('resolveFleet', () => {
+  it('leaves a fleet larger than the band count alone', () => {
+    expect(resolveFleet(20, 6)).toBe(20)
+  })
+
+  it('clamps UP to the band count, so no band can go unallocated', () => {
+    expect(resolveFleet(4, 12)).toBe(12)
+  })
+})
+
+describe('allocateFleet', () => {
+  it('sums to exactly the fleet size', () => {
+    const a = allocateFleet(total(5000, 3000, 1500, 500), 1, 20)
+    expect([...a].reduce((x, y) => x + y, 0)).toBe(20)
+  })
+
+  it('is proportional to band mass at k = 1', () => {
+    // 50/50 in the picture means 50/50 of the turrets — the headline requirement.
+    expect([...allocateFleet(total(4000, 4000), 1, 20)]).toEqual([10, 10])
+    expect([...allocateFleet(total(6000, 2000), 1, 20)]).toEqual([15, 5])
+  })
+
+  it('is flat across bands at k = 0', () => {
+    expect([...allocateFleet(total(9000, 900, 90), 0, 12)]).toEqual([4, 4, 4])
+  })
+
+  it('piles onto the dominant band above k = 1', () => {
+    const a = allocateFleet(total(6000, 2000), 2, 20)
+    expect(a[0]).toBeGreaterThan(15)
+    expect(a[1]).toBeGreaterThanOrEqual(1)
+  })
+
+  it('gives a rounding-sliver band at least one turret', () => {
+    // 1 cell out of 8001 is 0.0025 of 20 turrets. Without the reserved floor it
+    // rounds to nothing, nothing ever shoots that band, and the picture can never
+    // reach zero cells — a permanent hang, not a balance wobble.
+    const a = allocateFleet(total(8000, 1), 1, 20)
+    expect(a[1]).toBe(1)
+    expect([...a].reduce((x, y) => x + y, 0)).toBe(20)
+  })
+
+  it('gives every band one turret when the fleet equals the band count', () => {
+    const a = allocateFleet(total(500, 400, 300, 200, 100, 50), 1, 6)
+    expect([...a]).toEqual([1, 1, 1, 1, 1, 1])
+  })
+
+  it('allocates nothing to a band with no cells', () => {
+    const a = allocateFleet(total(500, 0, 300), 1, 9)
+    expect(a[1]).toBe(0)
+    expect([...a].reduce((x, y) => x + y, 0)).toBe(9)
+  })
+
+  it('never over-allocates when the fleet cannot cover one per band', () => {
+    // resolveFleet makes this unreachable from the running piece, but a direct
+    // caller must not get back more turrets than it asked for.
+    const a = allocateFleet(total(500, 400, 300, 200), 1, 2)
+    expect([...a].reduce((x, y) => x + y, 0)).toBe(2)
+    expect([...a]).toEqual([1, 1, 0, 0])
   })
 })

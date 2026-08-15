@@ -47,3 +47,4 @@ tmp-*.png
 
 # local Chrome verification screenshots
 .verify-shots/
+.tmp-verify/

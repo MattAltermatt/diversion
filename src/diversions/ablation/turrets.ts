@@ -1,8 +1,8 @@
 import { EDGE, type Edge } from './front'
 
-// Track geometry and the laser lifecycle.
+// Track geometry and the turret lifecycle.
 //
-// A laser's position on the track is ONE scalar: `s`, the distance travelled
+// A turret's position on the track is ONE scalar: `s`, the distance travelled
 // clockwise around the track rectangle from its top-left corner. `trackPoint`
 // resolves that scalar into everything anyone downstream needs — draw position,
 // which edge, the inward beam direction, and which lane of the picture the beam
@@ -33,7 +33,7 @@ export interface Geom {
 }
 
 export interface TrackPoint {
-  /** laser position on the track, CSS px */
+  /** turret position on the track, CSS px */
   x: number
   y: number
   edge: Edge
@@ -46,7 +46,7 @@ export interface TrackPoint {
   laneCentre: number
 }
 
-export interface Laser {
+export interface Turret {
   /** perimeter position */
   s: number
   /** target palette index */
@@ -63,23 +63,49 @@ export interface Laser {
   /** ran dry and has since reached the gate — eject it there, not where it ran out */
   spent: boolean
   /** landed at least one shot since the last gate crossing. A lap that lands nothing
-   *  means the colour is no longer reachable, so the laser gives up its slot rather
+   *  means the colour is no longer reachable, so the turret gives up its slot rather
    *  than riding out the lap cap hunting it (#280). */
   hitThisLap: boolean
+  /** fixed sub-cell entry offset, unique per turret. Two turrets released at an
+   *  IDENTICAL `s` are welded together for life — same lane, same centre crossing,
+   *  every frame — and would double-strike every lane, breaking the one-shot-per-lane
+   *  rule. It is smaller than a cell, so it never disturbs the formation. Fixed per
+   *  turret rather than rolled per release, so a rotation cannot reshuffle it. */
+  jitter: number
 }
 
-export function makeLaser(s: number, band: number, charge: number): Laser {
+export function makeTurret(jitter: number, band: number, charge: number): Turret {
   // lane -1 means "not in a lane yet", so the first `advance` establishes both the
-  // edge and the lane and arms the laser wherever it was dropped.
-  return { s, band, charge, maxCharge: charge, laps: 0, edge: EDGE.top, lane: -1,
-           armed: false, spent: false, hitThisLap: false }
+  // edge and the lane and arms the turret wherever it was dropped.
+  const t: Turret = { s: jitter, band, charge, maxCharge: charge, laps: 0, edge: EDGE.top,
+                      lane: -1, armed: false, spent: false, hitThisLap: false, jitter }
+  return t
+}
+
+/** Puts a turret back at the gate at full charge, ready for another shift. A turret
+ *  is never destroyed — it rides, rotates out at the gate, recharges and queues
+ *  again — so this is the whole of "rotation" that lives at this layer.
+ *
+ *  `band` and `jitter` are deliberately NOT touched: the caller owns colour policy
+ *  (it differs between the two targeting modes), and the jitter is the turret's
+ *  permanent identity on the track. */
+export function resetTurret(t: Turret, charge: number): void {
+  t.s = t.jitter
+  t.charge = charge
+  t.maxCharge = charge
+  t.laps = 0
+  t.edge = EDGE.top
+  t.lane = -1
+  t.armed = false
+  t.spent = false
+  t.hitThisLap = false
 }
 
 /** Picture fills the canvas minus the track margin, snapped DOWN to whole cells so
  *  the grid never has a ragged partial column, then centred in the leftover. */
 export function makeGeom(size: { width: number; height: number }, cell: number, gap: number): Geom {
   // The margin has to clear the gap AND leave the track room to sit visibly inside
-  // the canvas — a track hard against the edge gets its lasers clipped in half, and
+  // the canvas — a track hard against the edge gets its turrets clipped in half, and
   // the picture reads as filling the screen rather than floating in a frame. The
   // proportional term keeps that framing at any viewport size.
   const pad = Math.max(16, Math.min(size.width, size.height) * 0.055)
@@ -156,17 +182,17 @@ export function trackPoint(g: Geom, sRaw: number): TrackPoint {
   return { x: tx, y, edge: EDGE.left, dx: 1, dy: 0, lane, laneCentre }
 }
 
-/** Advances a laser, wrapping the perimeter and counting laps. Entering a new lane
+/** Advances a turret, wrapping the perimeter and counting laps. Entering a new lane
  *  re-arms it; crossing that lane's centre spends the arm (spec §4 rule 4).
  *  Returns true if it may take a shot this step — armed, in a valid lane, and this
  *  step's movement crossed that lane's centre. One shot per lane, maximum.
  *
  *  The crossing test lives in perimeter space, not lane space: a lane's centre is a
- *  single scalar, and the laser just traversed the half-open span (prevS, prevS+ds].
+ *  single scalar, and the turret just traversed the half-open span (prevS, prevS+ds].
  *  That works uniformly on all four edges even though the bottom and left edges
  *  number their lanes backwards, and it needs no special case for a step that skips
  *  several lanes at once. */
-export function advance(g: Geom, l: Laser, ds: number): boolean {
+export function advance(g: Geom, l: Turret, ds: number): boolean {
   const prevS = wrap(l.s, g.perimeter)
   const next = prevS + ds
   const laps = Math.floor(next / g.perimeter)

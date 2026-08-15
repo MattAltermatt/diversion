@@ -3,7 +3,12 @@
 **Date:** 2026-08-07
 **Slug:** `ablation`
 **Kind:** `2d`
-**Status:** approved, not yet implemented
+**Status:** shipped 2026-08-15
+
+> **Partly superseded by `2026-08-15-ablation-fleet-design.md`.** That revision
+> replaces §4 "Supply, spacing and queue", §5 "The scheduler" and §8 "Schema":
+> turrets became a permanent circulating crew rather than disposable arrivals.
+> §1, §2, §3, §6, §7 and §9 below still describe the piece as built.
 
 A quantized contour-map picture sits in the middle of a black screen. A rectangular
 track floats just outside it, carrying lasers that each hunt one colour. A laser
