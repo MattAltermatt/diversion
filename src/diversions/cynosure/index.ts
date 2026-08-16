@@ -6,6 +6,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { cynosureSchema, type CynosureConfig } from './schema'
 import { createState, rebuild, renderCynosure, step, type CynosureState } from './cynosure'
 import { motionPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<CynosureConfig>[] = [
   { label: 'Palette', options: palettePresets },
@@ -24,11 +25,7 @@ function needsRebuild(a: CynosureConfig, b: CynosureConfig): boolean {
 }
 
 const cynosure = defineDiversion<typeof cynosureSchema, CynosureState, '2d'>({
-  id: 'cynosure',
-  title: 'Cynosure',
-  description: 'Drifting translucent rectangles overlap into soft, ever-recomposing color fields — '
-    + 'a calm Rothko/Albers abstraction that slowly breathes and recomposes.',
-  kind: '2d',
+  ...meta,
   schema: cynosureSchema,
   presets,
 

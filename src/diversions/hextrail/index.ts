@@ -8,6 +8,7 @@ import {
 } from './grow'
 import { renderHex } from './render'
 import { palettePresets, pacePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<HextrailConfig>[] = [
   { label: 'Palette', options: palettePresets },
@@ -15,11 +16,7 @@ const presets: PresetGroup<HextrailConfig>[] = [
 ]
 
 const hextrail = defineDiversion<typeof hextrailSchema, HexState, '2d'>({
-  id: 'hextrail',
-  title: 'Hextrail',
-  description: 'Glowing arms branch outward along a hex lattice, fill the field, '
-    + 'then dissolve and begin again. After xscreensaver’s hextrail by jwz.',
-  kind: '2d',
+  ...meta,
   schema: hextrailSchema,
 
   setup(ctx, config, size) {

@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { kuramotoSchema, type KuramotoConfig } from './schema'
 import { initGL, render, uploadLUT, disposeGL, type KuramotoGL } from './gl'
 import { regimePresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type KuramotoState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -15,10 +16,7 @@ const presets: PresetGroup<KuramotoConfig>[] = [
 ]
 
 const kuramoto = defineDiversion<typeof kuramotoSchema, KuramotoState, 'webgl'>({
-  id: 'kuramoto',
-  title: 'Kuramoto',
-  description: 'A field of coupled oscillators, each a spinning phase, pulls itself into step — synchronized domains of one colour spreading and colliding, with rotating phase defects swirling through the spectrum at their seams.',
-  kind: 'webgl',
+  ...meta,
   schema: kuramotoSchema,
 
   setup(gl, cfg, size: Size) {

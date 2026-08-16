@@ -2,19 +2,14 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { voronoiSchema, type VoronoiConfig } from './schema'
 import { createVoronoiState, stepVoronoi, resizeVoronoi, buildPaletteLUT, type VoronoiState } from './voronoi'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<VoronoiConfig>[] = [
   { label: 'Palette', options: palettePresets },
 ]
 
 const voronoi = defineDiversion<typeof voronoiSchema, VoronoiState, '2d'>({
-  id: 'voronoi',
-  title: 'Animated Voronoi',
-  description: 'A field of colored Voronoi cells where every seed drifts its own slow, never-'
-    + 'repeating orbit — cells grow, shrink, and swap neighbors as the mosaic flows like stained '
-    + 'glass. A clean-room port of xscreensaver\'s voronoi hack by Jamie Zawinski, reimagined on a '
-    + '2D canvas with a Delaunay-triangulation tessellation recomputed every frame.',
-  kind: '2d',
+  ...meta,
   schema: voronoiSchema,
   presets,
 

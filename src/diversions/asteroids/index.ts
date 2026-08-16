@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { asteroidsSchema, type AsteroidsConfig } from './schema'
 import { createState, render, applyUpdate, type AsteroidsState } from './asteroids'
 import { scenePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<AsteroidsConfig>[] = [
   { label: 'Scene', options: scenePresets },
@@ -9,11 +10,7 @@ const presets: PresetGroup<AsteroidsConfig>[] = [
 ]
 
 const asteroids = defineDiversion<typeof asteroidsSchema, AsteroidsState, '2d'>({
-  id: 'asteroids',
-  title: 'Asteroids',
-  description: 'A slow drift through a painted Homeworld sky — a soft purple nebula and dark '
-    + 'dust lanes veiling one low sun, with a field of tumbling asteroids adrift in the foreground.',
-  kind: '2d',
+  ...meta,
   schema: asteroidsSchema,
   presets,
 

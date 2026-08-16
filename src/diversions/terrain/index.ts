@@ -10,6 +10,7 @@ import {
   createTerrainState, stepTerrain, resizeTerrainState, updateTerrainState, resolvePalette,
   drawScene, type TerrainState,
 } from './terrain'
+import { meta } from './meta'
 
 const scenePresets: PresetGroup<TerrainConfig>[] = [{
   label: 'Scene',
@@ -24,11 +25,7 @@ const scenePresets: PresetGroup<TerrainConfig>[] = [{
 }]
 
 const terrain = defineDiversion<typeof terrainSchema, TerrainState, '2d'>({
-  id: 'terrain',
-  title: 'Terrain',
-  description: 'Fractal mountain ridgelines recede into misty haze under a slowly shifting '
-    + 'dawn-to-dusk sky, drifting endlessly by. After xscreensaver’s triangle.',
-  kind: '2d',
+  ...meta,
   schema: terrainSchema,
   presets: scenePresets,
 

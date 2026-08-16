@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { viscousFingeringSchema, type ViscousFingeringConfig } from './schema'
 import { initGL, render, uploadLUT, disposeGL, type ViscousFingeringGL } from './gl'
 import { fingeringPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type ViscousFingeringState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,10 +18,7 @@ const presets: PresetGroup<ViscousFingeringConfig>[] = [
 ]
 
 const viscousFingering = defineDiversion<typeof viscousFingeringSchema, ViscousFingeringState, 'webgl'>({
-  id: 'viscous-fingering',
-  title: 'Viscous Fingering',
-  description: 'A less-viscous fluid injected into a thicker one forks into glowing, tip-splitting fractal fingers.',
-  kind: 'webgl',
+  ...meta,
   schema: viscousFingeringSchema,
 
   setup(gl, cfg, size: Size) {

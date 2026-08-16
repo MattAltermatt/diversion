@@ -14,6 +14,7 @@ import { vermiculateSchema, type VermiculateConfig } from './schema'
 import { advance, applyConfig, createState, shouldReseed, type VermiculateState } from './sim'
 import { disposeVermiculateRender, renderVermiculate } from './render'
 import { motionPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<VermiculateConfig>[] = [
   { label: 'Motion', options: motionPresets },
@@ -21,12 +22,7 @@ const presets: PresetGroup<VermiculateConfig>[] = [
 ]
 
 const vermiculate = defineDiversion<typeof vermiculateSchema, VermiculateState, '2d'>({
-  id: 'vermiculate',
-  title: 'Vermiculate',
-  description: 'Turtle worms crawl the plane, their turning rate drifting step by step, tracing a '
-    + 'wormy tangle like the winding galleries worms leave under bark. After Jamie Zawinski and '
-    + 'David Konerding’s Vermiculate (xscreensaver).',
-  kind: '2d',
+  ...meta,
   schema: vermiculateSchema,
   presets,
 

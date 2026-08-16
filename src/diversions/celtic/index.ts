@@ -3,6 +3,7 @@ import { celticSchema, type CelticConfig } from './schema'
 import { buildKnot, type KnotGeometry } from './knot'
 import { renderKnot } from './render'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 // Lifecycle: the knot blossoms out from the centre (GROW), rests (HOLD), fades
 // (FADE), then `shouldRestart` asks the framework to roll a fresh seed and weave
@@ -38,12 +39,7 @@ function resetLifecycle(state: CelticState) {
 const presets: PresetGroup<CelticConfig>[] = [{ label: 'Palette', options: palettePresets }]
 
 const celtic = defineDiversion<typeof celticSchema, CelticState, '2d'>({
-  id: 'celtic',
-  title: 'Celtic',
-  description:
-    'Endless interlaced Celtic knotwork — smooth jewel-toned ribbons weave over and under in a single '
-    + 'consistent plait, blossoming out from the centre, resting, then fading as a fresh knot is woven.',
-  kind: '2d',
+  ...meta,
   schema: celticSchema,
   presets,
 

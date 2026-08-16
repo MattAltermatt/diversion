@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { truchetFlowSchema, type TruchetFlowConfig } from './schema'
 import { createTruchetState, buildArcs, renderTruchet, computeStyles, type TruchetState } from './truchet'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const SPEED_PX = 80 // px/sec of dash travel at flowSpeed 1
 
@@ -10,10 +11,7 @@ const presets: PresetGroup<TruchetFlowConfig>[] = [
 ]
 
 const truchetFlow = defineDiversion<typeof truchetFlowSchema, TruchetState, '2d'>({
-  id: 'truchet-flow',
-  title: 'Truchet Flow',
-  description: 'A maze of randomly-turned tiles weaves endless flowing loops, with bright current streaming along every curve like charge through a circuit board — ordered, architectural calm.',
-  kind: '2d',
+  ...meta,
   schema: truchetFlowSchema,
   presets,
 

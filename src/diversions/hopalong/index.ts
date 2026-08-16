@@ -11,6 +11,7 @@ import {
 } from './hopalong'
 import { toneOf, lutIndex, buildPaletteLUT, type PaletteLUT } from './render'
 import { mapPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 interface HopalongState {
   cfg: HopalongConfig
@@ -102,12 +103,7 @@ const presets: PresetGroup<HopalongConfig>[] = [
 ]
 
 const hopalong = defineDiversion<typeof hopalongSchema, HopalongState, '2d'>({
-  id: 'hopalong',
-  title: 'Hopalong',
-  description: 'Barry Martin\'s Hopalong map, plotted as a log-density caustic. '
-    + 'After xscreensaver\'s hopalong (Patrick J. Naughton / Barry Martin / Ed Kubaitis / '
-    + 'Renaldo Recuerdo).',
-  kind: '2d',
+  ...meta,
   schema: hopalongSchema,
 
   setup(ctx, config, size) {

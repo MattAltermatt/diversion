@@ -4,6 +4,7 @@ import {
   createFluid, resizeFluid, stepFluid, BOX_H, type Fluid, type SphParams,
 } from './sph'
 import { createRenderState, renderFluid, type RenderState } from './render'
+import { meta } from './meta'
 
 // Slider [0..1] → physics ranges. Chosen so the schema defaults land on a deep,
 // calm, glossy pool (g≈140, k≈54000, μ≈33) — the headline look — while the
@@ -37,10 +38,7 @@ interface SphState {
 }
 
 const sphFluid = defineDiversion<typeof sphFluidSchema, SphState, '2d'>({
-  id: 'sph-fluid',
-  title: 'SPH Fluid',
-  description: 'A body of liquid that pools, sloshes and splashes in a tilting tank.',
-  kind: '2d',
+  ...meta,
   schema: sphFluidSchema,
 
   setup(ctx, cfg, size) {

@@ -7,6 +7,7 @@ import { createSim, stepSim, rebuildMatrix, rebuildGrid, type Sim, type SimConfi
 import { drawScene, buildSprites, type GlowSprites } from './render'
 import { paletteColors, type PaletteName } from './palette'
 import { createStallState, meanSpeed2, tickStall, type StallState } from './restart'
+import { meta } from './meta'
 
 interface State {
   sim: Sim
@@ -26,10 +27,7 @@ const makeSprites = (c: ParticleLifeConfig): GlowSprites =>
   buildSprites(paletteColors(c.palette as PaletteName, c.colors), c.dotSize, c.glow)
 
 const particleLife = defineDiversion({
-  id: 'particle-life',
-  title: 'Particle Life',
-  description: 'Colored particles obey a hidden matrix of attractions and repulsions. From random soup, cell-like creatures, membranes, and endless chases self-organize — a different world every seed.',
-  kind: '2d',
+  ...meta,
   schema: particleLifeSchema,
   presets: particleLifePresets,
 

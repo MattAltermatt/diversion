@@ -2,6 +2,7 @@ import { defineDiversion, type Size } from '../../framework/types'
 import { metaballsSchema, type MetaballsConfig } from './schema'
 import { seedBlobs, stepBlobs, applyRadius, rescaleX, type Blob } from './motion'
 import { initGL, render, disposeGL, type MetaballsGL } from './metaballs'
+import { meta } from './meta'
 
 type MetaballsState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -13,10 +14,7 @@ type MetaballsState = {
 }
 
 const metaballs = defineDiversion<typeof metaballsSchema, MetaballsState, 'webgl'>({
-  id: 'metaballs',
-  title: 'Metaballs',
-  description: 'Gooey blobs that rise, merge, and split — a lava lamp.',
-  kind: 'webgl',
+  ...meta,
   schema: metaballsSchema,
 
   setup(gl, cfg, size: Size) {

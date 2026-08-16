@@ -5,16 +5,13 @@
 import { defineDiversion } from '../../framework/types'
 import { schellingSchema, type SchellingConfig } from './schema'
 import { createSchellingState, advance, render, buildLut, type SchellingState } from './schelling'
+import { meta } from './meta'
 
 // Editing any of these rebuilds the grid; everything else applies live.
 const STRUCTURAL: (keyof SchellingConfig)[] = ['gridSize', 'types', 'emptyFraction', 'seed']
 
 const schelling = defineDiversion<typeof schellingSchema, SchellingState, '2d'>({
-  id: 'schelling',
-  title: 'Schelling Segregation',
-  description: 'A grid of two or three groups sorts itself into large single-colour blocks — segregation '
-    + 'emerging from nothing more than a mild preference to have a few like-minded neighbours.',
-  kind: '2d',
+  ...meta,
   schema: schellingSchema,
 
   setup(_ctx, config, size) {

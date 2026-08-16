@@ -1,6 +1,7 @@
 import { defineDiversion, type Size } from '../../framework/types'
 import { plasmaSchema, type PlasmaConfig } from './schema'
 import { initGL, render, disposeGL, type PlasmaGL } from './plasma'
+import { meta } from './meta'
 
 type PlasmaState = {
   gl: WebGL2RenderingContext // kept so teardown() (which gets no ctx) can free GL resources
@@ -16,10 +17,7 @@ type PlasmaState = {
 const WRAP = Math.round(1e4 / (20 * Math.PI)) * 20 * Math.PI
 
 const plasma = defineDiversion<typeof plasmaSchema, PlasmaState, 'webgl'>({
-  id: 'plasma',
-  title: 'Plasma',
-  description: 'Domain-warped color fields drifting across the screen — demoscene plasma.',
-  kind: 'webgl',
+  ...meta,
   schema: plasmaSchema,
 
   setup(gl, cfg, _size: Size) {

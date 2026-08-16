@@ -9,6 +9,7 @@ import {
 } from './forest'
 import { renderForest } from './render'
 import { seasonPresets, grovePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<ForestConfig>[] = [
   { label: 'Season', options: seasonPresets },
@@ -16,10 +17,7 @@ const presets: PresetGroup<ForestConfig>[] = [
 ]
 
 const forest = defineDiversion<typeof forestSchema, ForestState, '2d'>({
-  id: 'forest',
-  title: 'Forest',
-  description: 'A grove of recursive fractal trees sprouting across a misty ground, then fading to regrow.',
-  kind: '2d',
+  ...meta,
   schema: forestSchema,
 
   setup(ctx, config, size) {

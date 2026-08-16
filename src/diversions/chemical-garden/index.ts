@@ -10,6 +10,7 @@ import {
 } from './garden'
 import { render, disposeRender } from './render'
 import { gardenPresets, mineralPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<ChemicalGardenConfig>[] = [
   { label: 'Garden', options: gardenPresets },
@@ -17,10 +18,7 @@ const presets: PresetGroup<ChemicalGardenConfig>[] = [
 ]
 
 const chemicalGarden = defineDiversion<typeof chemicalGardenSchema, GardenState, '2d'>({
-  id: 'chemical-garden',
-  title: 'Chemical Garden',
-  description: 'Mineral tubes climb and branch from seed crystals on a silicate garden floor.',
-  kind: '2d',
+  ...meta,
   schema: chemicalGardenSchema,
 
   setup(_ctx, config, size) {

@@ -3,6 +3,7 @@ import { lightningSchema, type LightningConfig } from './schema'
 import { advance, applyConfig, createState, type DBMState } from './dbm'
 import { render } from './render'
 import { formPresets, lookPresets } from './presets'
+import { meta } from './meta'
 
 // Lightning grown by the dielectric breakdown model. The strike → flash → ember →
 // respawn cycle is an internal state machine (see dbm.ts), so a single run loops
@@ -14,10 +15,7 @@ const presets: PresetGroup<LightningConfig>[] = [
 ]
 
 const lightning = defineDiversion<typeof lightningSchema, DBMState, '2d'>({
-  id: 'lightning',
-  title: 'Lightning',
-  description: 'Branching bolts grown by the dielectric breakdown model — a leader crawls, flash-completes, fades to ember.',
-  kind: '2d',
+  ...meta,
   schema: lightningSchema,
 
   setup(_ctx, config, size) {

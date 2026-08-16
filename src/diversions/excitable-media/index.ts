@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { excitableMediaSchema, type ExcitableMediaConfig } from './schema'
 import { initGL, render, uploadLUT, disposeGL, type ExcitableGL } from './gl'
 import { patternPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type ExcitableState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,10 +18,7 @@ const presets: PresetGroup<ExcitableMediaConfig>[] = [
 ]
 
 const excitableMedia = defineDiversion<typeof excitableMediaSchema, ExcitableState, 'webgl'>({
-  id: 'excitable-media',
-  title: 'Excitable Media',
-  description: 'A chemical medium ignites into rotating spiral waves — bright fronts chasing their own recovering tails, like a Belousov-Zhabotinsky dish.',
-  kind: 'webgl',
+  ...meta,
   schema: excitableMediaSchema,
 
   setup(gl, cfg, size: Size) {

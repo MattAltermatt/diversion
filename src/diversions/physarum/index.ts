@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { physarumSchema, type PhysarumConfig } from './schema'
 import { initGL, render, step, uploadLUT, disposeGL, type PhysarumGL } from './gl'
 import { behaviorPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type PhysarumState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -18,10 +19,7 @@ const presets: PresetGroup<PhysarumConfig>[] = [
 ]
 
 const physarum = defineDiversion<typeof physarumSchema, PhysarumState, 'webgl'>({
-  id: 'physarum',
-  title: 'Physarum',
-  description: 'Slime-mold agents grow and rewire luminous transport networks.',
-  kind: 'webgl',
+  ...meta,
   schema: physarumSchema,
 
   setup(gl, cfg, size: Size) {

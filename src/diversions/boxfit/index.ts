@@ -8,6 +8,7 @@ import { boxfitSchema, type BoxfitConfig } from './schema'
 import { advance, applyConfig, createState, type BoxfitState } from './boxfit'
 import { render, disposeRender } from './render'
 import { lookPresets, stylePresets } from './presets'
+import { meta } from './meta'
 
 // Once the plane is packed it holds a beat, then the framework reseeds a fresh
 // mosaic — the right unattended-screensaver loop.
@@ -19,11 +20,7 @@ const presets: PresetGroup<BoxfitConfig>[] = [
 ]
 
 const boxfit = defineDiversion<typeof boxfitSchema, BoxfitState, '2d'>({
-  id: 'boxfit',
-  title: 'Boxfit',
-  description: 'Shapes drop on empty ground and grow until they touch — a tight, big-to-small '
-    + 'mosaic that packs itself. After xscreensaver’s boxfit.',
-  kind: '2d',
+  ...meta,
   schema: boxfitSchema,
   presets,
 

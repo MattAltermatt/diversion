@@ -3,6 +3,7 @@ import { mulberry32 } from '../../framework/rng'
 import { goldenApollonianSchema, type GoldenApollonianConfig } from './schema'
 import { initGL, render, disposeGL, type ApollianGL } from './apollian'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 type ApollianState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -22,10 +23,7 @@ export function seedOffset(seed: number): number {
 }
 
 const goldenApollonian = defineDiversion<typeof goldenApollonianSchema, ApollianState, 'webgl'>({
-  id: 'golden-apollonian',
-  title: 'Golden Apollonian',
-  description: 'An endless flight down a tunnel whose walls are glowing golden Apollonian-gasket fractals — a stack of receding planes, each a folded-cube sphere-inversion fractal lit by two soft lights and a sun far down the throat, weaving along a curved path with kaleidoscopic symmetry that cycles as you fall.',
-  kind: 'webgl',
+  ...meta,
   schema: goldenApollonianSchema,
   presets,
 

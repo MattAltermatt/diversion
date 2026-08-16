@@ -10,13 +10,10 @@ import {
   updateHypnowheelState, resizeHypnowheelState,
   type HypnowheelState,
 } from './hypnowheel'
+import { meta } from './meta'
 
 const hypnowheel = defineDiversion<typeof hypnowheelSchema, HypnowheelState, '2d'>({
-  id: 'hypnowheel',
-  title: 'Hypnowheel',
-  description: 'Superimposed spiral-arm wheels rotate at slightly different rates and '
-    + 'beat into a hypnotic spiral moire — duotone XOR fringe, or luminous spectrum.',
-  kind: '2d',
+  ...meta,
   schema: hypnowheelSchema,
 
   setup(ctx, config, size) {

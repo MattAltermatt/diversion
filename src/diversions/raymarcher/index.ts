@@ -5,6 +5,7 @@ import {
   orbitCamera, type RaymarcherGL, type PrimitiveParams, type Camera,
 } from './raymarcher'
 import { formPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 type RaymarcherState = {
   gl: WebGL2RenderingContext // kept so teardown() (which gets no ctx) can free GL resources
@@ -31,11 +32,7 @@ const presets: PresetGroup<RaymarcherConfig>[] = [
 ]
 
 const raymarcher = defineDiversion<typeof raymarcherSchema, RaymarcherState, 'webgl'>({
-  id: 'raymarcher',
-  title: 'Raymarcher',
-  description: 'A cluster of signed-distance shapes sphere-traced, smooth-blended into one '
-    + 'molten sculpture, and lit under a slowly orbiting camera.',
-  kind: 'webgl',
+  ...meta,
   schema: raymarcherSchema,
   presets,
 

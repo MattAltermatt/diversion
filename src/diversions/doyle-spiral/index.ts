@@ -10,6 +10,7 @@ import { doyleSchema, type DoyleConfig } from './schema'
 import { advance, applyConfig, createState, resizeState, type SpiralState } from './spiral'
 import { render, disposeRender } from './render'
 import { spiralPresets, lookPresets, motionPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<DoyleConfig>[] = [
   { label: 'Spiral', options: spiralPresets },
@@ -18,12 +19,7 @@ const presets: PresetGroup<DoyleConfig>[] = [
 ]
 
 const doyleSpiral = defineDiversion<typeof doyleSchema, SpiralState, '2d'>({
-  id: 'doyle-spiral',
-  title: 'Doyle Spiral',
-  description: 'Mutually-tangent circles whose radii scale by a fixed ratio, coiling into '
-    + 'logarithmic-spiral arms that zoom forever in a seamless loxodromic flow. After Doyle / '
-    + 'Robin Houston’s numerics.',
-  kind: '2d',
+  ...meta,
   schema: doyleSchema,
   presets,
 

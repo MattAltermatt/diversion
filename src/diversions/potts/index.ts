@@ -9,14 +9,10 @@ import {
   createPottsState, advancePotts, renderPotts, resizePotts, applyColors,
   type PottsState,
 } from './potts'
+import { meta } from './meta'
 
 const potts = defineDiversion<typeof pottsSchema, PottsState, '2d'>({
-  id: 'potts',
-  title: 'Potts Grain Growth',
-  description: 'The Q-state Potts model as annealing metal: a mosaic of coloured grains whose '
-    + 'boundaries cost energy, so a Monte-Carlo anneal has big grains swallow small ones. The '
-    + 'polycrystal coarsens forever — stained-glass cells whose walls sweep and straighten.',
-  kind: '2d',
+  ...meta,
   schema: pottsSchema,
 
   setup(ctx, config, size) {

@@ -11,14 +11,10 @@ import {
   type VoterState,
 } from './voter'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const voter = defineDiversion<typeof voterSchema, VoterState, '2d'>({
-  id: 'voter',
-  title: 'Voter Model',
-  description: 'The voter model: every cell just copies a random neighbour\'s opinion — pure '
-    + 'imitation, no energy, no surface tension. That alone coarsens the field into domains of '
-    + 'like opinion whose boundaries wander and merge, until the lattice drifts to consensus.',
-  kind: '2d',
+  ...meta,
   schema: voterSchema,
 
   presets: [

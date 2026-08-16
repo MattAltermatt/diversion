@@ -11,6 +11,7 @@ import {
   type ContagionState,
 } from './contagion'
 import { regimePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
@@ -20,12 +21,7 @@ const presets: PresetGroup<ContagionConfig>[] = [
 ]
 
 const contagion = defineDiversion<typeof contagionSchema, ContagionState, '2d'>({
-  id: 'contagion',
-  title: 'Contagion',
-  description: 'An SIR/SIRS epidemic sweeps a lattice: infection fronts roll out from a few sparks, '
-    + 'curl into endless spiral reinfection waves, or burn out and seed anew — the S/I/R curve '
-    + 'breathing below.',
-  kind: '2d',
+  ...meta,
   schema: contagionSchema,
 
   setup(ctx, config, size) {

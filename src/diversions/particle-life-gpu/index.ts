@@ -19,6 +19,7 @@ import {
   initGPU, runFrame, resizeGPU, writeParams, writeColors, writeMatrix, writeView, writeFade,
   writeBloom, disposeGPU, type GpuResources,
 } from './gpu'
+import { meta } from './meta'
 
 interface State {
   ctx: GPUCanvasContext
@@ -128,11 +129,7 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
 }
 
 const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'webgpu'>({
-  id: 'particle-life-gpu',
-  title: 'Particle Life (GPU)',
-  description:
-    'The same hidden matrix of attractions that grows cell-like creatures from random soup — now run entirely on the GPU as a compute shader, so tens of thousands of particles swarm at once. Scroll to zoom, drag to pan. A different world every seed.',
-  kind: 'webgpu',
+  ...meta,
   schema: particleLifeGpuSchema,
   presets: particleLifeGpuPresets,
   reconcile: reconcileMatrix,

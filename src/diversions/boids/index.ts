@@ -5,6 +5,7 @@ import { boidsSchema, type BoidsConfig } from './schema'
 import { boidsPresets } from './presets'
 import { createFlock, stepFlock, type Flock } from './sim'
 import { drawScene } from './render'
+import { meta } from './meta'
 
 interface State {
   flock: Flock
@@ -13,10 +14,7 @@ interface State {
 }
 
 const boids = defineDiversion({
-  id: 'boids',
-  title: 'Boids',
-  description: 'A living murmuration — separation, alignment, and cohesion steering turn a scatter of points into a flock that swirls, splits, and merges entirely on its own.',
-  kind: '2d',
+  ...meta,
   schema: boidsSchema,
   presets: boidsPresets,
 

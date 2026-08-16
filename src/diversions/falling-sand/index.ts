@@ -5,6 +5,7 @@ import {
   type FallingSandState, SAND,
 } from './sim'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 6 // post-stall cap so a dt spike can't jank
 
@@ -13,10 +14,7 @@ const presets: PresetGroup<FallingSandConfig>[] = [
 ]
 
 const fallingSand = defineDiversion<typeof fallingSandSchema, FallingSandState, '2d'>({
-  id: 'falling-sand',
-  title: 'Falling Sand',
-  description: 'A powder-toy chamber that pours itself — sand piles at its angle of repose, water finds its level, and fire climbs and consumes drifting plant, while wandering spouts keep the chamber endlessly filling and draining.',
-  kind: '2d',
+  ...meta,
   schema: fallingSandSchema,
   presets,
 

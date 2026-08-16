@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { strategyEcologySchema, type StrategyEcologyConfig } from './schema'
 import { advance, buildLut, buildTable, createStrategyState, render, type StrategyState } from './strategyEcology'
 import { strategyPresets } from './presets'
+import { meta } from './meta'
 
 // Editing any of these rebuilds the grid (its shape or its initial layout);
 // everything else — payoffs, colours, speed — applies live.
 const STRUCTURAL: (keyof StrategyEcologyConfig)[] = ['gridResolution', 'seedPattern', 'strategySet', 'seed']
 
 const strategyEcology = defineDiversion<typeof strategyEcologySchema, StrategyState, '2d'>({
-  id: 'strategy-ecology',
-  title: 'Strategy Ecology',
-  description: 'A grid of agents plays repeated Prisoner’s Dilemma with its neighbours; cooperation blooms, defectors invade, and memory strategies keep the arms race turning forever.',
-  kind: '2d',
+  ...meta,
   schema: strategyEcologySchema,
 
   setup(_ctx, config, size) {

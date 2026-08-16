@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { flowFieldSchema, type FlowFieldConfig } from './schema'
 import { createFlowState, stepFlow, updateFlowState, type FlowState } from './flowField'
 import { flowPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 // Two independent preset axes. A Flow option patches the motion fields; a Color
 // option patches background + blend + the whole color group. Seed is excluded
@@ -20,10 +21,7 @@ const presets: PresetGroup<FlowFieldConfig>[] = [
 // Typed as Diversion<Config, State, '2d'> so the framework threads FlowState and
 // a CanvasRenderingContext2D through every hook — no `as` casts needed.
 const flowField = defineDiversion<typeof flowFieldSchema, FlowState, '2d'>({
-  id: 'flow-field',
-  title: 'Flow Field',
-  description: 'Particles drifting through a noise-driven vector field.',
-  kind: '2d',
+  ...meta,
   schema: flowFieldSchema,
 
   setup(ctx, config, size) {

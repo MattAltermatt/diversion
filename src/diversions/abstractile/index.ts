@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { abstractileSchema, type AbstractileConfig } from './schema'
 import { createState, rebuild, render, cycleEnd, type AbstractileState } from './render'
 import { palettePresets, stylePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<AbstractileConfig>[] = [
   { label: 'Style', options: stylePresets },
@@ -9,12 +10,7 @@ const presets: PresetGroup<AbstractileConfig>[] = [
 ]
 
 const abstractile = defineDiversion<typeof abstractileSchema, AbstractileState, '2d'>({
-  id: 'abstractile',
-  title: 'Abstractile',
-  description: 'An ornate symmetric mosaic lays itself down tile by tile — half-squares, Truchet arcs '
-    + 'and corner circles clicking edge to edge into a flowing kaleidoscopic tessellation, quilt and '
-    + 'Islamic-tile at once — then holds, dissolves, and reseeds a fresh pattern.',
-  kind: '2d',
+  ...meta,
   schema: abstractileSchema,
   presets,
 

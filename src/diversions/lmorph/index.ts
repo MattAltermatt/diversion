@@ -11,6 +11,7 @@ import {
   mulberry32, pickOrder, sampleShape, morphRadii, smoothstep, type Shape,
 } from './lmorph'
 import { parseHex6, mix, rgba, hslToRgb, type RGB } from '../../framework/color'
+import { meta } from './meta'
 
 const DEG = Math.PI / 180
 const FIT_FRAC = 0.4 // outline radius = this fraction of the short side
@@ -114,11 +115,7 @@ function strokeOutline(ctx: CanvasRenderingContext2D, state: LmorphState, width:
 }
 
 const lmorph = defineDiversion<typeof lmorphSchema, LmorphState, '2d'>({
-  id: 'lmorph',
-  title: 'Lmorph',
-  description: 'A single luminous closed curve fluidly morphs between elegant shapes — circle '
-    + 'melts into star into flower into gear into heart — holding, cycling colour, forever.',
-  kind: '2d',
+  ...meta,
   schema: lmorphSchema,
 
   setup(ctx, config, size) {

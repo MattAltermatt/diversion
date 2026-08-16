@@ -8,6 +8,7 @@ import {
 } from './squiral'
 import { mix, rgba } from '../../framework/color'
 import { motionPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 // A new cell fades in over this window instead of popping at full opacity, so
 // the leading edge of each worm reads as a gentle bloom (#zen).
@@ -39,11 +40,7 @@ const presets: PresetGroup<SquiralConfig>[] = [
 ]
 
 const squiral = defineDiversion<typeof squiralSchema, SquiralState, '2d'>({
-  id: 'squiral',
-  title: 'Squiral',
-  description: 'Worms crawl a grid, each winding itself into a tight square spiral until boxed in, '
-    + 'flooding the screen with interlocking right-angled coils. After Jeff Epler’s Squiral (xscreensaver).',
-  kind: '2d',
+  ...meta,
   schema: squiralSchema,
   presets,
 

@@ -8,6 +8,7 @@ import {
   mulberry32, pickRosette, sampleCurve, petalCount,
   type Rosette, type SampledCurve,
 } from './spiro'
+import { meta } from './meta'
 
 const SAMPLES_PER_REV = 360
 const FADE_MS = 850
@@ -106,11 +107,7 @@ function strokePen(
 }
 
 const spirograph = defineDiversion<typeof spirographSchema, SpiroState, '2d'>({
-  id: 'spirograph',
-  title: 'Spirograph',
-  description: 'A pen traces hypo/epicycloid rosettes — each symmetric bloom '
-    + 'resolves, fades, and reseeds fresh gears in an endless loop.',
-  kind: '2d',
+  ...meta,
   schema: spirographSchema,
 
   setup(ctx, cfg, size: Size) {

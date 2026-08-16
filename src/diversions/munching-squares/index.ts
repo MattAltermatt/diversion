@@ -9,6 +9,7 @@ import { munchingSquaresSchema, type MunchingSquaresConfig } from './schema'
 import {
   buildLut, cellColorIndex, deriveParams, isLit, stepAt, type Lut, type Variant,
 } from './munch'
+import { meta } from './meta'
 
 interface MunchState {
   cfg: MunchingSquaresConfig
@@ -41,11 +42,7 @@ function lutOf(cfg: MunchingSquaresConfig): Lut {
 }
 
 const munchingSquares = defineDiversion<typeof munchingSquaresSchema, MunchState, '2d'>({
-  id: 'munching-squares',
-  title: 'Munching Squares',
-  description: 'The classic HAKMEM display hack: lighting cell (x, y) when y = x XOR t and '
-    + 'stepping t folds a pulsing triangular XOR mosaic that shimmers through a cycling palette.',
-  kind: '2d',
+  ...meta,
   schema: munchingSquaresSchema,
 
   setup(_ctx, config, size) {

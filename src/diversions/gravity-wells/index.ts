@@ -8,6 +8,7 @@ import {
   respawnParticle, outOfBounds, colorT, wellEnvelope,
   type GravityState,
 } from './gravityWells'
+import { meta } from './meta'
 
 interface GWState extends GravityState { styles: string[]; gradientLUT: string[] }
 
@@ -43,10 +44,7 @@ const presets: PresetGroup<GravityWellsConfig>[] = [
 ]
 
 const gravityWells = defineDiversion<typeof gravityWellsSchema, GWState, '2d'>({
-  id: 'gravity-wells',
-  title: 'Gravity Wells',
-  description: 'Particles caught in a field of gravity wells that appear and fade.',
-  kind: '2d',
+  ...meta,
   schema: gravityWellsSchema,
 
   setup(ctx, config, size) {

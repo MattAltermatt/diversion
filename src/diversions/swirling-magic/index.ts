@@ -10,6 +10,7 @@ import {
   createSwirlState, renderSwirl, resizeSwirl, applyColors, type SwirlState,
 } from './swirl'
 import { stylePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<SwirlingMagicConfig>[] = [
   { label: 'Style', options: stylePresets.map((p) => ({ name: p.name, patch: p.patch })) },
@@ -17,12 +18,7 @@ const presets: PresetGroup<SwirlingMagicConfig>[] = [
 ]
 
 const swirlingMagic = defineDiversion<typeof swirlingMagicSchema, SwirlState, '2d'>({
-  id: 'swirling-magic',
-  title: 'Swirling Magic',
-  description: 'Luminous kaleidoscopic ribbons braid and unwind around a slowly-turning centre, '
-    + 'colour oozing through the spectrum and ghost-trails smearing behind — an homage to the '
-    + 'After Dark swirl screensavers.',
-  kind: '2d',
+  ...meta,
   schema: swirlingMagicSchema,
 
   setup(ctx, config, size) {

@@ -6,6 +6,7 @@ import { vicsekSchema, type VicsekConfig } from './schema'
 import { vicsekPresets } from './presets'
 import { createFlock, stepFlock, type Flock, type SimConfig } from './sim'
 import { drawScene, buildHueLUT } from './render'
+import { meta } from './meta'
 
 interface State {
   sim: Flock
@@ -20,13 +21,7 @@ const toSimConfig = (c: VicsekConfig): SimConfig => ({
 })
 
 const vicsek = defineDiversion({
-  id: 'vicsek',
-  title: 'Vicsek Flock',
-  description: 'Self-propelled particles that just steer toward their neighbours’ average '
-    + 'heading, plus a little noise. Turn the noise down and a directionless swarm '
-    + 'spontaneously condenses into one coherent flock — the phase transition that started '
-    + 'the whole field of collective motion.',
-  kind: '2d',
+  ...meta,
   schema: vicsekSchema,
   presets: vicsekPresets,
 

@@ -2,16 +2,14 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { crystalSchema, type CrystalConfig } from './schema'
 import { createState, rebuild, render, type CrystalState } from './wallpaper'
 import { lookPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<CrystalConfig>[] = [
   { label: 'Look', options: lookPresets },
 ]
 
 const crystal = defineDiversion<typeof crystalSchema, CrystalState, '2d'>({
-  id: 'crystal',
-  title: 'Crystal',
-  description: 'A seamless repeating wallpaper: a small coloured motif stamped across the plane by the exact symmetries of one of the 17 crystallographic groups, gently drifting and reseeding into a fresh group, motif, and palette.',
-  kind: '2d',
+  ...meta,
   schema: crystalSchema,
   presets,
 

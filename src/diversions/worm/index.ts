@@ -8,13 +8,10 @@ import { wormSchema } from './schema'
 import {
   createWormState, stepWorms, drawWorms, updateWormState, type WormState,
 } from './worm'
+import { meta } from './meta'
 
 const worm = defineDiversion<typeof wormSchema, WormState, '2d'>({
-  id: 'worm',
-  title: 'Worm',
-  description: 'Glossy worms glide across the screen on gentle curving paths, tapered bodies '
-    + 'trailing behind rounded heads. A clean-room take on xscreensaver’s Worm.',
-  kind: '2d',
+  ...meta,
   schema: wormSchema,
 
   setup(ctx, config, size) {

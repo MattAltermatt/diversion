@@ -13,13 +13,10 @@ import {
   updateSwirlState, resizeSwirlState,
   type SwirlState,
 } from './swirl'
+import { meta } from './meta'
 
 const swirl = defineDiversion<typeof swirlSchema, SwirlState, '2d'>({
-  id: 'swirl',
-  title: 'Swirl',
-  description: 'Luminous spiral knots — many fine spiral arms from a few drifting '
-    + 'centres interweave into a slowly swirling, marbled nebula of jewel colour.',
-  kind: '2d',
+  ...meta,
   schema: swirlSchema,
 
   setup(ctx, config, size) {

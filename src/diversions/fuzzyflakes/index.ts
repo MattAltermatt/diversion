@@ -5,6 +5,7 @@
 import { defineDiversion, type Size } from '../../framework/types'
 import { fuzzyflakesSchema, type FuzzyflakesConfig } from './schema'
 import { createFlakes, stepFlakes, drawScene, type Flake } from './fuzzyflakes'
+import { meta } from './meta'
 
 type FuzzyflakesState = {
   cfg: FuzzyflakesConfig
@@ -14,11 +15,7 @@ type FuzzyflakesState = {
 }
 
 const fuzzyflakes = defineDiversion<typeof fuzzyflakesSchema, FuzzyflakesState, '2d'>({
-  id: 'fuzzyflakes',
-  title: 'Fuzzyflakes',
-  description: 'A calm field of soft, plush snowflakes — each with K-fold symmetry — '
-    + 'drifting on a gentle breeze and slowly rotating across a deep field.',
-  kind: '2d',
+  ...meta,
   schema: fuzzyflakesSchema,
 
   setup(ctx, cfg, size: Size) {

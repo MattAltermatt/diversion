@@ -5,6 +5,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { logCirclesSchema, type LogCirclesConfig } from './schema'
 import { initGL, render, disposeGL, advancePhase, type LogCirclesGL } from './shader'
 import { lookPresets, motionPresets } from './presets'
+import { meta } from './meta'
 
 type LogCirclesState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -20,11 +21,7 @@ const presets: PresetGroup<LogCirclesConfig>[] = [
 ]
 
 const logCircles = defineDiversion<typeof logCirclesSchema, LogCirclesState, 'webgl'>({
-  id: 'logarithmic-circles',
-  title: 'Logarithmic Circles',
-  description: 'An endless zoom through rings of black-and-white circles — '
-    + 'log-spaced, self-similar, hypnotic. Faithful op-art with a gallery color mode.',
-  kind: 'webgl',
+  ...meta,
   schema: logCirclesSchema,
   presets,
 

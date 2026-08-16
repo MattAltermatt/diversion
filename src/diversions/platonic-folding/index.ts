@@ -19,6 +19,7 @@ import {
 } from './geometry'
 import { mulberry32 } from '../../framework/rng'
 import { parseHex6, rgba, type RGB } from '../../framework/color'
+import { meta } from './meta'
 
 const CAM_DIST = 3
 const FIT = 0.32
@@ -205,13 +206,7 @@ function render(state: PFState, ctx: CanvasRenderingContext2D) {
 }
 
 const platonicFolding = defineDiversion<typeof platonicFoldingSchema, PFState, '2d'>({
-  id: 'platonic-folding',
-  title: 'Platonic Folding',
-  description: "A Platonic solid's flattened net folds itself shut into shape, turns slowly in "
-    + 'the light, then unfolds flat again — origami built from hinge geometry, not paper. '
-    + "Inspired by the unfolding-polyhedra lineage of jwz's xscreensaver hacks (polyhedra / "
-    + 'polytopes); this fold construction and rendering are an original implementation.',
-  kind: '2d',
+  ...meta,
   schema: platonicFoldingSchema,
 
   setup(ctx, config, size) {

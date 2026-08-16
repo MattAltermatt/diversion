@@ -9,6 +9,7 @@ import {
   buildFigure, penPosition, envelope, makeRng, SETTLE_ENVELOPE, type Figure,
 } from './harmonograph'
 import { parseHex6, parseHex8, mix, rgba, hslToRgb, type RGB } from '../../framework/color'
+import { meta } from './meta'
 
 type Phase = 'draw' | 'fade'
 
@@ -73,11 +74,7 @@ function reseed(ctx: CanvasRenderingContext2D, state: HarmonographState): void {
 }
 
 const harmonograph = defineDiversion<typeof harmonographSchema, HarmonographState, '2d'>({
-  id: 'harmonograph',
-  title: 'Harmonograph',
-  description: 'A mechanical drawing toy: decaying pendulums swing a pen through delicate '
-    + 'near-Lissajous rosettes that spiral inward, fade, and reseed — thin luminous threads on a dark ground.',
-  kind: '2d',
+  ...meta,
   schema: harmonographSchema,
 
   setup(ctx, config, size) {

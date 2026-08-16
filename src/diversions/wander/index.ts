@@ -11,6 +11,7 @@ import {
   buildLut, type WanderState, type Segment,
 } from './wander'
 import { palettePresets, motionPresets } from './presets'
+import { meta } from './meta'
 
 interface State {
   sim: WanderState
@@ -87,11 +88,7 @@ function composite(st: State, ctx: CanvasRenderingContext2D): void {
 }
 
 const wander = defineDiversion<typeof wanderSchema, State, '2d'>({
-  id: 'wander',
-  title: 'Wander',
-  description: 'Random-walking pens weave luminous, slowly hue-shifting ribbons across the dark, '
-    + 'growing an ever-larger meandering tapestry that gently fades and renews. After xscreensaver’s Wander.',
-  kind: '2d',
+  ...meta,
   schema: wanderSchema,
   presets,
 

@@ -6,6 +6,7 @@ import {
   type ThornbirdPoint, type DriftFreqs,
 } from './attractor'
 import { shapePresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 interface ThornbirdState {
   cfg: ThornbirdConfig
@@ -53,11 +54,7 @@ const presets: PresetGroup<ThornbirdConfig>[] = [
 ]
 
 const thornbird = defineDiversion<typeof thornbirdSchema, ThornbirdState, '2d'>({
-  id: 'thornbird',
-  title: 'Thornbird',
-  description: 'A luminous thread-fractal — after xscreensaver’s Thornbird hack '
-    + '(Tim Auckland) and Clifford Pickover’s "Bird in a Thornbush" iterated map.',
-  kind: '2d',
+  ...meta,
   schema: thornbirdSchema,
 
   setup(ctx, config, size) {

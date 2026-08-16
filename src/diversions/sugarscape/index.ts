@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { sugarscapeSchema, type SugarscapeConfig } from './schema'
 import { advance, buildFieldLut, createSugarState, render, type SugarState } from './sugarscape'
 import { sugarPresets } from './presets'
+import { meta } from './meta'
 
 // Editing any of these re-seeds the world (grid shape or the agent trait pool);
 // everything else applies live.
 const STRUCTURAL: (keyof SugarscapeConfig)[] = ['gridResolution', 'agentCount', 'visionMax', 'metabolismMax', 'seed']
 
 const sugarscape = defineDiversion<typeof sugarscapeSchema, SugarState, '2d'>({
-  id: 'sugarscape',
-  title: 'Sugarscape',
-  description: 'An agent economy: harvesters stream to two sugar mountains, and migration, boom-bust, and inequality emerge.',
-  kind: '2d',
+  ...meta,
   schema: sugarscapeSchema,
 
   setup(_ctx, config, size) {

@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { waTorSchema, type WaTorConfig } from './schema'
 import { advance, buildLut, createWaTorState, render, type WaTorState } from './waTor'
 import { waTorPresets } from './presets'
+import { meta } from './meta'
 
 // Editing any of these rebuilds the grid (its shape or its initial population);
 // everything else — breed times, energy, colours, speed — applies live.
 const STRUCTURAL: (keyof WaTorConfig)[] = ['gridResolution', 'initialFish', 'initialSharks', 'seed']
 
 const waTor = defineDiversion<typeof waTorSchema, WaTorState, '2d'>({
-  id: 'wa-tor',
-  title: 'Wa-Tor',
-  description: 'Dewdney’s predator-prey ocean: fish bloom, a shark front culls them, sharks starve back down, and the population waves roll on forever.',
-  kind: '2d',
+  ...meta,
   schema: waTorSchema,
 
   setup(_ctx, config, size) {

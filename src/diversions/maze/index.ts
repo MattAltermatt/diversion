@@ -9,6 +9,7 @@ import {
   generateMaze, solveOps, mazeLayout,
   N, E, S, W, type Layout,
 } from './maze'
+import { meta } from './meta'
 
 type Phase = 'carve' | 'solve' | 'hold' | 'fade'
 
@@ -122,11 +123,7 @@ function subSeedFor(cfg: MazeConfig, regen: number): number {
 }
 
 const maze = defineDiversion<typeof mazeSchema, MazeState, '2d'>({
-  id: 'maze',
-  title: 'Maze',
-  description: 'A perfect maze carves itself into being, then a solver floods through it and '
-    + 'lights the path from entrance to exit — endlessly reseeding. After xscreensaver’s maze.',
-  kind: '2d',
+  ...meta,
   schema: mazeSchema,
 
   setup(_ctx, config, size: Size) {

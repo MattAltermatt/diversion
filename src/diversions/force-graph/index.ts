@@ -6,6 +6,7 @@ import {
   createLayout, stepLayout, updateView, settleThreshold, type LayoutState,
 } from './graph'
 import { renderGraph } from './render'
+import { meta } from './meta'
 
 // Once the layout has come to rest and held this long, the piece reseeds a fresh
 // graph that untangles again — the right unattended-screensaver loop.
@@ -14,10 +15,7 @@ const SETTLE_HOLD_MS = 9000
 const MAX_STEPS = 6000
 
 const forceGraph = defineDiversion<typeof forceGraphSchema, LayoutState, '2d'>({
-  id: 'force-graph',
-  title: 'Force-Directed Graph',
-  description: 'A knotted tangle of nodes and links springs apart — communities bloom into clusters and settle into an elegant network, then reseeds.',
-  kind: '2d',
+  ...meta,
   schema: forceGraphSchema,
 
   setup(ctx, config, size) {

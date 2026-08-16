@@ -4,6 +4,7 @@ import {
   createLifeState, generation, renderLife, resizeLife, applyColors, ruleMasks, type LifeState,
 } from './life'
 import { stylePresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 const MAX_GENS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
@@ -13,10 +14,7 @@ const presets: PresetGroup<GameOfLifeConfig>[] = [
 ]
 
 const gameOfLife = defineDiversion<typeof gameOfLifeSchema, LifeState, '2d'>({
-  id: 'game-of-life',
-  title: 'Game of Life',
-  description: 'Conway’s cellular automaton and its cousins — cells born and dying by their neighbours, tinted by age and trailing soft ghosts as they pass; when the board settles it reseeds into fresh chaos.',
-  kind: '2d',
+  ...meta,
   schema: gameOfLifeSchema,
   presets,
 

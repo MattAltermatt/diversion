@@ -17,6 +17,7 @@ import { VIEW_RADIUS, type Camera } from './pack'
 import {
   initGPU, runFrame, resizeGPU, writeParams, writeView, writeFade, disposeGPU, type GpuResources,
 } from './gpu'
+import { meta } from './meta'
 
 interface State {
   ctx: GPUCanvasContext
@@ -112,11 +113,7 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
 }
 
 const swarmalators = defineDiversion<typeof swarmalatorsSchema, State, 'webgpu'>({
-  id: 'swarmalators',
-  title: 'Swarmalators',
-  description:
-    'Particles that swarm in space and sync in phase at once — each one\'s colour is its inner rhythm. Tune two couplings to slide between a frozen rainbow ring, a shattering of colour clusters, and a slowly rotating living annulus. Scroll to zoom, drag to pan. A new world every seed.',
-  kind: 'webgpu',
+  ...meta,
   schema: swarmalatorsSchema,
   presets: swarmalatorsPresets,
 

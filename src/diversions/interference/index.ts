@@ -4,6 +4,7 @@ import {
   initGL, render, disposeGL, buildSources, buildPalette, type InterferenceGL, type SourceSet,
 } from './interference'
 import { flowPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type InterferenceState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -27,12 +28,7 @@ const presets: PresetGroup<InterferenceConfig>[] = [
 ]
 
 const interference = defineDiversion<typeof interferenceSchema, InterferenceState, 'webgl'>({
-  id: 'interference',
-  title: 'Interference',
-  description: 'Clean-room port of Hannu Mallat’s 1998 xscreensaver hack "interference" — '
-    + 'circular ripples from several moving sources sum into a shifting, colour-cycled '
-    + 'wave-height field.',
-  kind: 'webgl',
+  ...meta,
   schema: interferenceSchema,
   presets,
 

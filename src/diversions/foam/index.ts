@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { foamSchema, type FoamConfig } from './schema'
 import { initGL, render, uploadLUT, refreshWallColor, disposeGL, type FoamGL } from './gl'
 import { foamPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 type FoamState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,12 +18,7 @@ const presets: PresetGroup<FoamConfig>[] = [
 ]
 
 const foam = defineDiversion<typeof foamSchema, FoamState, 'webgl'>({
-  id: 'foam',
-  title: 'Foam Coarsening',
-  description: 'A 2D soap froth that coarsens forever: smooth curved cell walls meet at Plateau '
-    + 'junctions, small bubbles shrink and pop, and the survivors grow without bound — curvature-'
-    + 'driven grain growth on eight order-parameter fields.',
-  kind: 'webgl',
+  ...meta,
   schema: foamSchema,
 
   setup(gl, cfg, size: Size) {

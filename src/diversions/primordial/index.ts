@@ -4,6 +4,7 @@ import { defineDiversion, type Size } from '../../framework/types'
 import { primordialSchema, toPPSConfig, type PrimordialConfig } from './schema'
 import { createSystem, stepSystem, type PPSystem } from './pps'
 import { makeRenderState, buildLut, drawSystem, type RenderState } from './render'
+import { meta } from './meta'
 
 interface State {
   sys: PPSystem
@@ -17,10 +18,7 @@ interface State {
 const STRUCTURAL: (keyof PrimordialConfig)[] = ['particleCount', 'radius', 'seed']
 
 const primordial = defineDiversion<typeof primordialSchema, State, '2d'>({
-  id: 'primordial',
-  title: 'Primordial',
-  description: 'Thousands of identical particles obey one tiny motion law — turn toward your more crowded side — and, from that single rule, spontaneously condense into wandering cell-like membranes that grow, pulse, and divide. Artificial life from nothing.',
-  kind: '2d',
+  ...meta,
   schema: primordialSchema,
 
   setup(_ctx, cfg, size): State {

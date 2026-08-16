@@ -9,13 +9,10 @@ import {
   createHaloState, stepHalo, drawHalo, updateHaloState, resizeHaloState,
   type HaloState,
 } from './halo'
+import { meta } from './meta'
 
 const halo = defineDiversion<typeof haloSchema, HaloState, '2d'>({
-  id: 'halo',
-  title: 'Halo',
-  description: 'Drifting halos of concentric rings beat into slowly shifting moire '
-    + 'fringe rosettes — luminous, or XOR-cancelling into crisp fringes.',
-  kind: '2d',
+  ...meta,
   schema: haloSchema,
 
   setup(ctx, config, size) {

@@ -4,6 +4,7 @@ import {
   createCloudLifeState, generation, renderCloudLife, resizeCloudLife, applyColors, type CloudLifeState,
 } from './life'
 import { cloudPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 const MAX_GENS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
@@ -13,13 +14,7 @@ const presets: PresetGroup<CloudLifeConfig>[] = [
 ]
 
 const cloudlife = defineDiversion<typeof cloudlifeSchema, CloudLifeState, '2d'>({
-  id: 'cloudlife',
-  title: 'CloudLife',
-  description: 'An aging Conway’s Life: a cell that outlives its max age starts counting triple '
-    + 'toward its neighbours’ next generation, so old formations explode instead of freezing — the '
-    + 'churn reads as slow, billowing clouds that never settle, tinted young to old. Port of Don '
-    + 'Marti’s xscreensaver hack “cloudlife.”',
-  kind: '2d',
+  ...meta,
   schema: cloudlifeSchema,
   presets,
 

@@ -3,6 +3,7 @@ import { dlaSchema, type DLAConfig } from './schema'
 import { advance, applyConfig, createState, type DLAState } from './dla'
 import { render, disposeRender } from './render'
 import { growthPresets, lookPresets } from './presets'
+import { meta } from './meta'
 
 // Once the dendrite has filled the frame it holds a beat, then the framework
 // reseeds a fresh world — the right unattended-screensaver loop.
@@ -14,10 +15,7 @@ const presets: PresetGroup<DLAConfig>[] = [
 ]
 
 const dla = defineDiversion<typeof dlaSchema, DLAState, '2d'>({
-  id: 'dla',
-  title: 'Diffusion-Limited Aggregation',
-  description: 'Wandering dust freezes on contact, assembling a fractal dendrite — frost, coral, lightning.',
-  kind: '2d',
+  ...meta,
   schema: dlaSchema,
 
   setup(_ctx, config, size) {

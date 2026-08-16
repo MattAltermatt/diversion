@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { lyapunovSchema, type LyapunovConfig } from './schema'
 import { initGL, render, disposeGL, computeView, type LyapunovGL } from './lyapunov'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 type LyapunovState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -22,10 +23,7 @@ const presets: PresetGroup<LyapunovConfig>[] = [
 ]
 
 const lyapunov = defineDiversion<typeof lyapunovSchema, LyapunovState, 'webgl'>({
-  id: 'lyapunov',
-  title: 'Lyapunov',
-  description: 'The Markus–Lyapunov "Zircon Zity" fractal — a binary A/B sequence drives the logistic map, and its Lyapunov exponent paints glowing warm stable cities against deep chaotic voids, slowly drifting through parameter space.',
-  kind: 'webgl',
+  ...meta,
   schema: lyapunovSchema,
   presets,
 

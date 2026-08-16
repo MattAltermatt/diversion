@@ -2,21 +2,14 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { delaunayMeshSchema, type DelaunayMeshConfig } from './schema'
 import { createMeshState, stepMesh, resizeMesh, buildLUT, type MeshState } from './mesh'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<DelaunayMeshConfig>[] = [
   { label: 'Palette', options: palettePresets },
 ]
 
 const delaunayMesh = defineDiversion<typeof delaunayMeshSchema, MeshState, '2d'>({
-  id: 'delaunay',
-  title: 'Delaunay Mesh',
-  description: 'A field of drifting points, continuously re-triangulated into the ' +
-    'Delaunay mesh that connects each to its nearest neighbours — the empty-circumcircle ' +
-    'condition that also underlies terrain modelling and low-poly art. Rendered as a shifting ' +
-    'web of faceted triangles, like an animated cut crystal. Clean-room port of the xscreensaver ' +
-    'hack "delaunay" (Jamie Zawinski / tessellimage, itself built on Paul Bourke\'s classic ' +
-    'incremental triangulation algorithm).',
-  kind: '2d',
+  ...meta,
   schema: delaunayMeshSchema,
   presets,
 

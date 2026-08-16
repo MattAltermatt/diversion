@@ -11,13 +11,10 @@ import {
   type BinaryRingState,
 } from './binaryRing'
 import { patternPresets, lookPresets } from './presets'
+import { meta } from './meta'
 
 const binaryRing = defineDiversion<typeof binaryRingSchema, BinaryRingState, '2d'>({
-  id: 'binary-ring',
-  title: 'Binary Ring',
-  description: 'Concentric rings count up in binary — arc segments pulse to an '
-    + 'evolving bit pattern behind a warm rising-sun glow. A hypnotic radial clock.',
-  kind: '2d',
+  ...meta,
   schema: binaryRingSchema,
   presets: [
     { label: 'Pattern', options: patternPresets },

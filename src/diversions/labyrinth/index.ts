@@ -10,6 +10,7 @@ import {
   distanceFromExit, rasterizeAttractant,
 } from './maze'
 import { initAgentsAtStart } from './agents'
+import { meta } from './meta'
 
 type LabyrinthState = {
   gl: WebGL2RenderingContext
@@ -57,10 +58,7 @@ const presets: PresetGroup<LabyrinthConfig>[] = [
 ]
 
 const labyrinth = defineDiversion<typeof labyrinthSchema, LabyrinthState, 'webgl'>({
-  id: 'labyrinth',
-  title: 'Labyrinth',
-  description: 'A slime mold explores a maze, grows to the far corner, and lights the shortest path.',
-  kind: 'webgl',
+  ...meta,
   schema: labyrinthSchema,
 
   setup(gl, cfg, size: Size) {

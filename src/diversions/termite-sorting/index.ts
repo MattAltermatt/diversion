@@ -2,15 +2,13 @@ import { defineDiversion } from '../../framework/types'
 import { termiteSortingSchema, type TermiteSortingConfig } from './schema'
 import { advance, createTermiteState, render, type TermiteState } from './termites'
 import { termitePresets } from './presets'
+import { meta } from './meta'
 
 // Editing any of these re-scatters the world; everything else applies live.
 const STRUCTURAL: (keyof TermiteSortingConfig)[] = ['gridResolution', 'chipDensity', 'colorCount', 'termiteCount', 'seed']
 
 const termiteSorting = defineDiversion<typeof termiteSortingSchema, TermiteState, '2d'>({
-  id: 'termite-sorting',
-  title: 'Termite Sorting',
-  description: 'Blind termites tidy a scattered mess of chips into a few color-sorted piles — order from local ignorance.',
-  kind: '2d',
+  ...meta,
   schema: termiteSortingSchema,
 
   setup(_ctx, config, size) {

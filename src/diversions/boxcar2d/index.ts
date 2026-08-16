@@ -21,6 +21,7 @@ import { randomGenome, EVOLVE_RANGES, type Genome } from './genome'
 import { carFitness } from './fitness'
 import { drawScene } from './render'
 import { saveRun, loadRun, clearRun, sameRun, type RunBlob } from './persistence'
+import { meta } from './meta'
 
 // Mechanism constants (not user-facing balance — the schema owns the tunables).
 const GRAVITY = -10 // m/s²
@@ -367,11 +368,7 @@ function stepCar(state: BoxCarState): void {
 }
 
 export default defineDiversion<typeof boxcar2dSchema, BoxCarState, '2d'>({
-  id: 'boxcar2d',
-  title: 'BoxCar2D',
-  description:
-    'A genetic algorithm evolves little 2D cars across an endless hilly track — watch them go from flailing wrecks to confident hill-climbers, generation by generation. Clean-room remake of BoxCar2D (Rafael Matsunaga).',
-  kind: '2d',
+  ...meta,
   schema: boxcar2dSchema,
   presets: boxcar2dPresets,
 

@@ -13,6 +13,7 @@ import { ORBITS, CYCLE_ALL, initialState, orbitIndexByName } from './orbits'
 import { makeScratch, rk4Step, type RK4Scratch } from './integrator'
 import { mulberry32 } from '../../framework/rng'
 import { parseHex6, rgba, type RGBA } from '../../framework/color'
+import { meta } from './meta'
 
 // ── Integration & pacing constants ──
 // Absolute RK4 step (natural time units). Small enough that the curated orbits'
@@ -267,12 +268,7 @@ function makeOrder(cfg: ThreeBodyConfig): { order: number[]; cycling: boolean; a
 }
 
 const threeBody = defineDiversion<typeof threeBodySchema, ThreeBodyState, '2d'>({
-  id: 'three-body',
-  title: 'Three-Body Choreographies',
-  description: 'A catalogue of real periodic three-body orbits — Šuvakov–Dmitrašinović, Simó’s '
-    + 'figure-eight and more — integrated numerically. Three bodies chase each other around a fixed '
-    + 'closed choreography, each leaving a glowing trail, cycling one at a time forever.',
-  kind: '2d',
+  ...meta,
   schema: threeBodySchema,
   presets,
 

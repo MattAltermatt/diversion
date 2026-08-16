@@ -10,14 +10,10 @@ import { pinionSchema } from './schema'
 import {
   createPinionState, stepPinion, drawPinion, updatePinion, type PinionState,
 } from './pinion'
+import { meta } from './meta'
 
 const pinion = defineDiversion<typeof pinionSchema, PinionState, '2d'>({
-  id: 'pinion',
-  title: 'Pinion',
-  description: 'A connected train of interlocking gears turning in perfect mesh — '
-    + 'teeth dropping cleanly into gaps, brass and jewel wheels of many sizes spinning '
-    + 'a hypnotic clockwork.',
-  kind: '2d',
+  ...meta,
   schema: pinionSchema,
 
   setup(ctx, config, size) {

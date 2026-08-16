@@ -8,6 +8,7 @@ import {
   reseedDemon, shouldReseedDemon, type DemonState,
 } from './demon'
 import { palettePresets, patternPresets } from './presets'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 4
 
@@ -24,12 +25,7 @@ function paintAll(st: DemonState, ctx: CanvasRenderingContext2D): void {
 }
 
 const demon = defineDiversion<typeof demonSchema, DemonState, '2d'>({
-  id: 'demon',
-  title: 'Demon',
-  description: 'A cyclic cellular automaton: each cell is eaten by the next color in a ring, '
-    + 'and rotating spiral “demons” self-organize out of pure noise. After David Griffeath’s '
-    + 'cyclic CA (xscreensaver’s demon).',
-  kind: '2d',
+  ...meta,
   schema: demonSchema,
   presets,
 

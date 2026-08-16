@@ -2,6 +2,7 @@ import { defineDiversion } from '../../framework/types'
 import { redQueenSchema, type RedQueenConfig } from './schema'
 import { advance, buildColors, buildKernel, createRedQueenState, render, type RedQueenState } from './redQueen'
 import { redQueenPresets } from './presets'
+import { meta } from './meta'
 
 // Changing the genotype count or the seed rebuilds the run; the rest — virulence,
 // pressure, mutation, colours, speed, AND match breadth (the kernel rebuilds live) —
@@ -9,10 +10,7 @@ import { redQueenPresets } from './presets'
 const STRUCTURAL: (keyof RedQueenConfig)[] = ['genotypeCount', 'seed']
 
 const redQueen = defineDiversion<typeof redQueenSchema, RedQueenState, '2d'>({
-  id: 'red-queen',
-  title: 'Red Queen',
-  description: 'Hosts and parasites chase each other’s genes forever — the common type gets targeted and crashes while a rare type rises, an endless out-of-phase wave of colour.',
-  kind: '2d',
+  ...meta,
   schema: redQueenSchema,
 
   setup(_ctx, config, size) {

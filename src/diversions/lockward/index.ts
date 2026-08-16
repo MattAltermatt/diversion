@@ -10,13 +10,10 @@ import {
   createLockwardState, stepLockward, drawLockward, updateLockward,
   type LockwardState,
 } from './lockward'
+import { meta } from './meta'
 
 const lockward = defineDiversion<typeof lockwardSchema, LockwardState, '2d'>({
-  id: 'lockward',
-  title: 'Lockward',
-  description: 'Concentric rings of radial blades counter-rotate into an '
-    + 'interlocking clockwork churn — a luminous, kaleidoscopic rose window.',
-  kind: '2d',
+  ...meta,
   schema: lockwardSchema,
 
   setup(ctx, config, size) {

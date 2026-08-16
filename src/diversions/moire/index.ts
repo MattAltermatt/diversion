@@ -8,17 +8,14 @@ import {
   type MoireState,
 } from './moire'
 import { stylePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<MoireConfig>[] = [
   { label: 'Style', options: stylePresets },
 ]
 
 const moire = defineDiversion<typeof moireSchema, MoireState, '2d'>({
-  id: 'moire',
-  title: 'Moire',
-  description: 'Concentric rings expand from drifting centers and interfere into '
-    + 'shifting moire — glowing, filled op-art parity, or thin cancelling lines.',
-  kind: '2d',
+  ...meta,
   schema: moireSchema,
   presets,
 

@@ -8,6 +8,7 @@ import {
   createBrainState, stepBrain, renderBrain, resizeBrain, updateBrain, type BrainState,
 } from './brain'
 import { lookPresets } from './presets'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
@@ -16,13 +17,7 @@ const presets: PresetGroup<BriansBrainConfig>[] = [
 ]
 
 const briansBrain = defineDiversion<typeof briansBrainSchema, BrainState, '2d'>({
-  id: 'brians-brain',
-  title: 'Brian’s Brain',
-  description: 'Two excitable cellular automata by Brian Silverman. Brian’s Brain — cells wake, '
-    + 'flash, and die by their neighbours, spawning endless diagonal spaceships that stream across '
-    + 'a dark field and never settle. Switch rules for Wireworld, where electron heads and tails '
-    + 'race along the conductive filaments that thread through the field.',
-  kind: '2d',
+  ...meta,
   schema: briansBrainSchema,
   presets,
 

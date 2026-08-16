@@ -5,6 +5,7 @@ import { flockVsHunterSchema, type FlockVsHunterConfig } from './schema'
 import { flockVsHunterPresets } from './presets'
 import { createSim, stepSim, type Ecosystem, type SimConfig } from './sim'
 import { drawScene } from './render'
+import { meta } from './meta'
 
 interface State {
   sim: Ecosystem
@@ -20,10 +21,7 @@ const toSimConfig = (c: FlockVsHunterConfig): SimConfig => ({
 })
 
 const flockVsHunter = defineDiversion({
-  id: 'flock-vs-hunter',
-  title: 'Flock vs Hunter',
-  description: 'A shimmering flock and its predators co-evolve — the selfish herd tightens, the hunters learn to lead. An endless Red-Queen arms race.',
-  kind: '2d',
+  ...meta,
   schema: flockVsHunterSchema,
   presets: flockVsHunterPresets,
 

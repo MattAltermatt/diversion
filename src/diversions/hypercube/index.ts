@@ -11,6 +11,7 @@ import {
   type PolytopeMesh, type PlaneRotation, type Projected, type SeedState,
 } from './geometry'
 import { parseHex6, mix, rgba, hslToRgb, type RGB } from '../../framework/color'
+import { meta } from './meta'
 
 const TAU = Math.PI * 2
 // Fraction of the short screen side the wireframe fills; distance-compensated so the
@@ -91,12 +92,7 @@ function edgeColor(cfg: HypercubeConfig, near: RGB, far: RGB, idx: number, count
 }
 
 const hypercube = defineDiversion<typeof hypercubeSchema, HypercubeState, '2d'>({
-  id: 'hypercube',
-  title: 'Hypercube',
-  description: 'A glowing 4-D wireframe tesseract endlessly turning inside-out through the '
-    + 'fourth dimension — the inner cube swelling to become the outer and back. Also a '
-    + '16-cell and a 5-cube.',
-  kind: '2d',
+  ...meta,
   schema: hypercubeSchema,
 
   setup(ctx, config, size) {

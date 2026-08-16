@@ -5,6 +5,7 @@ import { outbreakSchema, type OutbreakConfig } from './schema'
 import { outbreakPresets } from './presets'
 import { createSim, stepSim, isResolved, type Ecosystem, type SimConfig } from './sim'
 import { drawScene } from './render'
+import { meta } from './meta'
 
 interface State {
   sim: Ecosystem
@@ -24,10 +25,7 @@ const toSimConfig = (c: OutbreakConfig): SimConfig => ({
 })
 
 const outbreak = defineDiversion({
-  id: 'outbreak',
-  title: 'Outbreak',
-  description: 'A three-faction arena: fighters recruit and the horde bites, both draining a crowd of civilians. Watch who wins — then it reseeds into a fresh outbreak.',
-  kind: '2d',
+  ...meta,
   schema: outbreakSchema,
   presets: outbreakPresets,
 

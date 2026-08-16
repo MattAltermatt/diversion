@@ -3,6 +3,7 @@ import { foragersSchema, type ForagersConfig } from './schema'
 import { createArena, stepArena, type Arena } from './arena'
 import { drawArena } from './render'
 import { foragersPresets } from './presets'
+import { meta } from './meta'
 
 interface State { arena: Arena; cfg: ForagersConfig; size: Size }
 
@@ -11,10 +12,7 @@ interface State { arena: Arena; cfg: ForagersConfig; size: Size }
 const STRUCTURAL: (keyof ForagersConfig)[] = ['creatureCount', 'foodCount', 'poisonCount', 'hiddenNeurons', 'sensorCount', 'seed']
 
 const foragers = defineDiversion<typeof foragersSchema, State, '2d'>({
-  id: 'foragers',
-  title: 'Foragers',
-  description: 'A single population evolves tiny brains to find food and dodge poison — no adversary, just visibly getting smarter at the same task, generation over generation.',
-  kind: '2d',
+  ...meta,
   schema: foragersSchema,
   presets: foragersPresets,
 

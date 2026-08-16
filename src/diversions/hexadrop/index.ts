@@ -10,6 +10,7 @@ import {
   createState, stepRipples, updateState, resizeState, cellColor,
   type HexadropState,
 } from './ripples'
+import { meta } from './meta'
 
 const SCALE_BOOST = 0.24 // how much a fully-lit hex swells (fraction of its radius)
 const MIN_LIT = 0.012 // below this a cell is treated as still water (no fill)
@@ -61,12 +62,7 @@ function render(state: HexadropState, ctx: CanvasRenderingContext2D): void {
 }
 
 const hexadrop = defineDiversion<typeof hexadropSchema, HexadropState, '2d'>({
-  id: 'hexadrop',
-  title: 'Hexadrop',
-  description: 'Raindrops on a hex pond: drops land at random cells and send concentric '
-    + 'ripples across the lattice, brightening and recolouring each ring of hexes they pass. '
-    + 'Overlapping ripples interfere into slow, shifting patterns.',
-  kind: '2d',
+  ...meta,
   schema: hexadropSchema,
 
   setup(ctx, config, size) {

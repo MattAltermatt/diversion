@@ -8,6 +8,7 @@ import { percolationSchema, type PercolationConfig } from './schema'
 import { advance, applyConfig, createState, type PercolationState } from './percolation'
 import { render, disposeRender } from './render'
 import { sweepPresets, colourPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<PercolationConfig>[] = [
   { label: 'Sweep', options: sweepPresets },
@@ -15,11 +16,7 @@ const presets: PresetGroup<PercolationConfig>[] = [
 ]
 
 const percolation = defineDiversion<typeof percolationSchema, PercolationState, '2d'>({
-  id: 'percolation',
-  title: 'Percolation',
-  description: 'Open sites scatter across a lattice; as their density crosses criticality a lacy '
-    + 'fractal cluster abruptly spans the whole grid — the giant-component phase transition.',
-  kind: '2d',
+  ...meta,
   schema: percolationSchema,
   presets,
 

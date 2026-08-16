@@ -4,6 +4,7 @@ import { generateSchedule } from './schedule'
 import { dropRadiusAt, combPullAt, vortexStrengthAt, type Operation } from './ops'
 import { initGL, render, packColors, disposeGL, MAX_OPS, type PaperMarblingGL } from './gl'
 import { patternPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 // Sheet cycle (base-ms, scaled by cfg.speed): construct the sheet, hold it a beat, dissolve
 // to blank paper, then shouldRestart reseeds a fresh sheet (dla's hold→reseed idiom).
@@ -82,10 +83,7 @@ const presets: PresetGroup<PaperMarblingConfig>[] = [
 ]
 
 const paperMarbling = defineDiversion<typeof paperMarblingSchema, MarblingState, 'webgl'>({
-  id: 'paper-marbling',
-  title: 'Paper Marbling',
-  description: 'Ebru & Suminagashi by exact closed-form maths — ink drops bloom, rakes comb them into peacock veins.',
-  kind: 'webgl',
+  ...meta,
   schema: paperMarblingSchema,
 
   setup(gl, cfg, _size) {

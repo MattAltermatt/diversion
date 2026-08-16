@@ -4,6 +4,7 @@ import { ablationPresets } from './presets'
 import { createState, step, applyConfig, resizeState, type AblationState } from './ablation'
 import { render } from './render'
 import { rehydrate } from '../../framework/imageStore'
+import { meta } from './meta'
 
 // Ablation: a quantized contour-map picture sits in the middle; a rectangular
 // track just outside it carries turrets that each hunt ONE palette colour. A turret
@@ -11,10 +12,7 @@ import { rehydrate } from '../../framework/imageStore'
 // discharges, and ejects dark. The picture is peeled from the outside in until
 // nothing is left, the track goes quiet, and a new picture resolves in.
 const ablation = defineDiversion<typeof ablationSchema, AblationState, '2d'>({
-  id: 'ablation',
-  title: 'Ablation',
-  description: 'Turrets ride a track and peel a contour map, one colour at a time.',
-  kind: '2d',
+  ...meta,
   schema: ablationSchema,
   presets: ablationPresets,
 

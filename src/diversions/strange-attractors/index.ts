@@ -5,6 +5,7 @@ import {
   MAPS, sampleCoeffs, driftedCoeffs, attractorColorT, screenScale, type Coeffs,
 } from './attractors'
 import { attractorPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 interface AttractorState {
   cfg: StrangeAttractorsConfig
@@ -55,10 +56,7 @@ const presets: PresetGroup<StrangeAttractorsConfig>[] = [
 ]
 
 const strangeAttractors = defineDiversion<typeof strangeAttractorsSchema, AttractorState, '2d'>({
-  id: 'strange-attractors',
-  title: 'Strange Attractors',
-  description: 'Chaotic iterated maps painting gossamer density clouds.',
-  kind: '2d',
+  ...meta,
   schema: strangeAttractorsSchema,
 
   setup(ctx, config, size) {

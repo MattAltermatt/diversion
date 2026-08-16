@@ -16,6 +16,7 @@ import {
 } from './slimeAggregation'
 import { renderField } from './render'
 import { patternPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<SlimeAggregationConfig>[] = [
   { label: 'Pattern', options: patternPresets },
@@ -23,10 +24,7 @@ const presets: PresetGroup<SlimeAggregationConfig>[] = [
 ]
 
 const slimeAggregation = defineDiversion<typeof slimeAggregationSchema, SlimeAggregationState, '2d'>({
-  id: 'slime-aggregation',
-  title: 'Slime Aggregation',
-  description: 'Starving amoebae relay a rotating cAMP wave and stream chemotactically along it, branching into rivers that converge into a body — the Dictyostelium slime mold aggregation.',
-  kind: '2d',
+  ...meta,
   schema: slimeAggregationSchema,
   presets,
 

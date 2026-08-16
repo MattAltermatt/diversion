@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { gpuFluidSchema, type GpuFluidConfig } from './schema'
 import { initGL, render, injectBlob, disposeGL, type FluidGL } from './gl'
 import { flowPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 type GpuFluidState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -19,11 +20,7 @@ const presets: PresetGroup<GpuFluidConfig>[] = [
 ]
 
 const gpuFluid = defineDiversion<typeof gpuFluidSchema, GpuFluidState, 'webgl'>({
-  id: 'gpu-fluid',
-  title: 'GPU Fluid',
-  description: 'A real-time Stable-Fluids solver: colored dye swirls into curling vortex '
-    + 'filaments that never settle, self-fed by drifting impulses.',
-  kind: 'webgl',
+  ...meta,
   schema: gpuFluidSchema,
 
   setup(gl, cfg, size: Size) {

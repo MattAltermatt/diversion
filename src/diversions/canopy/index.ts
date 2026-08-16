@@ -2,12 +2,10 @@ import { defineDiversion } from '../../framework/types'
 import { canopySchema } from './schema'
 import { advance, createCanopyState, render, type CanopyState } from './canopy'
 import { canopyPresets } from './presets'
+import { meta } from './meta'
 
 const canopy = defineDiversion<typeof canopySchema, CanopyState, '2d'>({
-  id: 'canopy',
-  title: 'Canopy',
-  description: 'Branching plants race for light, evolving toward runaway height until the cost of trunk reins them back.',
-  kind: '2d',
+  ...meta,
   schema: canopySchema,
 
   setup(_ctx, config, size) {

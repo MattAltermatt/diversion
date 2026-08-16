@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { grayScottSchema, type GrayScottConfig } from './schema'
 import { initGL, render, uploadLUT, disposeGL, type GrayScottGL } from './gl'
 import { patternPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type GrayScottState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,10 +18,7 @@ const presets: PresetGroup<GrayScottConfig>[] = [
 ]
 
 const grayscott = defineDiversion<typeof grayScottSchema, GrayScottState, 'webgl'>({
-  id: 'grayscott',
-  title: 'Gray-Scott',
-  description: 'Two chemicals react and diffuse into coral, mitosis, and maze patterns that never settle.',
-  kind: 'webgl',
+  ...meta,
   schema: grayScottSchema,
 
   setup(gl, cfg, size: Size) {

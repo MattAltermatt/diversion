@@ -3,6 +3,7 @@ import { morphogenSchema, type MorphogenConfig } from './schema'
 import { initGL, render, uploadLUT, uploadTerritoryColors, disposeGL, type MorphogenGL } from './gl'
 import { buildSources, liveSources, type SourceBase } from './sources'
 import { bodyPlanPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 type MorphogenState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -27,10 +28,7 @@ const STRUCTURAL: (keyof MorphogenConfig)[] = [
 ]
 
 const morphogen = defineDiversion<typeof morphogenSchema, MorphogenState, 'webgl'>({
-  id: 'morphogen',
-  title: 'Morphogen',
-  description: 'Diffusing chemicals lay down gradients that cells read into a body plan — territories, eyespots, a French flag.',
-  kind: 'webgl',
+  ...meta,
   schema: morphogenSchema,
 
   setup(gl, cfg, size: Size) {

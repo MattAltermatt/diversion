@@ -2,6 +2,7 @@ import { defineDiversion, type Size } from '../../framework/types'
 import { halftoneSchema } from './schema'
 import { seedMasses, stepMasses, applyStrength, rescaleX, type Mass } from './motion'
 import { initGL, render, disposeGL, type HalftoneGL } from './halftone'
+import { meta } from './meta'
 
 type HalftoneState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -13,10 +14,7 @@ type HalftoneState = {
 }
 
 const halftone = defineDiversion<typeof halftoneSchema, HalftoneState, 'webgl'>({
-  id: 'halftone',
-  title: 'Halftone',
-  description: 'Invisible masses orbiting beneath a newsprint dot screen — the field swells and flows.',
-  kind: 'webgl',
+  ...meta,
   schema: halftoneSchema,
 
   setup(gl, cfg, size: Size) {

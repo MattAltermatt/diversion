@@ -8,16 +8,12 @@ import {
   createForestFireState, stepForestFire, renderForestFire, resizeForestFire, applyColors,
   type ForestFireState,
 } from './forestFire'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 4 // post-stall cap so a dt spike can't jank
 
 const forestFire = defineDiversion<typeof forestFireSchema, ForestFireState, '2d'>({
-  id: 'forest-fire',
-  title: 'Forest Fire',
-  description: 'The classic self-organized-criticality automaton: a forest regrows forever while '
-    + 'rare lightning ignites fires of every size — from a single tree to a grid-spanning front — '
-    + 'that sweep outward and green over again.',
-  kind: '2d',
+  ...meta,
   schema: forestFireSchema,
 
   setup(ctx, config, size) {

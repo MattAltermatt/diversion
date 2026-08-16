@@ -2,16 +2,14 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { decoSchema, type DecoConfig } from './schema'
 import { createDecoState, rebuild, renderDeco, type DecoState } from './deco'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<DecoConfig>[] = [
   { label: 'Palette', options: palettePresets },
 ]
 
 const deco = defineDiversion<typeof decoSchema, DecoState, '2d'>({
-  id: 'deco',
-  title: 'Deco',
-  description: 'An art-deco composition builds itself: a single rectangle subdivides again and again by the golden ratio into a De Stijl mosaic of colour, settling into place depth by depth, then clearing to compose anew.',
-  kind: '2d',
+  ...meta,
   schema: decoSchema,
   presets,
 

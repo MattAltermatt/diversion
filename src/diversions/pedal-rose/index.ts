@@ -10,6 +10,7 @@ import {
   mulberry32, pickCurve, sampleCurve, petalCount,
   type RoseCurve, type SampledCurve,
 } from './pedal'
+import { meta } from './meta'
 
 const SAMPLES_PER_REV = 720
 const FADE_MS = 850
@@ -110,11 +111,7 @@ function strokeCopy(
 }
 
 const pedalRose = defineDiversion<typeof pedalRoseSchema, PedalState, '2d'>({
-  id: 'pedal-rose',
-  title: 'Pedal & Rose',
-  description: 'A pen traces polar rose curves and their pedal curves — each symmetric '
-    + 'bloom resolves, fades, and reseeds a fresh petal count in an endless loop.',
-  kind: '2d',
+  ...meta,
   schema: pedalRoseSchema,
 
   setup(ctx, cfg, size: Size) {

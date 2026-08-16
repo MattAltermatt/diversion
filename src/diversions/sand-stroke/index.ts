@@ -6,6 +6,7 @@ import { sandStrokeSchema } from './schema'
 import {
   createSandState, stepSand, updateSandState, resizeSandState, type SandState,
 } from './sandStroke'
+import { meta } from './meta'
 
 // The accreting painting lives in a CSS-px ImageData buffer. The main 2D context
 // is DPR-scaled (setTransform(dpr)), and putImageData ignores that transform — so
@@ -25,11 +26,7 @@ function getOffscreen(state: SandState) {
 }
 
 const sandStroke = defineDiversion<typeof sandStrokeSchema, SandState, '2d'>({
-  id: 'sand-stroke',
-  title: 'Sand Stroke',
-  description: 'Grainy sand-painted colour ribbons that accrete across the canvas. '
-    + 'After Jared Tarbell’s Sand Stroke (complexification.net).',
-  kind: '2d',
+  ...meta,
   schema: sandStrokeSchema,
 
   setup(ctx, config, size) {

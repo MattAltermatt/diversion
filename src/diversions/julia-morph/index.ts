@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { juliaMorphSchema, type JuliaMorphConfig } from './schema'
 import { initGL, render, disposeGL, seededPhase, type JuliaGL } from './julia'
 import { familyPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type JuliaState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -21,10 +22,7 @@ const presets: PresetGroup<JuliaMorphConfig>[] = [
 ]
 
 const juliaMorph = defineDiversion<typeof juliaMorphSchema, JuliaState, 'webgl'>({
-  id: 'julia-morph',
-  title: 'Julia Morph',
-  description: 'The Julia set z ← z² + c, with c endlessly orbiting the complex plane so the fractal breathes between dendrites, spirals, and scattered islands — never landing on one shape.',
-  kind: 'webgl',
+  ...meta,
   schema: juliaMorphSchema,
   presets,
 

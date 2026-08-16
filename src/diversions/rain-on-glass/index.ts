@@ -4,16 +4,14 @@ import {
   createState, stepRain, updateState, resizeState, type RainOnGlassState,
 } from './rainOnGlass'
 import { palettePresets, palettePatch } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<RainOnGlassConfig>[] = [
   { label: 'Palette', options: palettePresets.map((p) => ({ name: p.name, patch: palettePatch(p) })) },
 ]
 
 const rainOnGlass = defineDiversion<typeof rainOnGlassSchema, RainOnGlassState, '2d'>({
-  id: 'rain-on-glass',
-  title: 'Rain on Glass',
-  description: 'Droplets condense, merge, and slide down a rain-streaked window over blurred city lights.',
-  kind: '2d',
+  ...meta,
 
   schema: rainOnGlassSchema,
 

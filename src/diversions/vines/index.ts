@@ -10,6 +10,7 @@ import {
 } from './vines'
 import { renderVines } from './render'
 import { vinePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<VinesConfig>[] = [
   { label: 'Vine', options: vinePresets },
@@ -17,10 +18,7 @@ const presets: PresetGroup<VinesConfig>[] = [
 ]
 
 const vines = defineDiversion<typeof vinesSchema, VineState, '2d'>({
-  id: 'vines',
-  title: 'Vines',
-  description: 'L-system tendrils climbing and branching upward, then fading to regrow.',
-  kind: '2d',
+  ...meta,
   schema: vinesSchema,
 
   setup(ctx, config, size) {

@@ -3,12 +3,10 @@ import { toHex2 } from '../../framework/gradient'
 import { rgba } from '../../framework/color'
 import { starfieldSchema } from './schema'
 import { createStarfieldState, stepFrame, type StarfieldState } from './starfield'
+import { meta } from './meta'
 
 const starfield = defineDiversion<typeof starfieldSchema, StarfieldState, '2d'>({
-  id: 'starfield',
-  title: 'Starfield',
-  description: 'Flying through space — stars streaming from a vanishing point, from a calm drift to a full hyperspace warp.',
-  kind: '2d',
+  ...meta,
   schema: starfieldSchema,
 
   setup(ctx, config, size) {

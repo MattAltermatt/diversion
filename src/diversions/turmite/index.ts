@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { turmiteSchema, type TurmiteConfig } from './schema'
 import { createTurmiteState, advance, fillBackground, hex8ToRgba, type TurmiteState } from './turmite'
 import { rulePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<TurmiteConfig>[] = [
   { label: 'Rule', options: rulePresets },
@@ -9,10 +10,7 @@ const presets: PresetGroup<TurmiteConfig>[] = [
 ]
 
 const turmite = defineDiversion<typeof turmiteSchema, TurmiteState, '2d'>({
-  id: 'turmite',
-  title: 'Turmite',
-  description: 'A generalized Langton’s ant: ants turn by the colour beneath them, leaving emergent highways, spirals, and fractal growth.',
-  kind: '2d',
+  ...meta,
   schema: turmiteSchema,
 
   setup(ctx, config, size) {

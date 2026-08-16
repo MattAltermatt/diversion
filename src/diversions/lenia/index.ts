@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { leniaSchema, type LeniaConfig } from './schema'
 import { initGL, render, uploadLUT, uploadKernel, disposeGL, type LeniaGL } from './gl'
 import { patternPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type LeniaState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,10 +18,7 @@ const presets: PresetGroup<LeniaConfig>[] = [
 ]
 
 const lenia = defineDiversion<typeof leniaSchema, LeniaState, 'webgl'>({
-  id: 'lenia',
-  title: 'Lenia',
-  description: 'A continuous Game of Life — a living broth where glowing cells endlessly condense, swim, merge, and dissolve.',
-  kind: 'webgl',
+  ...meta,
   schema: leniaSchema,
 
   setup(gl, cfg, size: Size) {

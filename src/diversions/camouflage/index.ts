@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { camouflageSchema, type CamouflageConfig } from './schema'
 import { advance, createCamouflageState, render, type CamouflageState } from './camouflage'
 import { camouflagePresets } from './presets'
+import { meta } from './meta'
 
 // The habitat (background/pattern/seed) and the population size rebuild the world;
 // predator pressure, mutation, flutter, colours, and speed apply live.
 const STRUCTURAL: (keyof CamouflageConfig)[] = ['background', 'patternScale', 'mothCount', 'seed']
 
 const camouflage = defineDiversion<typeof camouflageSchema, CamouflageState, '2d'>({
-  id: 'camouflage',
-  title: 'Camouflage',
-  description: 'Moths evolve to vanish into a textured background while a predator sharpens its eye to find them — watch a whole population sink into the pattern, generation by generation.',
-  kind: '2d',
+  ...meta,
   schema: camouflageSchema,
 
   setup(_ctx, config, size) {

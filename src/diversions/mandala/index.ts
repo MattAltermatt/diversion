@@ -5,6 +5,7 @@ import {
   REVEAL_SPAN, type Mandala, type Rgb,
 } from './mandala'
 import { palettePresets, motifPresets } from './presets'
+import { meta } from './meta'
 
 const MARGIN = 0.94 // fraction of the half-min-dimension the outer ring reaches
 
@@ -46,12 +47,7 @@ function resetBuffer(s: MandalaState) {
 }
 
 const mandala = defineDiversion<typeof mandalaSchema, MandalaState, '2d'>({
-  id: 'mandala',
-  title: 'Mandala',
-  description: 'A jewel-toned kaleidoscopic mandala blooms itself into being — ring by ring of '
-    + 'petals, lotus points and dots repeated in perfect N-fold symmetry — then holds, fades, '
-    + 'and reseeds a fresh one, endlessly.',
-  kind: '2d',
+  ...meta,
   schema: mandalaSchema,
 
   setup(ctx, config, size) {

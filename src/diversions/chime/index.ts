@@ -5,6 +5,7 @@ import { palettePresets, rhythmPresets } from './presets'
 import {
   createChimeState, stepChime, rippleAmplitude, rippleTone, type ChimeState,
 } from './chime'
+import { meta } from './meta'
 
 // A ripple is drawn analytically, not as a persistence trail: an annulus filled
 // with a radial gradient that runs from transparent at the inner edge to bright
@@ -55,13 +56,7 @@ function structuralKey(c: ChimeConfig): string {
 }
 
 const chime = defineDiversion<typeof chimeSchema, ChimeState, '2d'>({
-  id: 'chime',
-  title: 'Chime',
-  description: 'A still field of wells, each filling with energy at its own pace. A full well '
-    + 'rings out — a wavefront that expands exactly as far as the energy it released, tipping '
-    + 'every charged well it sweeps over into ringing too. Chains, silences and standing '
-    + 'interference emerge from nothing but filling and spilling.',
-  kind: '2d',
+  ...meta,
   schema: chimeSchema,
   presets: [
     { label: 'Palette', options: palettePresets },

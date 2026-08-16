@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { neuralCaSchema, type NeuralCaConfig } from './schema'
 import { texturePresets } from './presets'
 import { initGL, step, render, disposeGL, simGrid, stepSeed, type NeuralCaGL } from './gl'
+import { meta } from './meta'
 
 type NeuralCaState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -17,11 +18,7 @@ const presets: PresetGroup<NeuralCaConfig>[] = [
 ]
 
 const neuralCa = defineDiversion<typeof neuralCaSchema, NeuralCaState, 'webgl'>({
-  id: 'neural-ca',
-  title: 'Neural CA',
-  description:
-    'A learned cellular automaton: each cell runs a tiny pretrained neural net over its hex neighbourhood, growing an endless churning texture. After Mordvintsev & Niklasson, Self-Organising Textures.',
-  kind: 'webgl',
+  ...meta,
   schema: neuralCaSchema,
   presets,
 

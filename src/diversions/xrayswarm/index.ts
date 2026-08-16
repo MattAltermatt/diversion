@@ -10,18 +10,14 @@ import {
   type XraySwarmState,
 } from './xraySwarm'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<XraySwarmConfig>[] = [
   { label: 'Palette', options: palettePresets.map((p) => ({ name: p.name, patch: p.patch })) },
 ]
 
 const xraySwarm = defineDiversion<typeof xraySwarmSchema, XraySwarmState, '2d'>({
-  id: 'xrayswarm',
-  title: 'X-Ray Swarm',
-  description: 'Swarms of luminous agents chase their own wandering leader, each dragging a '
-    + 'glowing, filament-thin trail that weaves and crosses into an X-ray tangle. A clean-room take '
-    + 'on Chris Leger’s xscreensaver hack "xrayswarm", itself an homage to SGI’s "swarm" screensaver.',
-  kind: '2d',
+  ...meta,
   schema: xraySwarmSchema,
 
   setup(ctx, config, size) {

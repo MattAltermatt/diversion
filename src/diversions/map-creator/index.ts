@@ -8,16 +8,12 @@ import {
   createState, resizeState, applyConfig, stepState, draw, isDone, type MapCreatorState,
 } from './render'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<MapCreatorConfig>[] = [{ label: 'Palette', options: palettePresets }]
 
 const mapCreator = defineDiversion<typeof mapCreatorSchema, MapCreatorState, '2d'>({
-  id: 'map-creator',
-  title: 'Map Creator',
-  description: 'A fantasy continent draws itself into being on parchment — sea, then ink '
-    + 'coastlines, biomes washing in by elevation, and rivers finding their way to the sea — '
-    + 'before the finished map dissolves and a fresh world begins.',
-  kind: '2d',
+  ...meta,
   schema: mapCreatorSchema,
   presets,
 

@@ -4,6 +4,7 @@ import { sampleGradient } from '../../framework/gradient'
 import { phyllotaxisSchema, type PhyllotaxisConfig } from './schema'
 import { writeSitePositions, writeFlowPositions, diskRadius, divergenceAt } from './phyllotaxis'
 import { formPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 const LUT_SIZE = 512 // palette samples cached once per config so fills are a lookup
 const DEG2RAD = Math.PI / 180
@@ -48,10 +49,7 @@ function mod(a: number, n: number): number {
 }
 
 const phyllotaxis = defineDiversion<typeof phyllotaxisSchema, PhyllotaxisState, '2d'>({
-  id: 'phyllotaxis',
-  title: 'Phyllotaxis',
-  description: 'A golden-angle fountain: shapes are born at the centre and stream outward forever.',
-  kind: '2d',
+  ...meta,
   schema: phyllotaxisSchema,
 
   setup(ctx, config, size) {

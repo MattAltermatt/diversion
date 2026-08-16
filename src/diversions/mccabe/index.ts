@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { mccabeSchema, type MccabeConfig } from './schema'
 import { initGL, render, uploadLUT, setScale, disposeGL, type MccabeGL } from './gl'
 import { palettePresets, patternPresets } from './presets'
+import { meta } from './meta'
 
 type MccabeState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -15,10 +16,7 @@ const presets: PresetGroup<MccabeConfig>[] = [
 ]
 
 const mccabe = defineDiversion<typeof mccabeSchema, MccabeState, 'webgl'>({
-  id: 'mccabe',
-  title: 'McCabe',
-  description: "Jonathan McCabe's multi-scale Turing patterns: at every point the field measures its surroundings at a ladder of blur radii, and the scale that fits best nudges it up or down — and out of pure noise grows a living field of fingerprint ridges, reptile-skin cells, and nested organic mazes.",
-  kind: 'webgl',
+  ...meta,
   schema: mccabeSchema,
 
   setup(gl, cfg, size: Size) {

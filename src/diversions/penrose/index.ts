@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup } from '../../framework/types'
 import { penroseSchema, type PenroseConfig } from './schema'
 import { createPenroseState, buildTiling, seededRot, renderPenrose, type PenroseState } from './penrose'
 import { palettePresets } from './presets'
+import { meta } from './meta'
 
 const SPIN_RATE = 0.3 // rad/sec at spin 1
 
@@ -10,10 +11,7 @@ const presets: PresetGroup<PenroseConfig>[] = [
 ]
 
 const penrose = defineDiversion<typeof penroseSchema, PenroseState, '2d'>({
-  id: 'penrose',
-  title: 'Penrose',
-  description: 'The famous aperiodic tiling: two rhombs — one fat, one thin — cover the plane in a five-fold pattern that never repeats, grown by repeatedly subdividing each tile at the golden ratio, and turning forever.',
-  kind: '2d',
+  ...meta,
   schema: penroseSchema,
   presets,
 

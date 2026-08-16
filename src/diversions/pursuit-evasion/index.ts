@@ -3,6 +3,7 @@ import { pursuitEvasionSchema, type PursuitEvasionConfig } from './schema'
 import { createArena, stepArena, type Arena } from './arena'
 import { drawArena } from './render'
 import { pursuitEvasionPresets } from './presets'
+import { meta } from './meta'
 
 interface State { arena: Arena; cfg: PursuitEvasionConfig; size: Size }
 
@@ -11,10 +12,7 @@ interface State { arena: Arena; cfg: PursuitEvasionConfig; size: Size }
 const STRUCTURAL: (keyof PursuitEvasionConfig)[] = ['preyCount', 'predatorCount', 'hiddenNeurons', 'sensorCount', 'seed']
 
 const pursuitEvasion = defineDiversion<typeof pursuitEvasionSchema, State, '2d'>({
-  id: 'pursuit-evasion',
-  title: 'Pursuit-Evasion',
-  description: 'Predators and prey evolve tiny brains against each other — hunters learn to intercept, prey learn to juke, hunters learn to cut the angle. A Red Queen arms race that never settles.',
-  kind: '2d',
+  ...meta,
   schema: pursuitEvasionSchema,
   presets: pursuitEvasionPresets,
 

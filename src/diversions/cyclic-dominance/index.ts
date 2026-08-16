@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { cyclicDominanceSchema, type CyclicDominanceConfig } from './schema'
 import { advance, buildLut, buildRates, createState, render, type CDState } from './cyclicDominance'
 import { cyclicDominancePresets } from './presets'
+import { meta } from './meta'
 
 // Editing the grid shape or the seed re-lays the world; everything else
 // (rates, colours, speed) applies live.
 const STRUCTURAL: (keyof CyclicDominanceConfig)[] = ['gridResolution', 'seed']
 
 const cyclicDominance = defineDiversion<typeof cyclicDominanceSchema, CDState, '2d'>({
-  id: 'cyclic-dominance',
-  title: 'Cyclic Dominance',
-  description: 'Spatial rock-paper-scissors on a lattice — three species chase each other in an endless loop, churning into large, slowly-curling wavefronts of coexistence that never settle.',
-  kind: '2d',
+  ...meta,
   schema: cyclicDominanceSchema,
 
   setup(_ctx, config, size) {

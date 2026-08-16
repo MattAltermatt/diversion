@@ -3,6 +3,7 @@ import { rorschachSchema, type RorschachConfig } from './schema'
 import { advance, applyConfig, createState, type RorschachState } from './rorschach'
 import { render, disposeRender } from './render'
 import { formPresets, inkPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<RorschachConfig>[] = [
   { label: 'Form', options: formPresets },
@@ -10,10 +11,7 @@ const presets: PresetGroup<RorschachConfig>[] = [
 ]
 
 const rorschach = defineDiversion<typeof rorschachSchema, RorschachState, '2d'>({
-  id: 'rorschach',
-  title: 'Rorschach',
-  description: 'A symmetric inkblot blooms, holds, and dissolves — an endless, mirror-perfect Rorschach card.',
-  kind: '2d',
+  ...meta,
   schema: rorschachSchema,
 
   setup(_ctx, config, size) {

@@ -7,6 +7,7 @@ import { apollonianSchema, type ApollonianConfig } from './schema'
 import { advance, applyConfig, createState, isDone, resizeState, type GasketState } from './gasket'
 import { render, disposeRender } from './render'
 import { lookPresets, motionPresets } from './presets'
+import { meta } from './meta'
 
 const presets: PresetGroup<ApollonianConfig>[] = [
   { label: 'Look', options: lookPresets },
@@ -14,11 +15,7 @@ const presets: PresetGroup<ApollonianConfig>[] = [
 ]
 
 const apollonian = defineDiversion<typeof apollonianSchema, GasketState, '2d'>({
-  id: 'apollonian',
-  title: 'Apollonian Gasket',
-  description: 'Mutually-tangent circles packed into every gap by the Descartes Circle Theorem — '
-    + 'a self-similar fractal foam. After xscreensaver’s apollonian.',
-  kind: '2d',
+  ...meta,
   schema: apollonianSchema,
   presets,
 

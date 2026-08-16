@@ -10,6 +10,7 @@ import {
   createLoopsState, stepLoops, tickLifecycle, fadeAlpha,
   updateLoopsState, resizeLoopsState, type LoopsState,
 } from './loops'
+import { meta } from './meta'
 
 const MAX_STEPS_PER_FRAME = 4
 const AGE_PASS_HZ = 2                 // throttle the aged-coral repaint
@@ -54,13 +55,7 @@ function paintAll(rs: RenderState, ctx: CanvasRenderingContext2D): void {
 }
 
 const langtonsLoops = defineDiversion<typeof langtonsLoopsSchema, RenderState, '2d'>({
-  id: 'langtons-loops',
-  title: "Langton's Loops",
-  description:
-    'Christopher Langton’s self-reproducing loops (1984): a looped organism extends a '
-    + 'construction arm and buds off copies, colonising the plane. After xscreensaver’s '
-    + '“loop” by David Bagley.',
-  kind: '2d',
+  ...meta,
   schema: langtonsLoopsSchema,
   presets,
 

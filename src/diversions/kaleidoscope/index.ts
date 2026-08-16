@@ -3,6 +3,7 @@ import { kaleidoscopeSchema, type KaleidoscopeConfig } from './schema'
 import {
   buildShapes, shapePose, sectorMatrix, PALETTES, BASE_GLOBAL_SPIN, type Shape,
 } from './kaleidoscope'
+import { meta } from './meta'
 
 const TAU = Math.PI * 2
 const LEAD = 'rgba(4, 3, 10, 0.72)' // stained-glass leading
@@ -68,10 +69,7 @@ function primPath(ctx: CanvasRenderingContext2D, s: Shape, sizePx: number): void
 }
 
 const kaleidoscope = defineDiversion<typeof kaleidoscopeSchema, KState, '2d'>({
-  id: 'kaleidoscope',
-  title: 'Kaleidoscope',
-  description: 'Tumbling jewel shards mirrored into endless N-fold symmetry.',
-  kind: '2d',
+  ...meta,
   schema: kaleidoscopeSchema,
 
   setup(ctx, config, size) {

@@ -4,6 +4,7 @@ import {
   initGL, render, disposeGL, buildPalette, buildSky, seedOffset, type AuroraGL,
 } from './gl'
 import { activityPresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 type AuroraState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -27,10 +28,7 @@ const presets: PresetGroup<AuroraConfig>[] = [
 ]
 
 const aurora = defineDiversion<typeof auroraSchema, AuroraState, 'webgl'>({
-  id: 'aurora',
-  title: 'Aurora Curtains',
-  description: 'Draping ribbons of light sway and reform across a deep night sky — a slow, meditative aurora borealis.',
-  kind: 'webgl',
+  ...meta,
   schema: auroraSchema,
   presets,
 

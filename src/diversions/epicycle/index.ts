@@ -8,6 +8,7 @@ import { defineDiversion, type Size } from '../../framework/types'
 import { epicycleSchema, type EpicycleConfig } from './schema'
 import { buildArms, sampleCurve, makeRng, type Arm, type SampledCurve } from './epicycle'
 import { parseHex8, mix, rgba, hslToRgb, type RGB } from '../../framework/color'
+import { meta } from './meta'
 
 const TAU = Math.PI * 2
 // Samples along one closed curve — dense enough that even freqSpread=8 reads smooth.
@@ -145,11 +146,7 @@ function drawArms(
 }
 
 const epicycle = defineDiversion<typeof epicycleSchema, EpicycleState, '2d'>({
-  id: 'epicycle',
-  title: 'Epicycle',
-  description: 'Nested rotating arms — Ptolemaic epicycles — swing a pen through glowing '
-    + 'closed roulette curves, holding, fading, and reseeding fresh arms in an endless loop.',
-  kind: '2d',
+  ...meta,
   schema: epicycleSchema,
 
   setup(ctx, config, size: Size) {

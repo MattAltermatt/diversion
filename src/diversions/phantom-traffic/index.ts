@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { phantomTrafficSchema, type PhantomTrafficConfig } from './schema'
 import { advance, buildLut, createTrafficState, render, type TrafficState } from './traffic'
 import { phantomPresets } from './presets'
+import { meta } from './meta'
 
 // Fields whose change reshapes the sim (rebuild lanes/cars) rather than just its
 // look — a change to any of these falls back to a full re-setup.
 const STRUCTURAL: (keyof PhantomTrafficConfig)[] = ['layout', 'lanes', 'roadLength', 'density', 'seed']
 
 const phantomTraffic = defineDiversion<typeof phantomTrafficSchema, TrafficState, '2d'>({
-  id: 'phantom-traffic',
-  title: 'Phantom Traffic',
-  description: 'Stop-and-go jams that nucleate from nothing and crawl backward against the flow.',
-  kind: '2d',
+  ...meta,
   schema: phantomTrafficSchema,
 
   setup(ctx, config, size) {

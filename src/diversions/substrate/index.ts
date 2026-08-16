@@ -7,6 +7,7 @@ import {
   createSubstrateState, stepSubstrate, updateSubstrateState, resizeSubstrateState,
   type SubstrateState,
 } from './substrate'
+import { meta } from './meta'
 
 // The accreting painting lives in a CSS-px ImageData buffer. The main 2D context
 // is DPR-scaled (setTransform(dpr)), and putImageData ignores that transform — so
@@ -26,11 +27,7 @@ function getOffscreen(state: SubstrateState) {
 }
 
 const substrate = defineDiversion<typeof substrateSchema, SubstrateState, '2d'>({
-  id: 'substrate',
-  title: 'Substrate',
-  description: 'Cracks grow and branch at right angles into an organic network, '
-    + 'each washing a soft watercolour cell beside it. After Jared Tarbell’s Substrate (complexification.net).',
-  kind: '2d',
+  ...meta,
   schema: substrateSchema,
 
   setup(ctx, config, size) {

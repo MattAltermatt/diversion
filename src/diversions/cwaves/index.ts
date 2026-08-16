@@ -4,6 +4,7 @@ import {
   initGL, render, disposeGL, buildWaves, buildPalette, type CwavesGL, type WaveSet,
 } from './cwaves'
 import { flowPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type CwavesState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -26,10 +27,7 @@ const presets: PresetGroup<CwavesConfig>[] = [
 ]
 
 const cwaves = defineDiversion<typeof cwavesSchema, CwavesState, 'webgl'>({
-  id: 'cwaves',
-  title: 'Colour Waves',
-  description: 'Several drifting cosine gratings superimpose into smooth, ever-reorganizing ribbons of colour — like silk or an aurora.',
-  kind: 'webgl',
+  ...meta,
   schema: cwavesSchema,
   presets,
 

@@ -9,13 +9,10 @@ import {
   createIMState, stepIM, drawIM, updateIMState, resizeIMState,
   type IMState,
 } from './intermomentary'
+import { meta } from './meta'
 
 const intermomentary = defineDiversion<typeof intermomentarySchema, IMState, '2d'>({
-  id: 'intermomentary',
-  title: 'InterMomentary',
-  description: 'Rings of overlapping circles slowly rotate and breathe; their crossings '
-    + 'weave shifting rosette interference patterns — moire from circle intersections.',
-  kind: '2d',
+  ...meta,
   schema: intermomentarySchema,
 
   setup(ctx, config, size) {

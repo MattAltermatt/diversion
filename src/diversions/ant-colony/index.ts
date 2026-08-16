@@ -2,16 +2,14 @@ import { defineDiversion } from '../../framework/types'
 import { antColonySchema, type AntColonyConfig } from './schema'
 import { advance, buildTrailLuts, createAntColonyState, render, type AntColonyState } from './antColony'
 import { antColonyPresets } from './presets'
+import { meta } from './meta'
 
 // Editing any of these reshapes the world (grid, colony count, food placement,
 // ant population, or the seeded layout) — everything else applies live.
 const STRUCTURAL: (keyof AntColonyConfig)[] = ['gridResolution', 'colonies', 'foodSources', 'antCount', 'seed']
 
 const antColony = defineDiversion<typeof antColonySchema, AntColonyState, '2d'>({
-  id: 'ant-colony',
-  title: 'Ant Colony',
-  description: 'Pheromone foraging: a near-optimal supply network self-assembles from purely local ant rules.',
-  kind: '2d',
+  ...meta,
   schema: antColonySchema,
 
   setup(_ctx, config, size) {

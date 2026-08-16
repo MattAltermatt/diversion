@@ -8,14 +8,10 @@ import {
   createIsingState, advanceIsing, renderIsing, resizeIsing, applyColors,
   currentTemperature, type IsingState,
 } from './ising'
+import { meta } from './meta'
 
 const ising = defineDiversion<typeof isingSchema, IsingState, '2d'>({
-  id: 'ising',
-  title: 'Ising',
-  description: 'The 2D Ising model of a magnet: a lattice of up/down spins that flip by '
-    + 'Metropolis dynamics. As the temperature breathes through the critical point, spins '
-    + 'condense into vast domains, dissolve into roiling static, and coarsen back again.',
-  kind: '2d',
+  ...meta,
   schema: isingSchema,
 
   setup(ctx, config, size) {

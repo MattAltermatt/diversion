@@ -2,6 +2,7 @@ import { defineDiversion } from '../../framework/types'
 import { braidSchema, type BraidConfig } from './schema'
 import { buildBraid, type Braid } from './braid'
 import { renderBraid } from './render'
+import { meta } from './meta'
 
 // Lifecycle: the braid rotates continuously; after `holdSeconds` the framework
 // rolls a fresh seed (shouldRestart) and re-weaves the ring with new colours and
@@ -17,12 +18,7 @@ interface BraidState {
 }
 
 const braid = defineDiversion<typeof braidSchema, BraidState, '2d'>({
-  id: 'braid',
-  title: 'Braid',
-  description:
-    'A glossy ring of coloured strands braiding over and under each other — a maypole plait bent into a '
-    + 'torc, slowly rotating. The weave is a consistent braid-group interlace; a fresh braid is woven periodically.',
-  kind: '2d',
+  ...meta,
   schema: braidSchema,
 
   setup(ctx, config, size) {

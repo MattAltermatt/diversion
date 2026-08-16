@@ -3,6 +3,7 @@ import { differentialGrowthSchema, type DifferentialGrowthConfig } from './schem
 import { advanceGrowth, createGrowthState, updateGrowthState, updateView, type GrowthState } from './growth'
 import { renderGrowth } from './render'
 import { growthPresets, stylePresets } from './presets'
+import { meta } from './meta'
 
 // After the curve fills to the node cap it keeps gently breathing; once it has
 // settled this long the piece fades and re-grows a fresh seeded world — the right
@@ -15,10 +16,7 @@ const presets: PresetGroup<DifferentialGrowthConfig>[] = [
 ]
 
 const differentialGrowth = defineDiversion<typeof differentialGrowthSchema, GrowthState, '2d'>({
-  id: 'differential-growth',
-  title: 'Differential Growth',
-  description: 'A self-avoiding curve buckling into brain-coral folds.',
-  kind: '2d',
+  ...meta,
   schema: differentialGrowthSchema,
 
   setup(ctx, config, size) {

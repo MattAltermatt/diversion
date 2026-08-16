@@ -7,6 +7,7 @@ import { galaxyCollisionSchema, type GalaxyCollisionConfig } from './schema'
 import { galaxyCollisionPresets } from './presets'
 import { initSim, step, frameExtent, coreSeparation, INITIAL_SEP, type Sim, type PhysicsConfig } from './physics'
 import { initGL, uploadColors, uploadPositions, render, disposeGL, type GalaxyGL, type View } from './gl'
+import { meta } from './meta'
 
 interface State {
   gl: WebGL2RenderingContext // kept so teardown() (which gets no ctx) can free GL resources
@@ -42,10 +43,7 @@ function targetScale(size: Size, extent: number): number {
 }
 
 const galaxyCollision = defineDiversion<typeof galaxyCollisionSchema, State, 'webgl'>({
-  id: 'galaxy-collision',
-  title: 'Galaxy Collision',
-  description: 'Two spiral galaxies fall together and tidally shred each other — a restricted N-body of thousands of stars flung into tails, bridges, and shells as the cores pass, then reborn as a fresh encounter.',
-  kind: 'webgl',
+  ...meta,
   schema: galaxyCollisionSchema,
   presets: galaxyCollisionPresets,
 

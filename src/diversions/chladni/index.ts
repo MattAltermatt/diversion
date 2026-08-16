@@ -5,6 +5,7 @@ import {
   createChladniState, stepGrains, updateChladniState, type ChladniState,
 } from './chladni'
 import { figurePresets, palettePresets } from './presets'
+import { meta } from './meta'
 
 // Two independent preset axes (mirrors Flow Field / Strange Attractors). Figure
 // sets the mode; Palette recolors. Seed stays independent of both so the 🎲 dice
@@ -15,10 +16,7 @@ const presets: PresetGroup<ChladniConfig>[] = [
 ]
 
 const chladni = defineDiversion<typeof chladniSchema, ChladniState, '2d'>({
-  id: 'chladni',
-  title: 'Chladni Figures',
-  description: 'Sand on a vibrating plate settling into standing-wave nodal figures.',
-  kind: '2d',
+  ...meta,
   schema: chladniSchema,
 
   setup(ctx, config, size) {

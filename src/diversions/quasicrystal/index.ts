@@ -2,6 +2,7 @@ import { defineDiversion, type PresetGroup, type Size } from '../../framework/ty
 import { quasicrystalSchema, type QuasicrystalConfig } from './schema'
 import { initGL, render, disposeGL, seededRotation, type QuasicrystalGL } from './quasicrystal'
 import { symmetryPresets, colorPresets } from './presets'
+import { meta } from './meta'
 
 type QuasicrystalState = {
   gl: WebGL2RenderingContext // kept so teardown() (no ctx) can free GL resources
@@ -22,10 +23,7 @@ const presets: PresetGroup<QuasicrystalConfig>[] = [
 ]
 
 const quasicrystal = defineDiversion<typeof quasicrystalSchema, QuasicrystalState, 'webgl'>({
-  id: 'quasicrystal',
-  title: 'Quasicrystal',
-  description: 'A lattice of overlapping wave gratings interferes into a shimmering, ever-shifting quasiperiodic pattern with five-, seven-, or nine-fold symmetry.',
-  kind: 'webgl',
+  ...meta,
   schema: quasicrystalSchema,
   presets,
 

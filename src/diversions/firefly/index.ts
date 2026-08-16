@@ -1,6 +1,7 @@
 import { defineDiversion } from '../../framework/types'
 import { fireflySchema, type FireflyConfig } from './schema'
 import { createFireflyState, stepFireflies, type FireflyState } from './firefly'
+import { meta } from './meta'
 
 // Parse "#rrggbb" → [r,g,b]. Called once per frame on the stable config colours.
 function hexRgb(hex: string): [number, number, number] {
@@ -14,12 +15,7 @@ function structuralKey(c: FireflyConfig): string {
 }
 
 const firefly = defineDiversion<typeof fireflySchema, FireflyState, '2d'>({
-  id: 'firefly',
-  title: 'Firefly',
-  description: 'A meadow of pulse-coupled fireflies. Each charges up and flashes on its own, '
-    + 'nudging its neighbours a hair closer to flashing — until chaotic flicker ripples into '
-    + 'travelling waves of light and, finally, the whole swarm pulsing in hypnotic unison.',
-  kind: '2d',
+  ...meta,
   schema: fireflySchema,
 
   setup(ctx, config, size) {
