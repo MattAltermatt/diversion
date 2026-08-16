@@ -1,12 +1,15 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+// Explicit .ts extension: tsconfig.node.json resolves with `module: nodenext`
+// (allowImportingTsExtensions is on), unlike the app project's bundler mode.
+import { resolveBase } from './src/framework/basePath.ts'
 
 // https://vite.dev/config/
-// Project Pages live at https://mattaltermatt.github.io/diversion/, so the
-// production build is served from the /diversion/ subpath. Dev stays at root.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/diversion/' : '/',
+// `base` (and why `isPreview` is load-bearing) lives in basePath.ts, where it is
+// unit-tested — see src/framework/basePath.test.ts.
+export default defineConfig(({ command, isPreview }) => ({
+  base: resolveBase({ command, isPreview }),
   plugins: [react()],
   server: {
     port: 5180,
