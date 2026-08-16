@@ -16,7 +16,7 @@
  * not fail a build — `workbox-build` warns and SILENTLY OMITS the file from the
  * precache manifest, so the app stops being offline-capable with everything green.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
 
@@ -34,6 +34,11 @@ function newestMtime(dir) {
 // 382.21 kB raw), leaving room for ordinary growth while still catching a
 // regression that re-eagerises the registry — which would blow this by ~5x.
 const MAX_ENTRY_GZIP = 200 * 1024
+// Shell-only precache budget (#289): measured at 16 files / 166.4 kB gz, with
+// headroom for a shared chunk or two. Well under half of what a leaked diversion
+// tier would produce (~180 files / ~1.7 MB), so this cannot be tripped by drift.
+const MAX_PRECACHE_FILES = 24
+const MAX_PRECACHE_GZIP = 260 * 1024
 const WORKBOX_PRECACHE_CEILING = 2 * 1024 * 1024
 const MAX_SINGLE_FILE = WORKBOX_PRECACHE_CEILING * 0.75
 
@@ -101,6 +106,54 @@ if (biggest.size > MAX_SINGLE_FILE) {
       `  workbox-build omits the file from the precache manifest with only a warning.`,
   )
   failed = true
+}
+
+// ── Precache tier guard (#289) ───────────────────────────────────────────────
+// The service worker precaches the SHELL ONLY; the 137 diversion chunks are
+// runtime-cached from assets/d/. That split is enforced by ONE thing — the
+// `chunkFileNames` callback in vite.config.ts — and if it ever stops routing
+// diversion chunks into assets/d/, they land in assets/ where the `assets/*.js`
+// glob sweeps all 137 straight into the precache. Every first visit would then
+// download ~1.7 MB instead of ~167 kB, with a green build and no failing test.
+// Silent and gradual, exactly like the entry-chunk growth above.
+const swPath = join('dist', 'sw.js')
+if (existsSync(swPath)) {
+  const sw = readFileSync(swPath, 'utf8')
+  const precached = [...sw.matchAll(/url:"([^"]+)"/g)].map((m) => m[1])
+  const precacheGzip = precached.reduce(
+    (n, u) => n + gzipSync(readFileSync(join('dist', u))).length,
+    0,
+  )
+  const lazyDir = join('dist', 'assets', 'd')
+  const lazy = existsSync(lazyDir) ? readdirSync(lazyDir).filter((f) => f.endsWith('.js')) : []
+
+  console.log(`precache           ${precached.length} files, ${kb(precacheGzip)} gz`)
+  console.log(`lazy chunks        ${lazy.length} in assets/d/`)
+
+  const leaked = precached.filter((u) => u.startsWith('assets/d/'))
+  if (leaked.length) {
+    console.error(
+      `\n✗ ${leaked.length} diversion chunk(s) reached the PRECACHE manifest, e.g. ${leaked[0]}.\n` +
+        '  assets/d/ is the runtime-cached tier — check build.rollupOptions.output.chunkFileNames.',
+    )
+    failed = true
+  }
+  if (precached.length > MAX_PRECACHE_FILES || precacheGzip > MAX_PRECACHE_GZIP) {
+    console.error(
+      `\n✗ precache is ${precached.length} files / ${kb(precacheGzip)} gz, over the ` +
+        `${MAX_PRECACHE_FILES} file / ${kb(MAX_PRECACHE_GZIP)} shell budget.`,
+    )
+    failed = true
+  }
+  // Non-vacuity: the two checks above both pass trivially if the lazy tier is empty
+  // (e.g. the registry went eager again, or chunkFileNames stopped matching).
+  if (lazy.length < 100) {
+    console.error(
+      `\n✗ only ${lazy.length} chunks in assets/d/ — expected ~137. The registry may be\n` +
+        '  eager again, or chunkFileNames stopped routing diversion chunks.',
+    )
+    failed = true
+  }
 }
 
 if (failed) process.exit(1)
