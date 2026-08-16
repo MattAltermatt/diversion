@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listDiversions } from './registry'
+import { allDiversions } from './testRegistry'
 import { encodeConfig, decodeConfig, freshLoadKeys } from './urlCodec'
 import { deepEqual } from './presets'
 import { leafFields, urlKeyMap, nodeType, type FieldEntry } from './sweepHelpers'
@@ -49,7 +49,7 @@ function altValue(node: any, current: unknown): { value: unknown; raw: string } 
 }
 
 describe('codec sweep — every registered diversion (#127)', () => {
-  for (const d of listDiversions()) {
+  for (const d of allDiversions) {
     const defaults = d.schema.parse({}) as Record<string, unknown>
 
     it(`${d.id}: decode(encode(defaults)) deep-equals defaults`, () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
-import { getDiversion } from '../framework/registry'
+import { useDiversion } from '../framework/registry'
 import { SchemaForm } from '../framework/SchemaForm'
 import { PresetPicker } from '../framework/PresetPicker'
 import { Subpanel } from '../framework/controls/Subpanel'
@@ -14,7 +14,7 @@ export function ConfigScreen() {
   const navigate = useNavigate()
   const location = useLocation()
   const navType = useNavigationType()
-  const diversion = getDiversion(slug!)
+  const diversion = useDiversion(slug!)
 
   // Initialise from the router URL (stable initializer); fall back to defaults.
   const [config, setConfig] = useState(() => {

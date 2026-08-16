@@ -1,7 +1,17 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { PlayScreen } from './PlayScreen'
+import { loadDiversion } from '../framework/registry'
+
+// Since #288 the registry loads diversion code lazily, so `useDiversion` SUSPENDS on
+// a cold slug. These tests render without a Suspense boundary (App.tsx owns the real
+// one) and assert synchronously, so they must warm the slugs they use first —
+// otherwise every one of them fails with "Unable to find an accessible element"
+// against an empty body, which reads like a markup bug and is not one.
+beforeAll(async () => {
+  await Promise.all(['flow-field', 'particle-life'].map(loadDiversion))
+})
 
 // Render PlayScreen at a play URL carrying encoded config, and read back the
 // "← config" link's destination. The framework owns the rAF loop / canvas, so

@@ -1,26 +1,73 @@
 import { describe, it, expect } from 'vitest'
-import type { Diversion } from './types'
+// @ts-expect-error tsconfig.app exposes only vite/client types; node's are not
+// widened into the app for one test file. Same idiom as manifest.test.ts.
+import { readFileSync, readdirSync } from 'node:fs'
+// @ts-expect-error — see above.
+import { join } from 'node:path'
 import { listDiversions } from './registry'
+import { allDiversionEntries } from './testRegistry'
 
 // Contract SWEEP (#127): every diversion is a black box the framework drives, so
-// each must honour the Diversion contract. Re-glob the diversion folders here
-// (same pattern the registry uses) to recover each one's folder slug and assert
-// it matches the declared `id` — the codec, routing, and getDiversion() all key
-// off that slug. Auto-covers any future diversion folder.
-
-const modules = import.meta.glob<{ default: Diversion }>('../diversions/*/index.ts', { eager: true })
-
-/** `../diversions/<slug>/index.ts` → `<slug>`. */
-function slugOf(path: string): string {
-  return path.replace(/.*\/diversions\/([^/]+)\/index\.ts$/, '$1')
-}
+// each must honour the Diversion contract. Sweeps the folder slugs recovered by the
+// test registry's eager glob and asserts each matches the declared `id` — the codec
+// and routing both key off that slug. Auto-covers any future diversion folder.
 
 describe('diversion contract sweep (#127)', () => {
-  const entries = Object.entries(modules).map(([path, m]) => [slugOf(path), m.default] as const)
+  const entries = allDiversionEntries
 
-  it('discovers every diversion the registry lists', () => {
-    expect(entries.map(([s]) => s).sort()).toEqual(listDiversions().map((d) => d.id).sort())
+  // ── #288 keystone ───────────────────────────────────────────────────────────
+  // The registry now reads identity from meta.ts (eager) and code from index.ts
+  // (lazy). Those are two separate globs, so they can disagree — and every way they
+  // disagree is SILENT: no type error, nothing thrown, just a diversion that is
+  // missing from the gallery or whose card lies about what it links to. These are
+  // the only things standing between a contributor and that hole.
+  it('every diversion folder has BOTH meta.ts and index.ts', () => {
+    // A folder with index.ts but no meta.ts vanishes from the gallery and 404s its
+    // route; one with meta.ts but no index.ts renders a tile that cannot load.
+    expect(listDiversions().map((m) => m.id).sort()).toEqual(entries.map(([s]) => s).sort())
   })
+
+  it('no production module imports the test-only eager registry', () => {
+    // testRegistry.ts eager-globs all 137 implementations. A single production
+    // import of it silently restores the 1.9 MB entry chunk and undoes #288
+    // entirely — with the full suite still green, because the tests are exactly
+    // what keeps using it. Nothing else can catch this.
+    const offenders: string[] = []
+    let scanned = 0
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name)
+        if (e.isDirectory()) walk(p)
+        else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+          scanned++
+          if (/from ['"].*testRegistry['"]/.test(readFileSync(p, 'utf8'))) offenders.push(p)
+        }
+      }
+    }
+    walk('src')
+    // Non-vacuity: a wrong CWD or a changed layout would walk nothing and pass this
+    // test while guarding nothing. 137 diversions alone put the real count in the
+    // hundreds, so this floor cannot be met by accident.
+    expect(scanned).toBeGreaterThan(200)
+    expect(offenders).toEqual([])
+  })
+
+  for (const [slug, d] of entries) {
+    it(`${slug}: meta.ts is the source of truth index.ts spreads`, () => {
+      // index.ts does `...meta`, so these are the same object's fields — unless
+      // someone re-declares one AFTER the spread, which silently wins over the card
+      // the gallery renders. (Re-declaring BEFORE the spread is the opposite bug:
+      // their edit is silently discarded. That one is unguarded by design — the
+      // committed value still equals meta, so there is nothing to compare against.)
+      const m = listDiversions().find((x) => x.id === d.id)
+      expect(m).toEqual({
+        id: d.id,
+        title: d.title,
+        description: d.description,
+        kind: d.kind,
+      })
+    })
+  }
 
   for (const [slug, d] of entries) {
     describe(`${slug}`, () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listDiversions } from './registry'
+import { allDiversions } from './testRegistry'
 import { applyPreset, matchPresets } from './presets'
 
 // Preset SWEEP (#127): presets are declared data on a diversion, applied through
@@ -10,7 +10,7 @@ import { applyPreset, matchPresets } from './presets'
 //   - every group's options share ONE key-set (matchPresets' equal-key-set
 //     assumption — the #125 fix; this should now pass)
 
-const withPresets = listDiversions().filter((d) => d.presets && d.presets.length > 0)
+const withPresets = allDiversions.filter((d) => d.presets && d.presets.length > 0)
 
 describe('preset sweep — every diversion that declares presets (#127)', () => {
   if (withPresets.length === 0) {

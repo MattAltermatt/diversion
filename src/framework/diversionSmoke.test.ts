@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listDiversions } from './registry'
+import { allDiversions } from './testRegistry'
 import type { RenderContext } from './types'
 import {
   make2DContext,
@@ -13,7 +13,7 @@ import {
 // WebGL, chosen by `kind`). This exercises the actual draw path — catching a
 // typo'd or removed ctx call that TypeScript can't see (the context is the
 // erased RenderContext union, so `ctx.fillRct(...)` would compile) — without a
-// real GPU. Because it sweeps `listDiversions()`, any future diversion is
+// real GPU. Because it sweeps `allDiversions`, any future diversion is
 // covered automatically the moment its folder lands.
 //
 // jsdom note: there is no real WebGL2 here, so `makeGLContext()` returns truthy
@@ -36,7 +36,7 @@ const DRAW_GL = ['drawArrays']
 const SIZE = { width: 400, height: 300 }
 
 describe('diversion smoke sweep (#128)', () => {
-  const diversions = listDiversions()
+  const diversions = allDiversions
 
   it('registers at least one diversion to sweep', () => {
     expect(diversions.length).toBeGreaterThan(0)

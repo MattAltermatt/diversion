@@ -118,6 +118,18 @@ button {
   line-height: 1.5;
 }
 
+/* ── Route suspense fallback ──────────────────────────────────────────────────
+   Shown while a diversion's chunk loads (#288). Deliberately just the ground
+   colour at full height: the median chunk is ~3.4 kB gzipped, so this is a
+   sub-frame flash on anything but a cold slow connection, and a spinner appearing
+   and vanishing that fast reads as jank rather than as progress. Full height so
+   the swap to the real screen doesn't jump the layout. */
+.route-loading {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
 /* ── Config screen ────────────────────────────────────────────────────────── */
 .config-screen {
   display: grid;

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import {
   createBrowserRouter,
   Outlet,
@@ -8,6 +9,7 @@ import {
 import { Gallery } from './routes/Gallery'
 import { ConfigScreen } from './routes/ConfigScreen'
 import { PlayScreen } from './routes/PlayScreen'
+import { DiversionErrorBoundary } from './framework/DiversionErrorBoundary'
 
 // import.meta.env.BASE_URL is '/diversion/' in the Pages build, '/' in dev.
 const baseUrl = import.meta.env.BASE_URL
@@ -19,6 +21,29 @@ const basename = baseUrl === '/' ? undefined : baseUrl.replace(/\/$/, '')
 function ConfigRoute() {
   const { slug } = useParams()
   return <ConfigScreen key={slug} />
+}
+
+// Both /d/:slug routes now suspend while their diversion's chunk loads (#288), so
+// they need a boundary. Keyed by slug so a latched error cannot survive into the
+// next piece.
+//
+// The error boundary is the load-bearing half: `useDiversion` REJECTS when a chunk
+// fetch fails rather than resolving undefined, so this catches it and offers a retry
+// instead of the route claiming the diversion doesn't exist. That is the classic
+// long-lived-SPA failure — a deploy replaces the hashed filename under an open tab —
+// and `loadDiversion` drops rejected promises from its cache precisely so the retry
+// can re-import rather than replay the same failure.
+//
+// The fallback is a bare themed panel, not a spinner: the median diversion chunk is
+// 3.4 kB gzipped, so on anything but a cold slow connection it is a sub-frame flash,
+// and a spinner would read as slower than nothing.
+function DiversionRoute({ children }: { children: React.ReactNode }) {
+  const { slug } = useParams()
+  return (
+    <DiversionErrorBoundary key={slug}>
+      <Suspense fallback={<div className="route-loading" />}>{children}</Suspense>
+    </DiversionErrorBoundary>
+  )
 }
 
 // Reset scroll on navigation, and restore it when going back (#284).
@@ -49,8 +74,22 @@ const router = createBrowserRouter(
       element: <Root />,
       children: [
         { path: '/', element: <Gallery /> },
-        { path: '/d/:slug', element: <ConfigRoute /> },
-        { path: '/d/:slug/play', element: <PlayScreen /> },
+        {
+          path: '/d/:slug',
+          element: (
+            <DiversionRoute>
+              <ConfigRoute />
+            </DiversionRoute>
+          ),
+        },
+        {
+          path: '/d/:slug/play',
+          element: (
+            <DiversionRoute>
+              <PlayScreen />
+            </DiversionRoute>
+          ),
+        },
       ],
     },
   ],

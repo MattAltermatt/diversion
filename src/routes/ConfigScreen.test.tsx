@@ -1,7 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { render } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ConfigScreen } from './ConfigScreen'
+import { loadDiversion } from '../framework/registry'
+
+// See PlayScreen.test.tsx: `useDiversion` suspends on a cold slug since #288, and
+// these tests render with no Suspense boundary and assert synchronously.
+beforeAll(async () => {
+  await Promise.all(['flow-field', 'particle-life'].map(loadDiversion))
+})
 
 function renderAt(entries: string[]) {
   return render(

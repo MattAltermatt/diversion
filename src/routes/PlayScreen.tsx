@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigationType, Link } from 'react-router-dom'
-import { getDiversion } from '../framework/registry'
+import { useDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { decodeConfig, applyFreshLoadRandomization, encodeConfig } from '../framework/urlCodec'
@@ -21,7 +21,7 @@ export function PlayScreen() {
   // clicking "Play" after tweaking the config always shows the just-configured world,
   // while a plain reload brings a bred run back. Captured at mount (constant here).
   const navType = useNavigationType()
-  const diversion = getDiversion(slug!)
+  const diversion = useDiversion(slug!)
 
   // Parse config ONCE from the URL; frozen for the session. Source the query
   // string from the router (useLocation) rather than window.location.search so

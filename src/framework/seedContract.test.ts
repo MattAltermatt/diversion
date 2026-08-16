@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ZodType } from 'zod'
-import { listDiversions } from './registry'
+import { allDiversions } from './testRegistry'
 import { encodeConfig, applyFreshLoadRandomization } from './urlCodec'
 import { urlKeyMap } from './sweepHelpers'
 import { readMeta } from './fieldMeta'
@@ -20,7 +20,7 @@ import { readMeta } from './fieldMeta'
 const ROLL = 500_000_000 // Math.floor(0.5 * 1e9), for a deterministic rand()
 
 describe('seed contract — every registered diversion (#193)', () => {
-  for (const d of listDiversions()) {
+  for (const d of allDiversions) {
     const defaults = d.schema.parse({}) as Record<string, unknown>
     const keyOf = urlKeyMap(d.schema) // path → encoded URL key (top-level path === field name)
 

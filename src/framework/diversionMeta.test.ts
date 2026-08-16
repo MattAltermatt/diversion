@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { listDiversions } from './registry'
+import { allDiversions } from './testRegistry'
 import { readMeta } from './fieldMeta'
 import { walkFields, numberBounds, nodeType, type FieldEntry } from './sweepHelpers'
 
@@ -14,7 +14,7 @@ function arrEq(a: unknown[], b: unknown[]): boolean {
 }
 
 describe('diversion meta sweep — every registered diversion (#127)', () => {
-  for (const d of listDiversions()) {
+  for (const d of allDiversions) {
     const fields = walkFields(d.schema)
     const byPath = new Map(fields.map((f) => [f.path, f]))
 

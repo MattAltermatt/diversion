@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listDiversions } from '../framework/registry'
+import { listDiversions, loadDiversion, peekDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { acquireGpuSlot, releaseGpuSlot, subscribeGpuSlot } from '../framework/gpuBudget'
-import type { Diversion } from '../framework/types'
+import type { Diversion, DiversionMeta } from '../framework/types'
 
 // Lazy-mount the live preview so the gallery never holds more than a screenful of
 // running animations at once. Mounting every tile (there are 100+) spins up one
@@ -17,9 +17,13 @@ import type { Diversion } from '../framework/types'
 // host is inside it, so layout never shifts. (AnimationHost has its own #6 observer
 // that only PAUSES an off-screen loop; that can't help here because the context is
 // already allocated at mount — the fix has to gate the mount itself.)
-function LazyPreview({ diversion, config }: { diversion: Diversion; config: unknown }) {
+// Since #288 the tile also owns FETCHING its diversion's code. `kind` comes from the
+// eager metadata, which is what makes that compatible with the GPU budget below: the
+// slot decision has to be made before any module loads, or every tile would download
+// its chunk merely to learn whether it needs a WebGL context.
+function LazyPreview({ meta }: { meta: DiversionMeta }) {
   const ref = useRef<HTMLDivElement>(null)
-  const isGpu = diversion.kind !== '2d'
+  const isGpu = meta.kind !== '2d'
   // No IntersectionObserver (jsdom/SSR) → render eagerly so nothing silently blanks.
   const [near, setNear] = useState(typeof IntersectionObserver === 'undefined')
   // A GPU tile also needs a context slot from the global budget; 2D tiles never do.
@@ -77,7 +81,40 @@ function LazyPreview({ diversion, config }: { diversion: Diversion; config: unkn
     }
   }, [isGpu, near])
 
-  const show = near && (!isGpu || slot)
+  // Fetch the diversion's chunk once the tile SETTLES near the viewport (#288). This
+  // deliberately hangs off the DEBOUNCED `near` state and not the IntersectionObserver
+  // callback: the callback fires per tile per crossing, so a fling down the 50,000px
+  // gallery would kick off 137 imports. On `near`, the existing 160ms debounce filters
+  // them out — a measured hard fling issues zero.
+  //
+  // Not gated on `slot`: a GPU tile queued behind the budget should have its code in
+  // hand the moment a slot frees, rather than starting a download then. The initial
+  // peek renders a warm chunk on the first paint with no flash — a tile that scrolled
+  // out and back, or any tile on a revisit.
+  const [mod, setMod] = useState<Diversion | null>(() => peekDiversion(meta.id) ?? null)
+  useEffect(() => {
+    if (!near || mod) return
+    let live = true
+    loadDiversion(meta.id).then(
+      (d) => {
+        if (live && d) setMod(d)
+      },
+      // Swallowed on purpose: a tile whose chunk fails to load stays the same dark
+      // placeholder it already shows while waiting for a GPU slot. There is no
+      // Suspense boundary in the grid, so one dead chunk cannot blank a row.
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [near, mod, meta.id])
+
+  // Was Gallery()'s top-level useMemo; it needs a schema, so it could not stay there.
+  // Still parsed exactly once per loaded module, keeping AnimationHost's setup effect
+  // stable.
+  const config = useMemo(() => mod?.schema.parse({}), [mod])
+
+  const show = near && (!isGpu || slot) && !!mod
   return (
     <div ref={ref} className="tile-preview">
       {show && (
@@ -85,7 +122,7 @@ function LazyPreview({ diversion, config }: { diversion: Diversion; config: unkn
         // it remounts and recovers instead of latching "failed to start".
         <DiversionErrorBoundary maxRetries={5}>
           <AnimationHost
-            diversion={diversion}
+            diversion={mod!}
             config={config}
             showChrome={false}
             interactive={false}
@@ -97,11 +134,9 @@ function LazyPreview({ diversion, config }: { diversion: Diversion; config: unkn
 }
 
 export function Gallery() {
-  // Parse each default config ONCE so AnimationHost's setup effect stays stable.
-  const items = useMemo(
-    () => listDiversions().map((d) => ({ d, config: d.schema.parse({}) })),
-    [],
-  )
+  // Metadata only — no schemas, no diversion code. All 137 tiles lay out on the first
+  // paint; each fetches its own implementation when it scrolls near.
+  const items = listDiversions()
 
   return (
     <div className="gallery">
@@ -110,12 +145,12 @@ export function Gallery() {
         <p className="gallery-sub">A collection of small animated things.</p>
       </header>
       <div className="gallery-grid">
-        {items.map(({ d, config }) => (
-          <Link key={d.id} to={`/d/${d.id}`} className="tile">
-            <LazyPreview diversion={d} config={config} />
+        {items.map((m) => (
+          <Link key={m.id} to={`/d/${m.id}`} className="tile">
+            <LazyPreview meta={m} />
             <div className="tile-meta">
-              <h3>{d.title}</h3>
-              <p>{d.description}</p>
+              <h3>{m.title}</h3>
+              <p>{m.description}</p>
             </div>
           </Link>
         ))}
