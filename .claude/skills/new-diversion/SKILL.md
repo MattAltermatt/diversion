@@ -93,4 +93,6 @@ Read `CLAUDE.md` and `src/framework/types.ts` before starting. Mirror the refere
    - Gallery tile previews live · config screen renders every control + expanded groups + inline help · editing updates the preview AND the URL (defaults omitted) · `/d/<slug>/play?...` reconstructs the look from the URL · fullscreen + pause work · console clean.
    - **It must look good** — verify the actual aesthetics at full size, not just that it renders.
 
-10. **Commit** on a `feature/...` branch. Update `CHANGELOG.md`. File any follow-ups as GitHub Issues.
+10. **Commit** on a `feature/...` branch. Planning lives in GitHub Issues, not in a
+    changelog — this repo has no `CHANGELOG.md`/`ROADMAP.md` on purpose. File any
+    follow-ups as issues, and close the issue this diversion came from.

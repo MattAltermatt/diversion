@@ -6,11 +6,13 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~24s, 5979+ tests)
+npm test         # vitest run (full suite; ~28s, 6137 tests)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint
 npm run build    # tsc -b && vite build
 npx tsc -b --noEmit                    # typecheck only
+npm run size     # entry-chunk + precache budgets (needs a fresh `npm run build`)
+npm run check:pwa                      # service worker + manifest contracts
 ```
 
 Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5180/d/<slug>/play`. A brand-new diversion folder 404s until the dev server is restarted — Vite's `import.meta.glob` registry doesn't pick it up live.
@@ -101,7 +103,7 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
 
 `vite-plugin-pwa` (`generateSW`). The config in `vite.config.ts` carries the reasoning; this is the part that bites.
 
-- **The precache is the SHELL ONLY** — 16 files / ~166 kB gz. The 137 diversion chunks, the 858 kB neural-ca weights and the sprites are **runtime-cached**. Precaching all of it would cost every first visit 1.7 MB and re-centralise exactly what #288 decentralised. The consequence, which is deliberate: **offline, a piece you have never opened will not run** (the gallery still shows all 137 cards — the metadata is eager). Browsing the whole gallery offline wants an opt-in affordance, not 1.5 MB spent silently on everyone.
+- **The precache is the SHELL ONLY** — 17 files / ~166 kB gz. The 137 diversion chunks, the 858 kB neural-ca weights and the sprites are **runtime-cached**. Precaching all of it would cost every first visit 1.7 MB and re-centralise exactly what #288 decentralised. The consequence, which is deliberate: **offline, a piece you have never opened will not run** (the gallery still shows all 137 cards — the metadata is eager). Browsing the whole gallery offline wants an opt-in affordance, not 1.5 MB spent silently on everyone.
 - **`chunkFileNames` routes diversion chunks to `assets/d/`.** That directory *is* the tier boundary: `assets/*.js` doesn't cross a slash, so one glob precaches the shell and one route runtime-caches the rest, with no negative lookahead. If that callback breaks, all 137 chunks land in `assets/` and get swept into the precache — a 10× first-visit regression with a green build. `npm run size` fails on it; don't remove that check.
 - **`registerType: 'autoUpdate'`, not the `prompt` default — but know exactly what that buys.** It makes the new SW skip waiting, activate, and run `cleanupOutdatedCaches`; measured across three simulated deploys the precache holds at **17 entries** and storage goes *down* on cleanup. Under `prompt` + `skipWaiting: false` the new SW sits in `waiting` while any tab is open, so nothing is ever pruned and each deploy adds a whole generation. **It does NOT reload the page** — nothing imports `virtual:pwa-register`, so `injectRegister` emits the *simple* script (a bare `register()`, no `workbox-window`, no `activated` listener), and an open tab keeps running the old bundle until something reloads it naturally. That is deliberate: auto-reloading would restart a propped-up display mid-piece on every deploy. Wiring the reload is one line if the trade ever flips.
 - **Shell-only precache does not make stranding impossible, only rare.** `cleanupOutdatedCaches` filters on `-precache-`, so the runtime caches survive an activation and a cached diversion chunk is still served. But diversion chunks statically import **precached shared chunks** (`metas`, `schemas`, `rng`, …), and those *are* evicted — so a stale document can still fail a lazy `import()` whose dependency is gone from the precache and 404 on Pages, which #292 makes terminal for that id until a reload. Narrow, and identical with no service worker at all; don't claim it can't happen.
