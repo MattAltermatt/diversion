@@ -6,6 +6,25 @@ const img = (id: string) => ({
   pixels: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 255, 255]),
 })
 
+
+/** Swap the global `localStorage` binding for a stub, restore it afterwards.
+ *
+ *  Spying is NOT portable here, and both obvious targets fail somewhere: reads
+ *  dispatch through `Storage.prototype` in some jsdom builds and through the
+ *  instance in others, so `vi.spyOn(Storage.prototype, ...)` no-ops locally while
+ *  `vi.spyOn(localStorage, ...)` no-ops in CI. Either way the spy silently
+ *  records nothing, the fail-soft branch never runs, and the test passes without
+ *  testing anything. Replacing the binding the module actually reads is the one
+ *  approach that works in both. */
+function withStorage<T>(fake: Record<string, unknown>, fn: () => T): T {
+  vi.stubGlobal('localStorage', fake)
+  try {
+    return fn()
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}
+
 describe('imageStore (#278)', () => {
   beforeEach(() => { localStorage.clear(); clearImage() })
 
@@ -35,12 +54,16 @@ describe('imageStore (#278)', () => {
   })
 
   it('a put that exceeds quota still serves from memory', () => {
-    const spy = vi.spyOn(localStorage, 'setItem')
-      .mockImplementation(() => { throw new Error('QuotaExceededError') })
-    expect(() => putImage(img('a'))).not.toThrow()
-    expect(spy).toHaveBeenCalled() // the write was genuinely attempted and rejected
+    let attempts = 0
+    withStorage({
+      setItem: () => { attempts++; throw new Error('QuotaExceededError') },
+      getItem: () => null,
+      removeItem: () => {},
+    }, () => {
+      expect(() => putImage(img('a'))).not.toThrow()
+    })
+    expect(attempts).toBe(1) // the write was genuinely attempted and rejected
     expect(getImage('a')).not.toBeNull() // ...and the in-memory copy still serves
-    spy.mockRestore()
   })
 
   it('rehydrate survives corrupt JSON', () => {
@@ -56,12 +79,16 @@ describe('imageStore (#278)', () => {
   })
 
   it('rehydrate survives localStorage itself throwing', () => {
-    const spy = vi.spyOn(localStorage, 'getItem')
-      .mockImplementation(() => { throw new Error('SecurityError') })
-    expect(() => rehydrate()).not.toThrow()
-    expect(spy).toHaveBeenCalled() // the read was genuinely attempted and threw
+    let reads = 0
+    withStorage({
+      getItem: () => { reads++; throw new Error('SecurityError') },
+      setItem: () => {},
+      removeItem: () => {},
+    }, () => {
+      expect(() => rehydrate()).not.toThrow()
+    })
+    expect(reads).toBe(1) // the read was genuinely attempted and threw
     expect(currentImage()).toBeNull()
-    spy.mockRestore()
   })
 })
 
@@ -71,20 +98,28 @@ describe('rehydrate gating (#278)', () => {
   it('does nothing when an image is already loaded', () => {
     putImage(img('a'))
     expect(currentImage()?.id).toBe('a')
-    const spy = vi.spyOn(localStorage, 'getItem')
-    rehydrate()
-    expect(spy).not.toHaveBeenCalled()
-    spy.mockRestore()
+    let reads = 0
+    withStorage({
+      getItem: () => { reads++; return null },
+      setItem: () => {},
+      removeItem: () => {},
+    }, () => { rehydrate() })
+    expect(reads).toBe(0)
   })
 
   it('reads storage at most once across repeated calls (strict-mode double setup)', () => {
-    localStorage.setItem(SLOT, JSON.stringify({ v: 1, id: 'a', dataUrl: 'data:,' }))
-    const spy = vi.spyOn(localStorage, 'getItem')
-    rehydrate()
-    rehydrate()
-    rehydrate()
-    expect(spy.mock.calls.filter((c) => c[0] === SLOT)).toHaveLength(1)
-    spy.mockRestore()
+    const payload = JSON.stringify({ v: 1, id: 'a', dataUrl: 'data:,' })
+    const reads: string[] = []
+    withStorage({
+      getItem: (k: string) => { reads.push(k); return payload },
+      setItem: () => {},
+      removeItem: () => {},
+    }, () => {
+      rehydrate()
+      rehydrate()
+      rehydrate()
+    })
+    expect(reads.filter((k) => k === SLOT)).toHaveLength(1)
   })
 })
 
