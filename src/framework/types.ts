@@ -42,6 +42,26 @@ export interface PresetGroup<Config = unknown> {
   options: PresetOption<Config>[]
 }
 
+/** A diversion's identity — everything the gallery grid and the router need in
+ *  order to render, and nothing that needs its code (#288).
+ *
+ *  This is the half the registry eager-globs. It lives in a sibling `meta.ts` per
+ *  folder, four string fields and no imports, so all 137 cost ~14.7 kB gzipped in
+ *  the entry chunk while the implementations load on demand. `index.ts` spreads it
+ *  back (`...meta`) rather than restating it, so there is still exactly one source
+ *  of truth per field — `contract.test.ts` asserts the two agree.
+ *
+ *  `schema` is deliberately NOT here. It is the expensive field: eager-globbing the
+ *  137 schemas costs 142 kB gzipped (it drags all of zod into the entry) and more
+ *  than doubles the entry chunk, for a value nothing needs until a tile actually
+ *  mounts — at which point its module has loaded anyway. */
+export interface DiversionMeta {
+  id: string // slug, e.g. "flow-field"; must equal the folder name
+  title: string
+  description: string
+  kind: DiversionKind // lets the gallery budget GPU contexts BEFORE loading any code
+}
+
 export interface Diversion<
   Config = unknown,
   State = unknown,
