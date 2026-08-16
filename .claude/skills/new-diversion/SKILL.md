@@ -5,7 +5,7 @@ description: Use when adding a new diversion (a screensaver-like generative-art 
 
 # Adding a new diversion
 
-A diversion is a self-contained generative-art piece that plugs into the shared framework. You write a Zod schema + a draw lifecycle; the framework gives you the gallery tile, the config screen (form + live preview), the URL-driven full-screen animation screen, pause, tab-hidden auto-pause, an FPS readout, and fullscreen — for free. New folders under `src/diversions/*/index.ts` are auto-discovered by the registry (Vite glob); there is no registration step.
+A diversion is a self-contained generative-art piece that plugs into the shared framework. You write a Zod schema + a draw lifecycle; the framework gives you the gallery tile, the config screen (form + live preview), the URL-driven full-screen animation screen, pause, tab-hidden auto-pause, an FPS readout, and fullscreen — for free. New folders under `src/diversions/<slug>/` are auto-discovered by the registry (Vite globs); there is no registration step — but since #288 a folder needs **both** `meta.ts` (identity, eager) and `index.ts` (code, lazily loaded). Miss `meta.ts` and the piece silently never appears.
 
 Read `CLAUDE.md` and `src/framework/types.ts` before starting. Mirror the reference diversion `src/diversions/flow-field/`.
 
@@ -40,15 +40,37 @@ Read `CLAUDE.md` and `src/framework/types.ts` before starting. Mirror the refere
 
 4. **Seed your randomness.** Do NOT use global `Math.random()` — it breaks the "same seed → same pattern" promise. Reuse `mulberry32` from `src/diversions/flow-field/noise.ts` (exported), seeded from `config.seed`. If particles/agents respawn over time, they must respawn from the seeded stream too.
 
-5. **Write `index.ts`** — the `Diversion<Config>` default export:
+5. **Write `meta.ts`** — the gallery card + routing identity. **Required (#288):** the
+   registry eager-globs `meta.ts` for identity and lazy-globs `index.ts` for code, so a
+   folder without a `meta.ts` silently vanishes from the gallery and 404s its route —
+   no type error, nothing thrown. `contract.test.ts` fails loudly if you forget it.
+
+   ```ts
+   import type { DiversionMeta } from '../../framework/types'
+
+   export const meta = {
+     id: 'my-slug',            // MUST equal the folder name — routing keys on it
+     title: 'My Title',
+     description: 'One-line gallery blurb.',
+     kind: '2d',
+   } as const satisfies DiversionMeta
+   ```
+
+   `as const satisfies` is load-bearing: it keeps `kind` at its literal type so
+   `defineDiversion<typeof mySchema, State, '2d'>` still resolves the right context.
+   Do **not** put `schema` here — it belongs with the code, and hoisting it into the
+   eager half costs +142 kB gzipped in the entry chunk.
+
+6. **Write `index.ts`** — the `Diversion<Config>` default export, spreading `...meta`:
 
    ```ts
    import type { Diversion, RenderContext, Size } from '../../framework/types'
    import { mySchema, type MyConfig } from './schema'
+   import { meta } from './meta'
 
    const myDiversion: Diversion<MyConfig> = {
-     id: 'my-slug', title: 'My Title', description: 'One-line gallery blurb.',
-     kind: '2d', schema: mySchema,
+     ...meta,                 // never restate id/title/description/kind here
+     schema: mySchema,
      setup(ctx, config, size) { /* build state, return it */ },
      frame(state, ctx, t, dt) { /* draw ONE frame — framework owns the loop */ },
      resize(state, size) { /* optional */ },
@@ -60,15 +82,15 @@ Read `CLAUDE.md` and `src/framework/types.ts` before starting. Mirror the refere
    - `frame` must NOT call `requestAnimationFrame` itself.
    - This is a **screensaver**: it runs unattended for a long time. Don't leak (allocate per-frame sparingly, free resources in `teardown`), and make sure `pause`/tab-hidden truly stops all work (the framework handles the loop; just don't spin your own timers).
 
-6. **HiDPI is handled for you.** For `kind:'2d'` the framework scales the context by DPR and hands `setup`/`resize` **CSS-pixel** sizes — draw in CSS pixels, use `lineWidth ≈ 1`. For `kind:'webgl'` you get device pixels (for `gl.viewport`).
+7. **HiDPI is handled for you.** For `kind:'2d'` the framework scales the context by DPR and hands `setup`/`resize` **CSS-pixel** sizes — draw in CSS pixels, use `lineWidth ≈ 1`. For `kind:'webgl'` you get device pixels (for `gl.viewport`).
 
-7. **Test** (`*.test.ts`, co-located, Vitest):
+8. **Test** (`*.test.ts`, co-located, Vitest):
    - If random: a determinism test (same seed → identical initial state; different seed → different). See `flow-field/flowField.test.ts`.
    - Any pure helper (noise, math) gets a unit test.
    - Run `npx vitest run` (all green) and `npx tsc -b --noEmit` (clean).
 
-8. **Verify in Chrome** (chrome-devtools MCP, never a built-in preview) on the dev server (`npm run dev`, port 5180):
+9. **Verify in Chrome** (chrome-devtools MCP, never a built-in preview) on the dev server (`npm run dev`, port 5180):
    - Gallery tile previews live · config screen renders every control + expanded groups + inline help · editing updates the preview AND the URL (defaults omitted) · `/d/<slug>/play?...` reconstructs the look from the URL · fullscreen + pause work · console clean.
    - **It must look good** — verify the actual aesthetics at full size, not just that it renders.
 
-9. **Commit** on a `feature/...` branch. Update `CHANGELOG.md`. File any follow-ups as GitHub Issues.
+10. **Commit** on a `feature/...` branch. Update `CHANGELOG.md`. File any follow-ups as GitHub Issues.

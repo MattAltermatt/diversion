@@ -167,10 +167,29 @@ Routes:
 
 ## Adding a diversion
 
-Create `src/diversions/<slug>/` with an `index.ts` that default-exports a `Diversion`. It's auto-discovered by the registry (Vite glob) — no registration step.
+Create `src/diversions/<slug>/` with two files — no registration step; the registry discovers both by Vite glob.
+
+- **`meta.ts`** — the identity (`id`, `title`, `description`, `kind`). Eagerly loaded, so the gallery can lay out all 137 tiles on the first paint.
+- **`index.ts`** — the implementation, default-exporting a `Diversion` that spreads `...meta`. Lazily loaded: it becomes its own chunk, fetched when a tile scrolls into view or its route opens.
+
+Both are required. A folder with only `index.ts` silently vanishes from the gallery and 404s its route — `contract.test.ts` catches that.
 
 ```ts
+// meta.ts
+import type { DiversionMeta } from '../../framework/types'
+
+export const meta = {
+  id: 'my-diversion',                             // must equal the folder name
+  title: 'My Diversion',
+  description: 'One-line gallery blurb.',
+  kind: '2d',                                     // '2d' | 'webgl' | 'webgpu'
+} as const satisfies DiversionMeta
+```
+
+```ts
+// index.ts
 import type { Diversion } from '../../framework/types'
+import { meta } from './meta'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -181,10 +200,7 @@ const schema = z.object({
 })
 
 const myDiversion: Diversion<typeof schema._type> = {
-  id: 'my-diversion',
-  title: 'My Diversion',
-  description: 'One-line gallery blurb.',
-  kind: '2d',                                   // '2d' | 'webgl' | 'webgpu'
+  ...meta,                                      // never restate the identity here
   schema,
   setup(ctx, config, size) { /* build state */ return state },
   frame(state, ctx, t, dt) { /* draw ONE frame; framework owns the loop */ },
