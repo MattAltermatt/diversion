@@ -59,13 +59,33 @@ describe('CopyLinkButton', () => {
     expect(screen.getByRole('button').textContent).toContain('Copy link')
   })
 
-  it('renders a custom label / copiedLabel when provided', async () => {
-    render(<CopyLinkButton href="/x" label="📌 Copy this world" copiedLabel="✓ World copied" />)
-    expect(screen.getByRole('button').textContent).toContain('📌 Copy this world')
+  it('renders a custom icon / label pair, and the split leaves textContent intact', async () => {
+    // Exact equality, not toContain: the icon and text are separate spans so a
+    // narrow viewport can hide the text, and the {' '} between them is the only
+    // thing keeping the rendered string byte-identical to the old single label.
+    render(
+      <CopyLinkButton
+        href="/x"
+        icon="📌"
+        label="Copy this world"
+        copiedIcon="✓"
+        copiedLabel="World copied"
+      />,
+    )
+    expect(screen.getByRole('button').textContent).toBe('📌 Copy this world')
+    // The accessible name must survive the text being hidden at ≤560px, so it
+    // comes from aria-label rather than from content.
+    expect(screen.getByRole('button', { name: 'Copy this world' })).toBeTruthy()
     await act(async () => {
       fireEvent.click(screen.getByRole('button'))
     })
-    expect(screen.getByRole('button').textContent).toContain('✓ World copied')
+    expect(screen.getByRole('button').textContent).toBe('✓ World copied')
+    expect(screen.getByRole('button', { name: 'World copied' })).toBeTruthy()
+  })
+
+  it('defaults render the original link label exactly', () => {
+    render(<CopyLinkButton href="/x" />)
+    expect(screen.getByRole('button').textContent).toBe('🔗 Copy link')
   })
 
   it('does NOT show "Copied" when the clipboard write rejects', async () => {

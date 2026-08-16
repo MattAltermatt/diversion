@@ -47,6 +47,12 @@ export function CopyLinkButton({
       className={`copy-link-btn${className ? ` ${className}` : ''}`}
       onClick={copy}
       title={copied ? copiedLabel : label}
+      // aria-label, not title alone: per the accname algorithm `title` is only
+      // consulted when the name from content is EMPTY, and with .cb-txt hidden the
+      // content is still the emoji — so the accessible name would degrade to
+      // "link"/"pushpin". `title` also shows no tooltip on touch, which is exactly
+      // the viewport where the text is hidden.
+      aria-label={copied ? copiedLabel : label}
     >
       {/* Icon and text are separate spans so a narrow viewport can drop the text
           and keep the glyph (the play chrome would otherwise overrun the screen).

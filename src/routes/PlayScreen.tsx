@@ -207,6 +207,9 @@ export function PlayScreen() {
           <button
             className="play-copy"
             title="Discard the saved run and start a brand-new one"
+            // Narrow viewports hide .cb-txt, and content-derived naming would
+            // leave this button called "new" — see CopyLinkButton.
+            aria-label="New run"
             onClick={() => {
               // Discard the saved run, then reload. Only shown on a seedless URL, so the
               // fresh mount rolls a new seed and starts a brand-new run (an explicit

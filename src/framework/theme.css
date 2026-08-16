@@ -60,6 +60,12 @@ button {
   max-width: 1100px;
   margin: 0 auto;
   padding: 48px 24px 64px;
+  /* Same reasoning as .config-panel: the gallery is full-width below 1100px, so a
+     landscape notch would clip the header and the left column of tiles. */
+  padding-top: max(48px, env(safe-area-inset-top));
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+  padding-bottom: max(64px, env(safe-area-inset-bottom));
 }
 .gallery-head {
   border-bottom: 1px solid var(--line);
@@ -130,6 +136,13 @@ button {
   background: var(--panel);
   border-right: 1px solid var(--line);
   padding: 18px 18px 28px;
+  /* Not inside a width query: a Pro-Max phone in landscape is 932px wide, so it
+     keeps the desktop two-column layout while carrying a ~59px left inset — which
+     would bury the "← gallery" link and the left edge of every control under the
+     notch. env() is 0px on every non-notched device, so this costs nothing there. */
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -830,9 +843,16 @@ input[type='color'] {
     border-top: 1px solid var(--line);
     overflow-y: visible;
     height: auto;
-    padding-left: max(18px, env(safe-area-inset-left));
-    padding-right: max(18px, env(safe-area-inset-right));
-    padding-bottom: max(28px, env(safe-area-inset-bottom));
+    /* the safe-area padding lives on the base rule — it is needed above this
+       breakpoint too, on a landscape phone */
+  }
+  /* Give the gesture back on the Config preview specifically. Play never scrolls,
+     so opting out of browser gestures there costs nothing — but here the page DOES
+     scroll and the preview is sticky, so `touch-action: none` would pin a dead zone
+     over the top 45% of the screen for the whole page. Painting in the preview is a
+     desktop nicety; scrolling the form you came here to use is not. */
+  .config-preview .anim-canvas--interactive {
+    touch-action: auto;
   }
 }
 
@@ -848,14 +868,32 @@ input[type='color'] {
     max-width: calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right));
   }
   /* Glyph-only: the full labels total ~450px of chrome, which overran a 320px
-     screen and pushed "New run" entirely off it. `title` carries the wording. */
+     screen and pushed "New run" entirely off it. Each button carries an
+     aria-label, so hiding the text costs no accessible name. */
   .play-chrome .cb-txt {
     display: none;
   }
   .play-copy {
     min-width: 0;
   }
-  /* 44px touch targets (was 30px square / ~28px pills). */
+  /* The reduced-motion hint is nowrap and ~250px wide inside a right-anchored
+     row; with two 44px buttons beside it the row overruns a 390px screen off the
+     LEFT edge, and .play-screen is fixed so there is no scroll to recover it.
+     Under iOS "Reduce Motion" that hint is the only thing explaining why the
+     piece is frozen, so it has to wrap rather than clip. */
+  .anim-bar {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 28px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  }
+  .anim-bar .anim-hint {
+    white-space: normal;
+  }
+}
+
+/* Touch targets key off the POINTER, not the viewport width: a phone in landscape
+   is ~932px and a tablet wider still, and a finger is no more precise there. */
+@media (pointer: coarse) {
   .anim-bar button {
     width: 44px;
     height: 44px;
