@@ -24,12 +24,18 @@ export function AnimationHost({
   config,
   fullscreenable = false,
   showChrome = true,
+  interactive = true,
   onLiveConfigChange,
 }: {
   diversion: Diversion
   config: unknown
   fullscreenable?: boolean
   showChrome?: boolean
+  /** Whether this mount is a surface the viewer drives. False for gallery tiles,
+   *  which are thumbnails inside a link: they neither want pointer input nor may
+   *  opt out of browser gestures, because a tile that swallows touch scrolling is
+   *  a dead zone in the middle of a very long page. */
+  interactive?: boolean
   /** Called with the initial config on mount, and with the new config after each
    *  auto-restart reseed — so chrome (e.g. copy-link-with-seed) can track the live world. */
   onLiveConfigChange?: (config: unknown) => void
@@ -325,12 +331,16 @@ export function AnimationHost({
       canvas.addEventListener('webglcontextrestored', onRestored)
     }
 
-    // Pointer input (#9): only wired when the diversion opts in via onPointer. The
+    // Pointer input (#9): only wired when the diversion opts in via onPointer AND
+    // this mount is one the viewer drives — a gallery tile is a thumbnail inside a
+    // link, so painting into one is not a feature and the listeners are pure cost. The
     // framework owns the DOM — it maps each event into the diversion's own draw space
     // (CSS px for 2d, device px for GPU kinds, matching what frame() draws in) so the
     // diversion never touches the canvas or re-derives DPR. Passive: we don't
     // preventDefault (a future drag consumer can opt into that when one exists).
-    const onPointer = diversion.onPointer
+    // `interactive` is fixed per call site (Play/Config true, Gallery false), so it
+    // joins config/showChrome as a deliberate omission from this effect's [diversion] deps.
+    const onPointer = interactive ? diversion.onPointer : undefined
     const dispatchPointer = (phase: PointerSample['phase']) => (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect()
       if (r.width === 0 || r.height === 0) return
@@ -466,7 +476,11 @@ export function AnimationHost({
       <canvas
         key={diversion.kind}
         ref={canvasRef}
-        className={diversion.onPointer ? 'anim-canvas anim-canvas--interactive' : 'anim-canvas'}
+        className={
+          interactive && diversion.onPointer
+            ? 'anim-canvas anim-canvas--interactive'
+            : 'anim-canvas'
+        }
       />
       {showChrome && (
         <div className="anim-bar">

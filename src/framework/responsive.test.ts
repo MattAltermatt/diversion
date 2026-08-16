@@ -61,6 +61,30 @@ describe('touch-action seam (#284)', () => {
     expect(rule?.body).toMatch(/touch-action:\s*none/)
   })
 
+  it('withholds the modifier from a non-interactive mount, so gallery tiles still scroll', () => {
+    // A gallery tile mounts the same component for a diversion that declares
+    // onPointer. Keyed on onPointer alone it inherited touch-action: none and
+    // became a ~26%-of-screen dead zone in a ~50,000px scroll.
+    const tile = render(
+      createElement(AnimationHost, {
+        diversion: {
+          id: 'probe',
+          title: 'Probe',
+          description: '',
+          kind: '2d',
+          schema: z.object({ v: z.number().default(0) }),
+          setup: () => ({}),
+          frame: () => {},
+          onPointer: () => {},
+        } as Diversion,
+        config: { v: 0 },
+        interactive: false,
+      }),
+    )
+    expect(tile.container.querySelector('canvas')!.className).toBe('anim-canvas')
+    tile.unmount()
+  })
+
   it('AnimationHost applies the modifier only when the diversion declares onPointer', () => {
     const base: Diversion = {
       id: 'probe',

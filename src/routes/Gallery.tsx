@@ -84,7 +84,12 @@ function LazyPreview({ diversion, config }: { diversion: Diversion; config: unkn
         // maxRetries: belt-and-suspenders — if a tile ever does lose the context race,
         // it remounts and recovers instead of latching "failed to start".
         <DiversionErrorBoundary maxRetries={5}>
-          <AnimationHost diversion={diversion} config={config} showChrome={false} />
+          <AnimationHost
+            diversion={diversion}
+            config={config}
+            showChrome={false}
+            interactive={false}
+          />
         </DiversionErrorBoundary>
       )}
     </div>
