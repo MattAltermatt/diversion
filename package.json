@@ -10,7 +10,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "size": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "@types/d3-delaunay": "^6.0.4",

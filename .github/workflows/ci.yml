@@ -30,3 +30,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Guards the entry chunk against silently re-growing the way it did before
+      # #288 (1.91 MB / 615 kB gzipped, a 5.2s mobile LCP, one diversion at a time).
+      - run: npm run size

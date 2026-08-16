@@ -28,6 +28,9 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Same entry-chunk budget CI enforces — pushes to main only run this workflow,
+      # so without it the guard would not cover the one path that actually ships.
+      - run: npm run size
       # SPA fallback: GitHub Pages serves 404.html for unknown paths, so a
       # deep link like /diversion/d/flow-field/play boots the app and lets the
       # router resolve it.
