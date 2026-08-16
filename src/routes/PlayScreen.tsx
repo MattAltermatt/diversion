@@ -61,21 +61,35 @@ export function PlayScreen() {
   }, [diversion, config, seedless])
 
   // Auto-hide the chrome (back link + bar) after a few idle seconds — screensaver feel.
+  //
+  // `pointerdown` is load-bearing, not a nicety: idle sets `pointer-events: none` on
+  // both chrome layers, so if a touch can't wake them there is no way back. A tap used
+  // to recover only via a synthesized compatibility `mousemove`, and a *drag* emits none
+  // at all — so dragging on a diversion with `onPointer` stranded you. In a browser tab
+  // that was survivable (browser back exists); under `display: standalone` on iOS there
+  // is no back button, so touch-wake is a prerequisite for shipping the manifest.
+  //
+  // The idle delay is longer on a coarse pointer: 2.5s is hostile on a phone, where
+  // re-summoning the chrome costs a deliberate tap rather than an incidental mouse nudge.
   const [idle, setIdle] = useState(false)
   useEffect(() => {
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false
+    const delay = coarse ? 5000 : 2500
     let timer = 0
     const wake = () => {
       setIdle(false)
       clearTimeout(timer)
-      timer = window.setTimeout(() => setIdle(true), 2500)
+      timer = window.setTimeout(() => setIdle(true), delay)
     }
     window.addEventListener('mousemove', wake)
     window.addEventListener('keydown', wake)
+    window.addEventListener('pointerdown', wake)
     wake() // arm the timer on mount
     return () => {
       clearTimeout(timer)
       window.removeEventListener('mousemove', wake)
       window.removeEventListener('keydown', wake)
+      window.removeEventListener('pointerdown', wake)
     }
   }, [])
 
@@ -99,8 +113,10 @@ export function PlayScreen() {
         <CopyLinkButton
           href={`/d/${diversion.id}/play${pinnedQs}`}
           className="play-copy"
-          label="📌 Copy this world"
-          copiedLabel="✓ World copied"
+          icon="📌"
+          label="Copy this world"
+          copiedIcon="✓"
+          copiedLabel="World copied"
         />
         {diversion.clearPersistedRun && seedless && (
           <button
@@ -115,7 +131,7 @@ export function PlayScreen() {
               window.location.reload()
             }}
           >
-            🆕 New run
+            <span className="cb-ico">🆕</span> <span className="cb-txt">New run</span>
           </button>
         )}
       </div>

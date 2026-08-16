@@ -456,7 +456,18 @@ export function AnimationHost({
       {/* key on kind: getContext() permanently locks a canvas to one context
           type, so a 2d↔webgl switch on a REUSED canvas returns null + blanks.
           Keying by kind makes React mount a fresh canvas when the kind changes. */}
-      <canvas key={diversion.kind} ref={canvasRef} className="anim-canvas" />
+      {/* `--interactive` carries `touch-action: none`, and is gated on the same
+          condition as the pointer listeners below. It must NOT move onto
+          `.anim-canvas` itself: the gallery mounts this component per tile on a
+          tall scrolling page, and `touch-action` is honoured by the compositor
+          whether or not a listener exists — a blanket rule would kill scrolling
+          over every tile. `pan-y` is not the answer either; a paint-style hook
+          drags in both axes. */}
+      <canvas
+        key={diversion.kind}
+        ref={canvasRef}
+        className={diversion.onPointer ? 'anim-canvas anim-canvas--interactive' : 'anim-canvas'}
+      />
       {showChrome && (
         <div className="anim-bar">
           <span className="fps">{fps} fps</span>

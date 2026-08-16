@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets a full-bleed diversion reach the screen edges on a
+         notched device. It is taken here rather than in the later PWA pass because
+         it invalidates every hard-coded overlay offset the moment it lands — those
+         are authored as calc(Npx + env(safe-area-inset-*)) in theme.css. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#08080a" />
     <title>Diversion</title>
   </head>
   <body>

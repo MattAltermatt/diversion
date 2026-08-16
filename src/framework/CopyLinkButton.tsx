@@ -8,12 +8,16 @@ import { useEffect, useRef, useState } from 'react'
 export function CopyLinkButton({
   href,
   className,
-  label = '🔗 Copy link',
-  copiedLabel = '✓ Copied',
+  icon = '🔗',
+  label = 'Copy link',
+  copiedIcon = '✓',
+  copiedLabel = 'Copied',
 }: {
   href: string
   className?: string
+  icon?: string
   label?: string
+  copiedIcon?: string
   copiedLabel?: string
 }) {
   const [copied, setCopied] = useState(false)
@@ -42,8 +46,13 @@ export function CopyLinkButton({
       type="button"
       className={`copy-link-btn${className ? ` ${className}` : ''}`}
       onClick={copy}
+      title={copied ? copiedLabel : label}
     >
-      {copied ? copiedLabel : label}
+      {/* Icon and text are separate spans so a narrow viewport can drop the text
+          and keep the glyph (the play chrome would otherwise overrun the screen).
+          The space between them keeps textContent identical to the old label. */}
+      <span className="cb-ico">{copied ? copiedIcon : icon}</span>{' '}
+      <span className="cb-txt">{copied ? copiedLabel : label}</span>
     </button>
   )
 }
