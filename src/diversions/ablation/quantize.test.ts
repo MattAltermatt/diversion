@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { quantize } from './quantize'
-import { srgbToOklab } from '../../framework/color'
+import { quantize, contrastFloor } from './quantize'
+import { srgbToOklab, oklabToHex, hexToRgb } from '../../framework/color'
 
 /** A w×h image; `at(x,y)` returns [r,g,b]. */
 function make(w: number, h: number, at: (x: number, y: number) => [number, number, number]) {
@@ -138,5 +138,150 @@ describe('quantize (#278)', () => {
     const q = quantize(flat, 4, 4, 8, 1)
     expect(q.palette).toHaveLength(8)
     expect(q.idx.length).toBe(16)
+  })
+})
+
+describe('contrastFloor', () => {
+  it('reproduces the historical 0.40 on the ground it was calibrated against', () => {
+    // The shipped constant was solved by hand against #05070a; if the derivation
+    // disagrees with it, the derivation is wrong.
+    expect(contrastFloor('#05070a')).toBeCloseTo(0.40, 2)
+  })
+
+  it('rises as the ground lightens, so the darkest band never sinks into it', () => {
+    const dark = contrastFloor('#05070a')
+    const warm = contrastFloor('#2b2620')
+    const warmer = contrastFloor('#3d372e')
+    expect(warm).toBeGreaterThan(dark)
+    expect(warmer).toBeGreaterThan(warm)
+  })
+
+  it('never drops below the historical floor on a very dark ground', () => {
+    // Solving alone would return something lower for pure black; clamping keeps
+    // the one case that was already correct from regressing.
+    expect(contrastFloor('#000000')).toBeGreaterThanOrEqual(0.40)
+  })
+
+  it('actually clears the 1.88 floor it solves for, at worst-case hue', () => {
+    const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+    const lumOf = (hex: string) => {
+      const [r, g, b] = hexToRgb(hex)
+      return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    }
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lumOf(a), lumOf(b)].sort((x, y) => y - x)
+      return (hi + 0.05) / (lo + 0.05)
+    }
+    for (const bg of ['#05070a', '#2b2620', '#3d372e']) {
+      const L = contrastFloor(bg)
+      for (let d = 0; d < 360; d += 30) {
+        const h = (d * Math.PI) / 180
+        const band = oklabToHex({ L, a: 0.20 * Math.cos(h), b: 0.20 * Math.sin(h) })
+        expect(ratio(band, bg), `${bg} at hue ${d}`).toBeGreaterThanOrEqual(1.87)
+      }
+    }
+  })
+})
+
+describe('matte (the sprite sits in a solid rectangle)', () => {
+  // A 4x4 source: opaque 2x2 block top-left, transparent elsewhere.
+  const sprite = () => {
+    const px = new Uint8ClampedArray(4 * 4 * 4)
+    for (let y = 0; y < 2; y++) {
+      for (let x = 0; x < 2; x++) {
+        const at = (y * 4 + x) * 4
+        px[at] = 200; px[at + 1] = 80; px[at + 2] = 60; px[at + 3] = 255
+      }
+    }
+    return { width: 4, height: 4, pixels: px }
+  }
+
+  it('without matte, the void is left dead so the sprite floats', () => {
+    const q = quantize(sprite(), 8, 8, 3, 1, true, '#2b2620', false)
+    expect(q.coverage.some((c) => c === 0)).toBe(true)
+  })
+
+  it('with matte, every cell is alive — the whole rectangle must be cleared', () => {
+    const q = quantize(sprite(), 8, 8, 3, 1, true, '#2b2620', true)
+    expect(q.coverage.every((c) => c === 1)).toBe(true)
+  })
+
+  it('adds exactly one band, at index 0, without inventing an image colour', () => {
+    const plain = quantize(sprite(), 8, 8, 3, 1, true, '#2b2620', false)
+    const matted = quantize(sprite(), 8, 8, 3, 1, true, '#2b2620', true)
+    expect(matted.palette).toHaveLength(plain.palette.length + 1)
+    expect(matted.palette.slice(1)).toEqual(plain.palette)
+    // Void cells became band 0; covered cells shifted up by one.
+    for (let i = 0; i < plain.idx.length; i++) {
+      expect(matted.idx[i]).toBe(plain.coverage[i] ? plain.idx[i] + 1 : 0)
+    }
+  })
+
+  it('keeps the matte clear of the ground AND below every image band', () => {
+    const q = quantize(sprite(), 8, 8, 3, 1, true, '#2b2620', true)
+    const L = (hex: string) => {
+      const [r, g, b] = hexToRgb(hex)
+      return srgbToOklab(r * 255, g * 255, b * 255).L
+    }
+    const matteL = L(q.palette[0])
+    // At the floor: visible against the ground it sits on.
+    expect(matteL).toBeCloseTo(contrastFloor('#2b2620'), 2)
+    // And strictly below the artwork, so a dark outline cannot dissolve into it.
+    for (const c of q.palette.slice(1)) expect(L(c)).toBeGreaterThan(matteL)
+  })
+})
+
+describe('contrast solving is robust on any ground', () => {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+  const lumOf = (hex: string) => {
+    const [r, g, b] = hexToRgb(hex)
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+  }
+  const ratio = (a: string, b: string) => {
+    const [hi, lo] = [lumOf(a), lumOf(b)].sort((x, y) => y - x)
+    return (hi + 0.05) / (lo + 0.05)
+  }
+  // A saturated source: sRGB primaries reach chroma ~0.31 in OKLab, well past the
+  // 0.20 the floor was first modelled at. Pixel art is exactly this case.
+  const saturated = () => {
+    const px = new Uint8ClampedArray(4 * 4 * 4)
+    const cols = [[0, 15, 255], [255, 0, 0], [0, 255, 0], [255, 0, 255]]
+    for (let i = 0; i < 16; i++) {
+      const c = cols[i % 4]
+      px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = 255
+    }
+    return { width: 4, height: 4, pixels: px }
+  }
+
+  // Light grounds are the regression case: contrast-vs-L is V-shaped, so the
+  // original bisection converged to L=1 on mid-grey and produced a white slab
+  // with the matte BRIGHTER than the artwork.
+  const GROUNDS = ['#05070a', '#201c17', '#2b2620', '#909090', '#999999', '#aaaaaa', '#ffffff']
+
+  it('emits a palette that actually clears the floor, on every ground', () => {
+    for (const bg of GROUNDS) {
+      const q = quantize(saturated(), 16, 16, 4, 1, true, bg, true)
+      for (const c of q.palette) {
+        expect(ratio(c, bg), `${bg} band ${c}`).toBeGreaterThanOrEqual(1.87)
+      }
+    }
+  })
+
+  it('never puts the matte above the artwork, even on a light ground', () => {
+    for (const bg of GROUNDS) {
+      const q = quantize(saturated(), 16, 16, 4, 1, true, bg, true)
+      const L = (hex: string) => {
+        const [r, g, b] = hexToRgb(hex)
+        return srgbToOklab(r * 255, g * 255, b * 255).L
+      }
+      const matteL = L(q.palette[0])
+      for (const c of q.palette.slice(1)) {
+        expect(L(c), `${bg}: band ${c} vs matte ${q.palette[0]}`).toBeGreaterThan(matteL)
+      }
+    }
+  })
+
+  it('leaves the floor put on the ground it was calibrated against', () => {
+    expect(contrastFloor('#05070a')).toBeCloseTo(0.40, 2)
   })
 })

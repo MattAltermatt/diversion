@@ -5,6 +5,18 @@ import type { ZodType, ZodObject } from 'zod'
 // a preset-dropdown-only field. SchemaForm skips it in renderField.
 export type FieldUi = 'slider' | 'number' | 'segmented' | 'select' | 'toggle' | 'color' | 'colorList' | 'group' | 'matrix' | 'image' | 'hidden'
 
+/** An option for ui:'select' when the value must differ from the visible label,
+ *  or when a long list needs <optgroup> headings.
+ *
+ *  ui:'segmented' keeps the plain string[] form — its contract test in
+ *  diversionMeta.test.ts requires options to mirror the backing Zod enum exactly,
+ *  so a value/label split there would be a lie. */
+export interface SelectOption {
+  value: string
+  label: string
+  group?: string
+}
+
 export interface FieldMeta {
   ui: FieldUi
   label: string
@@ -13,7 +25,7 @@ export interface FieldMeta {
   max?: number // required for ui:'slider'
   step?: number
   maxLabel?: string // ui:'slider' — when value is at max, show this text instead of the number (e.g. "∞")
-  options?: string[] // for ui:'segmented' (mirrors enum values)
+  options?: string[] | SelectOption[] // ui:'segmented' mirrors the enum values; ui:'select' may split value/label and group
   showWhen?: { field: string; equals: string | string[] } // render only when a sibling field === this value (or is one of the listed values)
   section?: string // groups the field under a collapsible subpanel in the config form
   collapsed?: boolean // section starts collapsed if ANY field in it sets this (e.g. 'Advanced')

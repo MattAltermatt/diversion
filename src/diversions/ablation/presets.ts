@@ -22,7 +22,7 @@ export const ablationPresets: PresetGroup<AblationConfig>[] = [
   {
     label: 'Palette',
     options: [
-      { name: 'Bathymetric', patch: { source: 'Contours', palette: ['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'], background: '#05070a' } },
+      { name: 'Bathymetric', patch: { source: 'Contours', palette: ['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'], background: '#201c17' } },
       { name: 'Ember',       patch: { source: 'Contours', palette: ['#6b2810', '#963a12', '#c25518', '#e08128', '#f4ad46', '#ffe0a3'], background: '#070403' } },
       { name: 'Monochrome',  patch: { source: 'Contours', palette: ['#4d4d4d', '#f2f2f2'], background: '#050505' } },
       { name: 'Verdigris',   patch: { source: 'Contours', palette: ['#18543d', '#217a58', '#33a074', '#6fc298', '#a9dcb8', '#e6f2d9'], background: '#040806' } },

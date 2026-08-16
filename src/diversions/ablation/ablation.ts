@@ -2,7 +2,9 @@ import { mulberry32 } from '../../framework/rng'
 import type { Size } from '../../framework/types'
 import { buildField, buildFieldFromIndices, type Field } from './field'
 import { getImage, currentImage, storeVersion } from '../../framework/imageStore'
-import { quantize } from './quantize'
+import { ensurePicture, getPicture, pictureVersion } from '../../framework/pictureStore'
+import { rotationOrder } from './pictures'
+import { quantize, contrastFloor } from './quantize'
 import { buildFront, frontCell, killCell, exposedHistogram, type Front } from './front'
 import { temperedPick, resolveFleet, allocateFleet } from './scheduler'
 import { makeGeom, makeTurret, resetTurret, advance, trackPoint, type Geom, type Turret } from './turrets'
@@ -85,10 +87,18 @@ const PATCH_LIMIT = 20000
 
 /** The band count for the picture this config describes. Contours takes it from
  *  the palette's LENGTH (promised in that field's help, and depended on by every
- *  shared link already in the wild); Image takes it from the explicit `colors`
- *  control, since the palette in that mode is an output, not an input. */
+ *  shared link already in the wild); BOTH picture sources take it from the
+ *  explicit `colors` control, since the palette there is an output, not an input.
+ *
+ *  Keyed on Contours rather than on the picture modes so that adding a third
+ *  source could not silently fall through to the palette length. */
 export function bandsFor(cfg: AblationConfig): number {
-  return cfg.source === 'Image' ? cfg.colors : cfg.palette.length
+  if (cfg.source === 'Contours') return cfg.palette.length
+  // Pictures gains one band for the MATTE that fills the sprite's void, so the
+  // picture is a solid rectangle. `colors` still means "colours pulled out of the
+  // artwork" — the matte is not one of them, and counting it would make the
+  // slider's help text a lie.
+  return cfg.source === 'Pictures' ? cfg.colors + 1 : cfg.colors
 }
 
 // Quantizing is the most expensive thing in setup, and its result is STABLE for a
@@ -110,10 +120,16 @@ export interface Quant {
   key: string
   idx: Uint8Array
   palette: string[]
+  /** 0 where the source was transparent — those cells start dead. */
+  coverage: Uint8Array
 }
 
 function quantKey(cfg: AblationConfig, geom: Geom, imageId: string): string {
-  return `${imageId}|${cfg.colors}|${geom.cols}|${geom.rows}`
+  // `background` belongs here because the darkest band's floor is solved AGAINST
+  // it (see `contrastFloor`) — so the same image on a different ground is a
+  // genuinely different palette, and without this the recolour would be skipped as
+  // a cache hit and the picture would keep the old, possibly invisible, dark end.
+  return `${imageId}|${cfg.colors}|${geom.cols}|${geom.rows}|${cfg.background}`
 }
 
 /** Seed the clustering from the IMAGE, not from `cfg.seed`.
@@ -133,24 +149,66 @@ function hashId(id: string): number {
   return h >>> 0
 }
 
-/** The pixels this config wants. Prefers the id the config carries, but falls back
- *  to whatever single image the store holds — because that id cannot survive a
- *  reload (it is `local`, so it never enters the URL, which is the config's only
- *  persistence) while the pixels can and do. Without the fallback, every reload
- *  silently drops back to the contour map with a full image sitting in storage. */
-function resolveImage(cfg: AblationConfig) {
+/** The bundled scene this config plays at this generation, or null when the source
+ *  is not the bundled set.
+ *
+ *  A single-scene selection yields a one-entry order, so the modulo pins it and no
+ *  special case is needed — `generation % 1` is always 0. */
+export function activeSlug(cfg: AblationConfig, generation: number): string | null {
+  if (cfg.source !== 'Pictures') return null
+  const order = rotationOrder(cfg.picture, cfg.seed)
+  if (order.length === 0) return null
+  return order[generation % order.length]
+}
+
+/** The pixels this config wants, from whichever lane owns them.
+ *
+ *  `Yours` prefers the id the config carries but falls back to whatever single
+ *  image the store holds — that id cannot survive a reload (it is `local`, so it
+ *  never enters the URL, which is the config's only persistence) while the pixels
+ *  can and do. Without the fallback, every reload silently drops back to the
+ *  contour map with a full image sitting in storage.
+ *
+ *  `Pictures` is keyed by a stable slug, so it needs no such fallback. It also
+ *  warms the NEXT scene from here: the fetch has a whole picture's worth of
+ *  peeling to land in, so a rotation step should never show the contour fallback. */
+function resolveImage(cfg: AblationConfig, generation: number) {
+  if (cfg.source === 'Pictures') {
+    const slug = activeSlug(cfg, generation)
+    if (!slug) return null
+    ensurePicture(slug)
+    const next = activeSlug(cfg, generation + 1)
+    if (next && next !== slug) ensurePicture(next)
+    return getPicture(slug)
+  }
   return getImage(cfg.image) ?? currentImage()
 }
 
 /** The quantization this config+geometry wants, reusing `prev` when it still
- *  describes the same picture. Returns null when the store is cold. */
-function quantFor(cfg: AblationConfig, geom: Geom, prev: Quant | null): Quant | null {
-  if (cfg.source !== 'Image') return null
-  const img = resolveImage(cfg)
+ *  describes the same picture. Returns null when the relevant store is cold. */
+function quantFor(
+  cfg: AblationConfig, geom: Geom, prev: Quant | null, generation: number,
+): Quant | null {
+  if (cfg.source === 'Contours') return null
+  const img = resolveImage(cfg, generation)
   if (!img) return null
   const key = quantKey(cfg, geom, img.id)
   if (prev && prev.key === key) return prev
-  return { key, ...quantize(img, geom.cols, geom.rows, cfg.colors, hashId(img.id)) }
+  // A bundled sprite is centred at its own aspect and matted into a full
+  // rectangle; an upload keeps the stretch-to-fill the feature shipped with.
+  const sprite = cfg.source === 'Pictures'
+  const q = quantize(
+    img, geom.cols, geom.rows, cfg.colors, hashId(img.id), sprite, cfg.background, sprite,
+  )
+  // A source with no opaque pixel at all quantizes to nothing — every cell void.
+  // Building a field from that gives `aliveCount === 0`, which `step` reads as
+  // "picture finished" on the very first frame, and then again on every frame
+  // after: an endless completion loop that rebuilds the field and re-crews once a
+  // frame on a permanently blank screen, and in Pictures mode would advance the
+  // rotation ~60 sprites a second. Fall through to the contour map instead, which
+  // is what every other cold-source case already does.
+  if (!q.coverage.some((c) => c === 1)) return null
+  return { key, ...q }
 }
 
 /** The colours a picture is actually drawn in. Image mode uses the colours pulled
@@ -174,17 +232,24 @@ function newPicture(
   generation: number,
   prev: Quant | null,
 ): { field: Field; quant: Quant | null } {
-  const quant = quantFor(cfg, geom, prev)
-  // A cold store — a shared link, a cleared slot, a rehydrate still in flight —
-  // falls through to contours rather than rendering nothing. `step` watches the
-  // store's version and rebuilds the moment pixels arrive.
+  const quant = quantFor(cfg, geom, prev, generation)
+  // A cold store — a shared link, a cleared slot, a rehydrate or a fetch still in
+  // flight — falls through to contours rather than rendering nothing. `step`
+  // watches the relevant store's version and rebuilds the moment pixels arrive.
   //
-  // `generation` is deliberately unused on the image path: a finished image
-  // picture re-peels the SAME image, and the variation between cycles comes from
-  // `crew()`'s RNG — the Mixed shuffle, the entry jitter, the Unison lock draw
-  // all keep advancing. Contours below still varies the map itself per generation.
+  // `generation` reaches the picture path only through the SCENE it selects. An
+  // upload and a pinned single scene both re-peel the same picture, and the
+  // variation between cycles comes from `crew()`'s RNG — the Mixed shuffle, the
+  // entry jitter, the Unison lock draw all keep advancing. A bundled ROTATION
+  // additionally moves on to the next scene. Contours below still varies the map
+  // itself per generation.
   if (quant) {
-    return { field: buildFieldFromIndices(quant.idx, geom.cols, geom.rows, bandsFor(cfg)), quant }
+    return {
+      field: buildFieldFromIndices(
+        quant.idx, geom.cols, geom.rows, bandsFor(cfg), quant.coverage,
+      ),
+      quant,
+    }
   }
   return { quant: null, field: buildField({
     seed: cfg.seed + generation,
@@ -215,7 +280,7 @@ export function createState(cfg: AblationConfig, size: Size): AblationState {
     hist: new Uint32Array(field.bands),
     rand: mulberry32(cfg.seed),
     pictures: 0,
-    imageVersion: storeVersion(),
+    imageVersion: cfg.source === 'Pictures' ? pictureVersion() : storeVersion(),
     minted: 0,
     gateClear: 0,
     patches: [],
@@ -406,14 +471,16 @@ function rotate(s: AblationState, t: Turret): void {
 }
 
 export function step(s: AblationState, dt: number): void {
-  // 0. A reload rehydrates the stored image asynchronously, so `setup` may have
-  //    built a contour fallback. Swap the moment the pixels land — NOT at the next
-  //    picture boundary, since a lap runs ~25 minutes at the slowest Track speed
-  //    and deferring would mean showing the fallback for the whole session. This
-  //    has to run before the destructure below, which would otherwise capture the
-  //    field we are about to replace.
-  if (s.cfg.source === 'Image' && storeVersion() !== s.imageVersion) {
-    s.imageVersion = storeVersion()
+  // 0. A picture's pixels arrive asynchronously — a reload rehydrating the stored
+  //    upload, or a bundled scene still being fetched — so `setup` may have built
+  //    a contour fallback. Swap the moment the pixels land, NOT at the next picture
+  //    boundary: a lap runs ~25 minutes at the slowest Track speed, so deferring
+  //    would mean showing the fallback for the whole session. This has to run
+  //    before the destructure below, which would otherwise capture the field we
+  //    are about to replace.
+  const liveVersion = s.cfg.source === 'Pictures' ? pictureVersion() : storeVersion()
+  if (s.cfg.source !== 'Contours' && liveVersion !== s.imageVersion) {
+    s.imageVersion = liveVersion
     const swapped = newPicture(s.cfg, s.geom, s.pictures, s.quant)
     // Only rebuild if the picture ACTUALLY changed. The version moves for any
     // store activity — a failed decode, a clear on a machine that never had an
@@ -630,6 +697,10 @@ export function applyConfig(s: AblationState, next: AblationConfig, _size: Size)
     // the picture's whole source, its pixels, and how many bands it quantizes to
     next.source !== prev.source ||
     next.image !== prev.image ||
+    // a different sprite, or a switch between one and the rotation, is a different
+    // picture entirely — and
+    // without this the map keeps peeling the old one after the dropdown changes
+    next.picture !== prev.picture ||
     next.colors !== prev.colors ||
     // a different NUMBER of colours is a different number of contour bands
     next.palette.length !== prev.palette.length ||
@@ -659,6 +730,25 @@ export function applyConfig(s: AblationState, next: AblationConfig, _size: Size)
   if (next.background !== prev.background || next.palette.some((c, i) => c !== prev.palette[i])) {
     s.buffer = null
     s.patches.length = 0
+  }
+  // A picture's palette is SOLVED against the ground (`contrastFloor`), so changing
+  // the ground can change the palette — and the Background field's help promises
+  // exactly that. Invalidating the baked buffer above is not enough: it repaints
+  // the same, now possibly invisible, colours.
+  //
+  // Gated on the floor actually MOVING, for two independent reasons. `Swatch` uses
+  // the native `input` event with no debounce, so an OS colour-picker drag runs
+  // this on every intermediate value, and a re-quantize costs ~62ms at cellSize 2.
+  // And most nudges within one shade do not move the floor at all, so the common
+  // drag stays free while a real dark→light move still re-derives.
+  //
+  // Safe to do live rather than structurally: the floor only feeds the final
+  // lightness `stretch`, never the clustering, so cell indices — and therefore the
+  // demolition already achieved — are untouched. Only the palette changes.
+  if (s.quant && next.background !== prev.background
+      && Math.abs(contrastFloor(next.background) - contrastFloor(prev.background)) > 1e-3) {
+    const reshaded = quantFor(s.cfg, s.geom, null, s.pictures)
+    if (reshaded) s.quant = reshaded
   }
   return true
 }

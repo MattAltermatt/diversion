@@ -24,7 +24,9 @@ const ablation = defineDiversion<typeof ablationSchema, AblationState, '2d'>({
     // the GALLERY pay an image decode for a diversion they have not opened.
     // Fire-and-forget — `setup` is synchronous and cannot await it, so `step`
     // watches the store's version counter and swaps the picture in when it lands.
-    if (config.source === 'Image') rehydrate()
+    // Only the UPLOAD lane needs this. The bundled lane fetches from `resolveImage`
+    // on every `newPicture`, which `createState` below runs synchronously.
+    if (config.source === 'Yours') rehydrate()
     return createState(config, size)
   },
 

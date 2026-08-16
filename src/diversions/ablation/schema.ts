@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PICTURE_OPTIONS, SHUFFLE_ALL } from './pictures'
 
 // Ablation: turrets on a rectangular track peel a quantized contour-map picture
 // from the outside in. One schema drives the form, the URL codec, and the type.
@@ -9,22 +10,30 @@ export const ablationSchema = z.object({
   // derived "is an image set" test, because showWhen.equals only validates
   // against enum siblings — and an explicit mode reads better anyway than
   // controls silently swapping the moment a file is picked.
-  source: z.enum(['Contours', 'Image']).default('Contours')
+  source: z.enum(['Contours', 'Pictures', 'Yours']).default('Contours')
     .meta({ section: 'Picture', ui: 'segmented', label: 'Source',
-            options: ['Contours', 'Image'],
-            help: 'Contours generates a fresh topographic map for every picture. Image peels '
-                + 'a picture you choose, reduced to a handful of colours — and re-peels the '
-                + 'same one each time, since the crew is shuffled fresh per picture and never '
-                + 'dissolves it the same way twice.' }),
+            options: ['Contours', 'Pictures', 'Yours'],
+            help: 'Contours generates a fresh topographic map for every picture. Pictures '
+                + 'works through a set of pixel-art sprites bundled with the gallery — a sword, '
+                + 'a potion, a villager — moving on to the next one each time a picture is '
+                + 'finished. Yours peels a picture from your own machine, re-peeling the same '
+                + 'one each time; the crew is shuffled fresh per picture, so it never dissolves '
+                + 'the same way twice.' }),
+  picture: z.string().default(SHUFFLE_ALL)
+    .meta({ section: 'Picture', ui: 'select', label: 'Picture', options: PICTURE_OPTIONS,
+            showWhen: { field: 'source', equals: 'Pictures' },
+            help: 'Shuffle all works through every bundled sprite in turn; picking one repeats '
+                + 'it, taken apart a different way each time. Unlike your own picture, this '
+                + 'choice DOES travel in a link you share.' }),
   image: z.string().optional()
     .meta({ section: 'Picture', ui: 'image', label: 'Image', local: true,
-            showWhen: { field: 'source', equals: 'Image' },
+            showWhen: { field: 'source', equals: 'Yours' },
             help: 'Stays on this machine — a picture is far too big to ride in a link. Your own '
                 + 'reloads keep it; someone opening a link you share sees the generated contour '
                 + 'map instead, or their own picture if they have one here.' }),
   colors: z.number().int().min(2).max(24).default(6)
     .meta({ section: 'Picture', ui: 'slider', min: 2, max: 24, step: 1, label: 'Colors',
-            showWhen: { field: 'source', equals: 'Image' },
+            showWhen: { field: 'source', equals: ['Pictures', 'Yours'] },
             help: 'How many colours the picture is reduced to, which is also how many bands '
                 + 'the crew divides into. Like is grouped with like, and the range is stretched '
                 + 'to span dark to light — so 2 gives you a stark two-tone picture. The dark end '
@@ -33,7 +42,9 @@ export const ablationSchema = z.object({
   cellSize: z.number().int().min(2).max(40).default(10)
     .meta({ section: 'Picture', ui: 'slider', min: 2, max: 40, step: 1, label: 'Cell size',
             help: 'Size of one cell in pixels. Smaller means a finer picture and a far longer '
-                + 'demolition — at 2 there are a quarter-million cells to get through.' }),
+                + 'demolition — at 2 there are a quarter-million cells to get through. A bundled '
+                + 'sprite is tiny to begin with, so there turning this down adds no detail: it '
+                + 'only divides the same picture into more, smaller cells.' }),
   featureSize: z.number().min(4).max(60).default(18)
     .meta({ section: 'Picture', ui: 'slider', min: 4, max: 60, step: 1, label: 'Feature size',
             showWhen: { field: 'source', equals: 'Contours' },
@@ -54,9 +65,11 @@ export const ablationSchema = z.object({
             help: 'The contour bands, outermost value first. The LENGTH of this list is the '
                 + 'number of bands — two colours gives a stark black-and-white map, twenty a '
                 + 'slow topographic dissolve.' }),
-  background: z.string().default('#05070a')
+  background: z.string().default('#201c17')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
-            help: 'What a destroyed cell leaves behind.' }),
+            help: 'What a destroyed cell leaves behind, and the ground a picture sits on. '
+                + 'A picture\'s colours are stretched to stay legible against whatever you '
+                + 'choose here, so a lighter ground lifts the whole range with it.' }),
 
   // ─── Turrets ───────────────────────────────────────────────────────────────
   capacity: z.number().int().min(1).max(64).default(12)

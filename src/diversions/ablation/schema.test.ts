@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ablationSchema } from './schema'
+import { PICTURES } from './pictures'
 import { ablationPresets } from './presets'
 import { encodeConfig } from '../../framework/urlCodec'
 
@@ -105,10 +106,10 @@ describe('image source (#278)', () => {
   })
 
   it('the image id never reaches a link, even a pinned one', () => {
-    const sp = encodeConfig(ablationSchema, { ...d, source: 'Image', image: 'img_x' } as never,
+    const sp = encodeConfig(ablationSchema, { ...d, source: 'Yours', image: 'img_x' } as never,
       { includePinned: true })
     expect(sp.has('image')).toBe(false)
-    expect(sp.get('source')).toBe('Image')
+    expect(sp.get('source')).toBe('Yours')
   })
 
   type FieldName = keyof typeof ablationSchema.shape
@@ -120,10 +121,23 @@ describe('image source (#278)', () => {
     }
   })
 
-  it('image-only fields are gated on source', () => {
-    for (const k of ['image', 'colors'] as FieldName[]) {
-      expect(showWhenOf(k)).toEqual({ field: 'source', equals: 'Image' })
-    }
+  it('the upload picker is gated on Yours alone', () => {
+    expect(showWhenOf('image')).toEqual({ field: 'source', equals: 'Yours' })
+  })
+
+  it('colors serves BOTH picture sources, so it is gated on the pair', () => {
+    expect(showWhenOf('colors')).toEqual({ field: 'source', equals: ['Pictures', 'Yours'] })
+  })
+
+  it('the bundled picker is gated on Pictures alone', () => {
+    expect(showWhenOf('picture')).toEqual({ field: 'source', equals: 'Pictures' })
+  })
+
+  it('the bundled choice DOES travel in a link — that is the point of it', () => {
+    const sp = encodeConfig(ablationSchema, { ...d, source: 'Pictures', picture: PICTURES[0].slug } as never)
+    expect(sp.get('picture')).toBe(PICTURES[0].slug)
+    expect(ablationSchema.shape.picture.meta()?.local).toBeUndefined()
+    expect(ablationSchema.shape.picture.meta()?.randomizeOnFreshLoad).toBeUndefined()
   })
 
   it('cellSize and background are gated on neither — they serve both modes', () => {

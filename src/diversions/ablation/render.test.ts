@@ -274,7 +274,7 @@ describe('image palette (#278)', () => {
 
   it('draws an image picture in the DERIVED colours, not the configured palette', () => {
     storeSplitImage('i1')
-    const s = createState(cfg({ source: 'Image', image: 'i1', colors: 2 }), SIZE)
+    const s = createState(cfg({ source: 'Yours', image: 'i1', colors: 2 }), SIZE)
     const { ctx, fills } = recordingContext()
     render(s, ctx)
 
@@ -301,7 +301,7 @@ describe('image palette (#278)', () => {
   })
 
   it('falls back to the configured palette when the store is cold', () => {
-    const s = createState(cfg({ source: 'Image', image: 'missing', colors: 2 }), SIZE)
+    const s = createState(cfg({ source: 'Yours', image: 'missing', colors: 2 }), SIZE)
     const { ctx, fills } = recordingContext()
     render(s, ctx)
     expect(fills.some((f) => f.includes('27,79,107'))).toBe(true)

@@ -113,14 +113,31 @@ export function buildFieldFromIndices(
   cols: number,
   rows: number,
   bands: number,
+  /** cols*rows flags from the quantizer; 0 = void. Omit for a fully opaque
+   *  source, where every cell starts alive. */
+  coverage?: Uint8Array,
 ): Field {
   const n = cols * rows
-  return {
-    cols,
-    rows,
-    bands: Math.max(1, bands),
-    idx: idx.slice(0, n),
-    alive: new Uint8Array(n).fill(1),
-    aliveCount: n,
+  if (!coverage) {
+    return {
+      cols,
+      rows,
+      bands: Math.max(1, bands),
+      idx: idx.slice(0, n),
+      alive: new Uint8Array(n).fill(1),
+      aliveCount: n,
+    }
   }
+  // A void cell starts DEAD rather than holding a colour. Everything downstream
+  // already reasons in terms of `alive` — `buildFront` walks each lane for the
+  // outermost survivor, `crew` counts `bandAlive` over live cells only, and the
+  // picture completes at `aliveCount === 0` — so a cell that was never alive
+  // behaves exactly like one a turret already cleared. That is what makes a beam
+  // cross the transparent surround of a sprite and strike the figure beyond it.
+  const alive = new Uint8Array(n)
+  let aliveCount = 0
+  for (let i = 0; i < n; i++) {
+    if (coverage[i]) { alive[i] = 1; aliveCount++ }
+  }
+  return { cols, rows, bands: Math.max(1, bands), idx: idx.slice(0, n), alive, aliveCount }
 }

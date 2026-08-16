@@ -1103,7 +1103,7 @@ describe('unison at picture start', () => {
 describe('image source (#278)', () => {
   const size = { width: 400, height: 300 }
   const imgCfg = (over: Partial<AblationConfig> = {}): AblationConfig =>
-    ({ ...ablationSchema.parse({}), source: 'Image', image: 'i1', colors: 4, ...over })
+    ({ ...ablationSchema.parse({}), source: 'Yours', image: 'i1', colors: 4, ...over })
 
   /** A w*h half-dark/half-light image in the store under `id`. */
   function storeSplitImage(id: string) {
@@ -1239,7 +1239,7 @@ describe('an image survives a reload (#278)', () => {
   // persistence. The store's single slot has to be authoritative or every reload
   // silently drops to the contour map with a full image sitting in storage.
   const reloaded = (): AblationConfig =>
-    ({ ...ablationSchema.parse({}), source: 'Image', colors: 4, image: undefined })
+    ({ ...ablationSchema.parse({}), source: 'Yours', colors: 4, image: undefined })
 
   it('peels the stored image even though the config lost its id', () => {
     storeImage('img_restored')
@@ -1276,5 +1276,53 @@ describe('an image survives a reload (#278)', () => {
     clearImage()
     step(s, 1 / 60)
     expect(s.field.bands).toBe(contourBands)
+  })
+})
+
+describe('a live background change re-solves the palette (#278 review)', () => {
+  const SIZE = { width: 400, height: 300 }
+  const sprite = () => {
+    const px = new Uint8ClampedArray(8 * 8 * 4)
+    for (let i = 0; i < 64; i++) {
+      px[i * 4] = 30 + (i % 8) * 20; px[i * 4 + 1] = 90; px[i * 4 + 2] = 140; px[i * 4 + 3] = 255
+    }
+    return { id: 'bgtest', dataUrl: '', width: 8, height: 8, pixels: px }
+  }
+
+  it('changes the palette when the ground moves far enough to move the floor', () => {
+    putImage(sprite())
+    const a = ablationSchema.parse({ source: 'Yours', image: 'bgtest', colors: 4,
+      background: '#05070a' })
+    const s = createState(a, SIZE)
+    const before = paletteFor(s).slice()
+    // Live apply, NOT a restart — the demolition already achieved must survive.
+    expect(applyConfig(s, { ...a, background: '#3d372e' }, SIZE)).toBe(true)
+    expect(paletteFor(s)).not.toEqual(before)
+  })
+
+  it('leaves the palette alone when the ground barely moves', () => {
+    putImage(sprite())
+    const a = ablationSchema.parse({ source: 'Yours', image: 'bgtest', colors: 4,
+      background: '#05070a' })
+    const s = createState(a, SIZE)
+    const before = paletteFor(s).slice()
+    // A nudge within the same shade does not move the solved floor, and
+    // re-quantizing on every intermediate value of a colour-picker drag would
+    // cost ~62ms each at cellSize 2.
+    expect(applyConfig(s, { ...a, background: '#05070b' }, SIZE)).toBe(true)
+    expect(paletteFor(s)).toEqual(before)
+  })
+
+  it('keeps the cell indices, so demolition progress is not lost', () => {
+    putImage(sprite())
+    const a = ablationSchema.parse({ source: 'Yours', image: 'bgtest', colors: 4,
+      background: '#05070a' })
+    const s = createState(a, SIZE)
+    const idxBefore = s.quant!.idx.slice()
+    const aliveBefore = s.field.aliveCount
+    applyConfig(s, { ...a, background: '#3d372e' }, SIZE)
+    // The floor feeds only the final lightness stretch, never the clustering.
+    expect(Array.from(s.quant!.idx)).toEqual(Array.from(idxBefore))
+    expect(s.field.aliveCount).toBe(aliveBefore)
   })
 })
