@@ -1,6 +1,7 @@
 # Mobile-friendly gallery, and the road to a PWA
 
-**Issue:** #284 · **Date:** 2026-08-16 · **Status:** in progress
+**Issue:** #284 · **Date:** 2026-08-16 · **Status:** shipped except the service
+worker (§7) and the registry split (§8), both deliberately deferred
 
 A gallery of full-screen generative pieces is an obvious fit for a phone propped
 on a shelf. Today the site is desktop-only in practice — not because anything is
@@ -262,6 +263,44 @@ Related, and worth fixing whenever §8 is taken up: `vite.config.ts:9` gates
 `base` on `command === 'build'`, so `npm run preview` serves the prod bundle at
 `/` while the router expects `/diversion` — which is why the production bundle
 had effectively never been run locally.
+
+## Corrections found during implementation
+
+Three things in the design above turned out to be wrong or incomplete, recorded
+here rather than silently edited:
+
+- **`onPointer` is not a sufficient gate for `touch-action`.** Falling Sand also
+  appears as a *gallery tile*, so keying the opt-out on the diversion alone gave
+  that tile `touch-action: none` — a dead zone over 26% of the screen inside a
+  50,000px scroll. `AnimationHost` gained an `interactive` prop (false for
+  Gallery) that gates the class **and** the pointer listeners.
+- **The Config preview needs the gesture back.** Play never scrolls, so opting
+  out there is free; Config does scroll and its preview is sticky, so
+  `touch-action: none` would pin a dead zone over the top 45% of the page for its
+  whole length. `.config-preview .anim-canvas--interactive { touch-action: auto }`
+  below 820px.
+- **Safe-area padding does not belong in a width query.** A Pro-Max phone in
+  landscape is 932px, so it keeps the desktop two-column layout *while* carrying
+  a ~59px inset — burying the `← gallery` link and the left edge of every
+  control. `.config-panel` and `.gallery` carry the padding on their base rules.
+  `env()` is 0px elsewhere, so it costs nothing. Touch targets moved to
+  `@media (pointer: coarse)` for the same reason.
+
+One design claim was challenged and **survived**: `position: sticky` on a grid
+item with an explicit height was predicted to have zero travel. Measured across
+the full scroll range at 390px, the preview stays pinned at `top: 0` (scrollY
+0/300/900/1123).
+
+## Known-remaining, filed rather than absorbed
+
+- `.sw` toggles are 38×20, under WCAG 2.2 AA's 24px floor. Untouched here.
+- `particle-life-gpu`, `swarmalators` and `swarm-chemistry` attach their own
+  canvas pointer listeners without declaring `onPointer`, so the new seam misses
+  them and their drag-pan is claimed by the browser on a touch device. They gate
+  themselves at ≥480px, so this bites tablets rather than phones.
+- `apple-mobile-web-app-status-bar-style` was deliberately not set: it is
+  layout-affecting (it changes what `env(safe-area-inset-top)` means) and cannot
+  be verified without a real iPhone.
 
 ## Verification
 

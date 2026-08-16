@@ -6,7 +6,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~20s, 5940+ tests)
+npm test         # vitest run (full suite; ~24s, 5979+ tests)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint
 npm run build    # tsc -b && vite build
@@ -48,6 +48,48 @@ A new diversion copies this canon; it's what the majority of the 137 already do.
 - **Help:** every non-obvious field carries persistent `.meta({ help })`.
 
 Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **53 of 137** pieces have no `'Palette'` preset group (84 declare one) — add later. Recount before quoting these; the previous figures here (69/67) did not survive a recount. Count with `grep -rlz "label: 'Palette',[[:space:]]*options:"` per diversion folder — matching `label: 'Palette'` alone over-counts, because the canon `colorList` **field** carries that same label.
+
+### Small screens (#284) — the first `@media` queries in the project
+
+Everything above the breakpoints is the layout that shipped for a year; the
+mobile rules only apply below, so desktop is unchanged by construction. Two
+thresholds, both derived: **820px** (320px sidebar + ~500px usable preview is
+where the Config split stops working — below it the screen stacks, preview
+sticky on top at `clamp(240px, 45vh, 420px)`, panel flowing beneath) and
+**560px** (the Play chrome and the anim bar are anchored to opposite edges and
+collide below ~524px — below it the chrome moves bottom-left and its labels
+collapse to glyphs). **Touch targets key off `@media (pointer: coarse)`, not
+width** — a phone in landscape is 932px and a finger is no more precise there.
+
+- **`touch-action: none` is gated on `interactive && diversion.onPointer`**, never
+  on `.anim-canvas` alone. The same canvas class is used by all three routes, and
+  `touch-action` is honoured by the compositor whether or not a JS listener
+  exists — so the blanket version silently makes the 50,000px gallery
+  unscrollable. `pan-y` is not the answer either; a paint-style hook drags in both
+  axes. `AnimationHost`'s `interactive` prop (false for Gallery tiles) gates the
+  class *and* the listeners; `.config-preview` additionally takes the gesture back
+  below 820px, because that page scrolls and its preview is sticky.
+- **Safe-area padding does not belong inside a width query.** `viewport-fit=cover`
+  is set, so `env(safe-area-inset-*)` is live — and a Pro-Max phone in *landscape*
+  is 932px, keeping the desktop layout while carrying a ~59px inset. Overlay
+  offsets (`.anim-bar`, `.play-chrome`, `.animate-pill`, `.reset-pill`) and panel
+  padding (`.config-panel`, `.gallery`) are authored on their **base** rules;
+  `env()` is 0px on every other device.
+- **`100dvh`, not `100vh`** (`.config-screen`) — `100vh` is the URL-bar-retracted
+  height on mobile Safari, so with `overflow: hidden` the bottom of the form was
+  unreachable. Keep the `vh` line above it as the fallback.
+- **Wake Lock lives in `PlayScreen`, never `AnimationHost`** (the host mounts on
+  all 137 gallery tiles, so a per-host lock holds the screen awake while merely
+  browsing). It keys off `shouldPause()`, which also gives re-request-after-hide
+  for free, since `hidden` is already a pause source.
+- **The manifest omits `id` on purpose.** `id` resolves against `start_url`'s
+  *origin*, and `mattaltermatt.github.io` is shared across every Project Page, so
+  a relative `id` would collide with any sibling repo's PWA.
+- **`import x from './theme.css?raw'` yields the EMPTY STRING under vitest** (CSS
+  processing is off), so a test that greps the stylesheet passes vacuously. Read
+  it with `node:fs` and assert the read was non-empty. Same trap for `index.html`
+  if you forget to strip comments — a comment quoting the thing you're asserting
+  will satisfy a file-wide match.
 
 ## Gotchas learned
 
