@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigationType, Link } from 'react-router-dom'
 import { getDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { decodeConfig, applyFreshLoadRandomization, encodeConfig } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
+import {
+  RUNNING,
+  hasWakeLock,
+  samePauseSources,
+  shouldHoldWakeLock,
+  type PauseSources,
+} from '../framework/pauseModel'
 
 export function PlayScreen() {
   const { slug } = useParams()
@@ -93,6 +100,84 @@ export function PlayScreen() {
     }
   }, [])
 
+  // ── Screen Wake Lock (#284) ───────────────────────────────────────────────
+  //
+  // A phone propped on a shelf sleeps in ~30s, which defeats the whole premise of
+  // an ambient gallery. This lives HERE and never in AnimationHost: the host mounts
+  // on every one of the 137 gallery tiles, so a per-host lock would hold the screen
+  // awake while merely browsing. PlayScreen is already the route that owns
+  // whole-session concerns (resumeConfig / armPersistence), so the precedent exists.
+  //
+  // Availability is probed once: on a browser without the API the toggle is not
+  // rendered at all, rather than rendering a control that presses and silently does
+  // nothing (which is exactly the defect `requestFullscreen` has on iPhone).
+  const wakeLockSupported = useMemo(() => hasWakeLock(navigator), [])
+  const [wakeLockOn, setWakeLockOn] = useState(false)
+
+  // The host's live pause sources, reported through the read-only seam. Starts at
+  // RUNNING (nothing freezing) and is overwritten by the host's first sync, which
+  // fires in its mount effect — child effects run before this parent's.
+  const [pause, setPause] = useState<PauseSources>(RUNNING)
+  const onPauseSourcesChange = useCallback((s: PauseSources) => {
+    setPause((prev) => (samePauseSources(prev, s) ? prev : s))
+  }, [])
+
+  // Hold iff the viewer asked AND the animation is actually moving. Because
+  // `hidden` is one of the pause sources, this is ALSO the re-request seam: the
+  // platform drops the lock on tab-hide, the host's existing `visibilitychange`
+  // listener flips `hidden`, and this effect re-runs — first releasing (a no-op on
+  // an already-released sentinel), then re-requesting when the tab comes back. No
+  // second `visibilitychange` listener is added; the one in AnimationHost belongs
+  // to the pause model and this rides it.
+  const holdWakeLock = shouldHoldWakeLock({
+    requested: wakeLockOn,
+    supported: wakeLockSupported,
+    pause,
+  })
+  useEffect(() => {
+    if (!holdWakeLock) return
+    let cancelled = false
+    let sentinel: WakeLockSentinel | null = null
+    // The platform may release the lock on its own (tab-hide, low battery). Drop the
+    // reference so the cleanup doesn't call release() on a corpse.
+    const onRelease = () => {
+      sentinel = null
+    }
+    // request() rejects with NotAllowedError on a hidden document, on low battery,
+    // and under a blocking Permissions Policy — none of which is exceptional, and
+    // none of which the viewer can act on. Fail soft and silent, every call: the
+    // toggle simply stays on and the next pause/visibility change retries.
+    try {
+      navigator.wakeLock
+        .request('screen')
+        .then((s) => {
+          if (cancelled) {
+            // Resolved after this effect was torn down — release immediately rather
+            // than stranding a lock nothing holds a reference to.
+            s.release().catch(() => {})
+            return
+          }
+          sentinel = s
+          s.addEventListener('release', onRelease)
+        })
+        .catch(() => {})
+    } catch {
+      /* a shimmed/hostile navigator.wakeLock that throws synchronously */
+    }
+    return () => {
+      cancelled = true
+      const held = sentinel
+      sentinel = null
+      if (!held) return
+      held.removeEventListener('release', onRelease)
+      try {
+        held.release().catch(() => {})
+      } catch {
+        /* already released by the platform */
+      }
+    }
+  }, [holdWakeLock])
+
   if (!diversion || !config) return <div className="empty">Unknown diversion.</div>
 
   // Back link + copy link mirror the incoming URL verbatim. Because seed is never
@@ -141,6 +226,24 @@ export function PlayScreen() {
           config={config}
           fullscreenable
           onLiveConfigChange={setLiveConfig}
+          onPauseSourcesChange={onPauseSourcesChange}
+          barExtra={
+            wakeLockSupported && (
+              <button
+                className="wake-lock"
+                aria-pressed={wakeLockOn}
+                aria-label={wakeLockOn ? 'Let the screen sleep' : 'Keep the screen awake'}
+                title={
+                  wakeLockOn
+                    ? 'Keeping the screen awake — tap to let it sleep'
+                    : 'Keep the screen awake while this plays (uses more battery)'
+                }
+                onClick={() => setWakeLockOn((v) => !v)}
+              >
+                {wakeLockOn ? '💡' : '💤'}
+              </button>
+            )
+          }
         />
       </DiversionErrorBoundary>
     </div>

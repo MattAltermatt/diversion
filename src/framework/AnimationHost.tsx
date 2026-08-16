@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Diversion, RenderContext, Size, PointerSample } from './types'
 import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
@@ -26,6 +26,8 @@ export function AnimationHost({
   showChrome = true,
   interactive = true,
   onLiveConfigChange,
+  onPauseSourcesChange,
+  barExtra,
 }: {
   diversion: Diversion
   config: unknown
@@ -39,6 +41,19 @@ export function AnimationHost({
   /** Called with the initial config on mount, and with the new config after each
    *  auto-restart reseed — so chrome (e.g. copy-link-with-seed) can track the live world. */
   onLiveConfigChange?: (config: unknown) => void
+  /** Reports the live pause sources whenever any of them changes. A read-only
+   *  window onto state the host already owns: the host keeps deciding when to
+   *  freeze, and a route that needs to know whether the piece is ACTUALLY moving
+   *  (PlayScreen's wake lock, #284) reads it here instead of re-deriving four
+   *  observers and a media query. Deliberately not a wake-lock hook — the host
+   *  mounts on all 137 gallery tiles, so anything battery-facing must live in the
+   *  route, not here. */
+  onPauseSourcesChange?: (sources: PauseSources) => void
+  /** Extra controls for the anim bar, rendered after Pause/Fullscreen. A slot
+   *  rather than a feature: it lets a route add a control that has to sit beside
+   *  Pause/Fullscreen (and inherit the 44px narrow-viewport touch target on
+   *  `.anim-bar button`) while owning all of its own behaviour. */
+  barExtra?: ReactNode
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -76,9 +91,18 @@ export function AnimationHost({
   // without re-running setup when only the callback identity changes.
   const onLiveRef = useRef<typeof onLiveConfigChange>(undefined)
   onLiveRef.current = onLiveConfigChange
+  const onPauseRef = useRef<typeof onPauseSourcesChange>(undefined)
+  onPauseRef.current = onPauseSourcesChange
 
   // Single source of truth for the loop's pause state: paused if ANY source is.
-  const syncPaused = () => loopRef.current?.setPaused(shouldPause(pauseRef.current))
+  // Every mutation of pauseRef routes through here, so this is also the one place
+  // that has to report upward — a listener can't miss a source that way.
+  const syncPaused = () => {
+    loopRef.current?.setPaused(shouldPause(pauseRef.current))
+    // A fresh object: pauseRef is mutated in place, so handing it out directly
+    // would let a listener hold a reference that changes under it.
+    onPauseRef.current?.({ ...pauseRef.current })
+  }
 
   // setup/teardown + the rAF loop. Re-runs only when the diversion changes; the
   // live run is held in runRef so config changes (below) can swap state under a
@@ -496,6 +520,7 @@ export function AnimationHost({
               ⛶
             </button>
           )}
+          {barExtra}
         </div>
       )}
     </div>

@@ -680,6 +680,18 @@ input[type='color'] {
   background: rgba(8, 16, 18, 0.6);
   border-color: #2a3a40;
 }
+/* Screen Wake Lock toggle (#284). An `.anim-bar button`, so it inherits the 30px
+   desktop square and the 44px narrow-viewport touch target for free. Off by
+   default — holding the screen awake is the viewer's battery decision — so the
+   on-state needs to read at a glance: accent border + ring. */
+.anim-bar .wake-lock {
+  font-size: 14px;
+  line-height: 1;
+}
+.anim-bar .wake-lock[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
 .anim-bar .fps {
   color: var(--accent);
   border: 1px solid #2a3a40;

@@ -135,6 +135,20 @@ describe('mobile viewport contract (#284)', () => {
     expect(html).toMatch(/viewport-fit=cover/)
   })
 
+  it('lets the wake-lock toggle inherit the 44px anim-bar touch target', () => {
+    // The narrow-viewport rule grows `.anim-bar button` to 44px. The wake-lock
+    // toggle IS one, so it must not restate its own box — a width/height here
+    // would win on specificity and silently shrink it back below the target.
+    const target = rules().find(
+      (r) => r.sel === '.anim-bar button' && /width:\s*44px/.test(r.body),
+    )
+    expect(target, 'no 44px .anim-bar button rule').toBeDefined()
+    for (const { sel, body } of rules()) {
+      if (!sel.includes('.wake-lock')) continue
+      expect(body, sel).not.toMatch(/(^|[\s;])(width|height|min-width|min-height):/)
+    }
+  })
+
   it('keeps the anim bar above the play chrome so they cannot occlude', () => {
     // Below 524px these two overlapped and the chrome's z-index won, making
     // Pause and Fullscreen un-tappable — taps hit the copy button instead.
