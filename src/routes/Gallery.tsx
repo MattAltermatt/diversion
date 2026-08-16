@@ -21,7 +21,11 @@ import type { Diversion, DiversionMeta } from '../framework/types'
 // eager metadata, which is what makes that compatible with the GPU budget below: the
 // slot decision has to be made before any module loads, or every tile would download
 // its chunk merely to learn whether it needs a WebGL context.
-function LazyPreview({ meta }: { meta: DiversionMeta }) {
+// Exported for Gallery.test.tsx: the gallery renders 137 of these and the test
+// harness only records the most recently constructed IntersectionObserver, so a test
+// cannot otherwise target a tile of a chosen `kind` — which made the GPU-slot
+// regression test silently vacuous (the last tile alphabetically is a 2D piece).
+export function LazyPreview({ meta }: { meta: DiversionMeta }) {
   const ref = useRef<HTMLDivElement>(null)
   const isGpu = meta.kind !== '2d'
   // No IntersectionObserver (jsdom/SSR) → render eagerly so nothing silently blanks.
@@ -56,31 +60,6 @@ function LazyPreview({ meta }: { meta: DiversionMeta }) {
     }
   }, [])
 
-  // GPU tiles claim a slot from the global budget while near-visible; hold the render
-  // back until they have one so the gallery never creates the browser's 17th context
-  // (which would force-lose an on-screen tile). A tile that can't get a slot yet stays
-  // a dark placeholder and is woken the moment another GPU tile scrolls away.
-  useEffect(() => {
-    if (!isGpu || !near) return
-    let held = acquireGpuSlot()
-    setSlot(held)
-    let unsub: (() => void) | undefined
-    if (!held) {
-      unsub = subscribeGpuSlot(() => {
-        if (acquireGpuSlot()) {
-          held = true
-          setSlot(true)
-          unsub?.()
-        }
-      })
-    }
-    return () => {
-      unsub?.()
-      if (held) releaseGpuSlot()
-      setSlot(false)
-    }
-  }, [isGpu, near])
-
   // Fetch the diversion's chunk once the tile SETTLES near the viewport (#288). This
   // deliberately hangs off the DEBOUNCED `near` state and not the IntersectionObserver
   // callback: the callback fires per tile per crossing, so a fling down the 50,000px
@@ -108,6 +87,37 @@ function LazyPreview({ meta }: { meta: DiversionMeta }) {
       live = false
     }
   }, [near, mod, meta.id])
+
+  // GPU tiles claim a slot from the global budget while near-visible; hold the render
+  // back until they have one so the gallery never creates the browser's 17th context
+  // (which would force-lose an on-screen tile). A tile that can't get a slot yet stays
+  // a dark placeholder and is woken the moment another GPU tile scrolls away.
+  useEffect(() => {
+    // Waits for `mod` too: since #288 the tile has to fetch its chunk first, and a
+    // slot claimed before that arrives is one of only ~6 held across a network
+    // round-trip while rendering nothing. Worse, a FAILED fetch leaves `mod` null
+    // forever, so without this the tile would hold its slot, show nothing, and never
+    // release until scrolled away — six of those starve every GPU tile on screen.
+    // Orthogonal to the deliberate choice not to gate the FETCH on `slot`.
+    if (!isGpu || !near || !mod) return
+    let held = acquireGpuSlot()
+    setSlot(held)
+    let unsub: (() => void) | undefined
+    if (!held) {
+      unsub = subscribeGpuSlot(() => {
+        if (acquireGpuSlot()) {
+          held = true
+          setSlot(true)
+          unsub?.()
+        }
+      })
+    }
+    return () => {
+      unsub?.()
+      if (held) releaseGpuSlot()
+      setSlot(false)
+    }
+  }, [isGpu, near, mod])
 
   // Was Gallery()'s top-level useMemo; it needs a schema, so it could not stay there.
   // Still parsed exactly once per loaded module, keeping AnimationHost's setup effect

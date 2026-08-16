@@ -54,9 +54,22 @@ export function peekDiversion(id: string): Diversion | undefined {
 }
 
 /** Stable promise per id, safe to hand to `use()`. Resolves `undefined` for a slug no
- *  meta.ts claims (a genuine 404); REJECTS if the chunk fetch itself fails, so an
- *  error boundary can offer a retry rather than the route claiming the piece
- *  doesn't exist. */
+ *  meta.ts claims (a genuine 404); REJECTS if the chunk fetch itself fails, so the
+ *  route surfaces an error rather than claiming the piece doesn't exist.
+ *
+ *  A rejected promise stays CACHED, deliberately. Dropping it on rejection looks like
+ *  it would enable a retry, but React indexes tracked thenables positionally and
+ *  discards any new promise handed to it on a replay ("A component was suspended by
+ *  an uncached promise"). So an evicting cache does not produce a retry — it produces
+ *  a fresh `import()` per replay that React then throws away: measured at 5 wasted
+ *  imports before the boundary catches, and inside `act()` it does not terminate at
+ *  all (57k warnings in 30s). Keeping the rejection surfaces the error in one pass.
+ *
+ *  The consequence is that a failed chunk is terminal for that id until a reload.
+ *  Recovering from it (the long-lived-SPA case where a deploy replaced the hashed
+ *  filename under an open tab) needs a remount to get a fresh fiber, i.e. a retry
+ *  affordance on the route's boundary — worth doing, but it is a feature, not this
+ *  cache's job. */
 export function loadDiversion(id: string): Promise<Diversion | undefined> {
   const hit = pending.get(id)
   if (hit) return hit
@@ -67,14 +80,6 @@ export function loadDiversion(id: string): Promise<Diversion | undefined> {
         return m.default
       })
     : Promise.resolve(undefined)
-  // Drop a REJECTED promise from the cache so a retry re-imports instead of replaying
-  // the same failure forever. Without this, memoizing defeats DiversionErrorBoundary:
-  // its retry remounts, calls back in, and is handed the identical rejected promise.
-  // A chunk fetch failing is not hypothetical — it is the classic long-lived-SPA case
-  // where a deploy has replaced the hashed filename under an open tab.
-  p.catch(() => {
-    if (pending.get(id) === p) pending.delete(id)
-  })
   pending.set(id, p)
   return p
 }
@@ -92,7 +97,10 @@ export function useDiversion(id: string): Diversion | undefined {
   const hit = loaded.get(id)
   if (hit) return hit
   // Conditional `use()` is explicitly permitted in React 19 — unlike a hook, it may
-  // sit after an early return.
+  // sit after an early return. Note the warm path calls use() ZERO times and the cold
+  // path once: React tracks thenables POSITIONALLY, so if a second use() is ever added
+  // to a route that also calls this, its index would differ between the two paths.
+  // Keep this the only use() on those components, or make the call unconditional.
   if (!loaders.has(id)) return undefined
   return use(loadDiversion(id))
 }

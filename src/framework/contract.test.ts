@@ -40,7 +40,15 @@ describe('diversion contract sweep (#127)', () => {
         if (e.isDirectory()) walk(p)
         else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
           scanned++
-          if (/from ['"].*testRegistry['"]/.test(readFileSync(p, 'utf8'))) offenders.push(p)
+          // Matches `from './testRegistry'`, the `.ts`/`.tsx`-suffixed form (a static
+          // import that typechecks clean and WOULD land in the entry chunk), and
+          // `import('./testRegistry')`. The suffixed form was a real false negative.
+          if (
+            /(?:from|import\s*\()\s*['"][^'"]*testRegistry(?:\.tsx?)?['"]/.test(
+              readFileSync(p, 'utf8'),
+            )
+          )
+            offenders.push(p)
         }
       }
     }

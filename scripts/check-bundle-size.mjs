@@ -20,6 +20,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
 
+/** Newest mtime under a directory tree. */
+function newestMtime(dir) {
+  let newest = 0
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name)
+    newest = Math.max(newest, e.isDirectory() ? newestMtime(p) : statSync(p).mtimeMs)
+  }
+  return newest
+}
+
 // Headroom over the measured values at the time of writing (123.28 kB gz entry,
 // 382.21 kB raw), leaving room for ordinary growth while still catching a
 // regression that re-eagerises the registry — which would blow this by ~5x.
@@ -40,11 +50,30 @@ const entryPath = join(assets, entries[0])
 const entryGzip = gzipSync(readFileSync(entryPath)).length
 const entryRaw = statSync(entryPath).size
 
-let biggest = { name: '', size: 0 }
-for (const f of files) {
-  const size = statSync(join(assets, f)).size
-  if (size > biggest.size) biggest = { name: f, size }
+// Refuse to report on a stale dist/. CI always builds first, but run locally after
+// an edit this would happily print reassuring numbers for the PREVIOUS build — the
+// exact false-confidence this script exists to prevent.
+if (newestMtime('src') > statSync(entryPath).mtimeMs) {
+  console.error('✗ dist/ is older than src/ — run `npm run build` first.')
+  process.exit(1)
 }
+
+// Walk dist/ entirely, not just dist/assets: the Workbox ceiling applies per FILE,
+// and anything copied from public/ lands in the dist root where an assets-only scan
+// would never see it.
+let biggest = { name: '', size: 0 }
+const walkDist = (dir, rel = '') => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name)
+    const label = rel ? `${rel}/${e.name}` : e.name
+    if (e.isDirectory()) walkDist(p, label)
+    else {
+      const size = statSync(p).size
+      if (size > biggest.size) biggest = { name: label, size }
+    }
+  }
+}
+walkDist('dist')
 
 const kb = (n) => `${(n / 1024).toFixed(1)} kB`
 let failed = false

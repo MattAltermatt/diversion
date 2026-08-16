@@ -27,12 +27,12 @@ function ConfigRoute() {
 // they need a boundary. Keyed by slug so a latched error cannot survive into the
 // next piece.
 //
-// The error boundary is the load-bearing half: `useDiversion` REJECTS when a chunk
-// fetch fails rather than resolving undefined, so this catches it and offers a retry
-// instead of the route claiming the diversion doesn't exist. That is the classic
-// long-lived-SPA failure — a deploy replaces the hashed filename under an open tab —
-// and `loadDiversion` drops rejected promises from its cache precisely so the retry
-// can re-import rather than replay the same failure.
+// The error boundary catches a failed chunk fetch: `useDiversion` REJECTS in that
+// case rather than resolving undefined, so the route reports an error instead of
+// claiming the diversion doesn't exist. No `maxRetries` here on purpose — an auto
+// remount would replay the same cached rejection immediately and burn every attempt
+// without a pause (see loadDiversion). Recovering from a stale hashed filename after
+// a deploy wants a user-driven retry, which is its own piece of work.
 //
 // The fallback is a bare themed panel, not a spinner: the median diversion chunk is
 // 3.4 kB gzipped, so on anything but a cold slow connection it is a sub-frame flash,
