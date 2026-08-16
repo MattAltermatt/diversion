@@ -1,4 +1,10 @@
-import { createBrowserRouter, RouterProvider, useParams } from 'react-router-dom'
+import {
+  createBrowserRouter,
+  Outlet,
+  RouterProvider,
+  ScrollRestoration,
+  useParams,
+} from 'react-router-dom'
 import { Gallery } from './routes/Gallery'
 import { ConfigScreen } from './routes/ConfigScreen'
 import { PlayScreen } from './routes/PlayScreen'
@@ -15,11 +21,38 @@ function ConfigRoute() {
   return <ConfigScreen key={slug} />
 }
 
+// Reset scroll on navigation, and restore it when going back (#284).
+//
+// The browser keeps the scroll offset across an SPA navigation, and until the
+// Config screen became scrollable that was invisible: it was `height: 100vh;
+// overflow: hidden`, so the retained offset had no range to land in and clamped
+// to 0. Once the small-screen layout let the document scroll, opening a diversion
+// from deep in the gallery dropped you at the BOTTOM of its config form — the
+// retained offset, clamped to the new page's maximum.
+//
+// ScrollRestoration rather than a scroll-to-top effect, because the two cases
+// genuinely differ: a forward navigation should start at the top, but going BACK
+// to a ~50,000px gallery should return you to the tile you left, not to the
+// header. It keys on location.key, so each history entry restores its own offset.
+export function Root() {
+  return (
+    <>
+      <ScrollRestoration />
+      <Outlet />
+    </>
+  )
+}
+
 const router = createBrowserRouter(
   [
-    { path: '/', element: <Gallery /> },
-    { path: '/d/:slug', element: <ConfigRoute /> },
-    { path: '/d/:slug/play', element: <PlayScreen /> },
+    {
+      element: <Root />,
+      children: [
+        { path: '/', element: <Gallery /> },
+        { path: '/d/:slug', element: <ConfigRoute /> },
+        { path: '/d/:slug/play', element: <PlayScreen /> },
+      ],
+    },
   ],
   { basename },
 )
