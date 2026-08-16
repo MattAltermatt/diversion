@@ -83,6 +83,21 @@ walkDist('dist')
 const kb = (n) => `${(n / 1024).toFixed(1)} kB`
 let failed = false
 
+// The `metas` chunk is the entire mechanism keeping 133 of 137 diversion chunks
+// unpinned from the entry hash. If its advancedChunks group stops matching, the metas
+// fold back into the entry, every deploy rehashes ~138 files again, and NOTHING else
+// notices — the entry would sit around 119 kB gz, comfortably under its ceiling.
+const hasMetasChunk = readdirSync(assets).some((f) => /^metas-.*\.js$/.test(f))
+
+if (!hasMetasChunk) {
+  console.error(
+    '\n✗ no assets/metas-*.js chunk. The advancedChunks group in vite.config.ts has\n' +
+      '  stopped matching src/diversions/*/meta.ts, so the metas are back in the entry\n' +
+      '  chunk and every deploy will rehash ~138 files instead of ~6.',
+  )
+  failed = true
+}
+
 console.log(`entry chunk        ${entries[0]}`)
 console.log(`  raw              ${kb(entryRaw)}`)
 console.log(`  gzip             ${kb(entryGzip)}  (ceiling ${kb(MAX_ENTRY_GZIP)})`)
@@ -142,6 +157,18 @@ if (existsSync(swPath)) {
     console.error(
       `\n✗ precache is ${precached.length} files / ${kb(precacheGzip)} gz, over the ` +
         `${MAX_PRECACHE_FILES} file / ${kb(MAX_PRECACHE_GZIP)} shell budget.`,
+    )
+    failed = true
+  }
+  // Non-vacuity on the PRECACHE side. `precached` comes from regexing MINIFIED
+  // workbox output, so a workbox major that renames the property yields an empty
+  // list — and then the leak check finds nothing and both ceilings pass at 0 bytes.
+  // A floor turns that silent pass into a loud failure.
+  if (precached.length < 10) {
+    console.error(
+      `\n✗ only ${precached.length} precache entries parsed from sw.js — expected ~16.\n` +
+        "  The manifest's minified shape has probably changed; this script's regex needs\n" +
+        '  updating, and until it is, the precache ceilings above are meaningless.',
     )
     failed = true
   }

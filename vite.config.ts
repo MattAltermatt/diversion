@@ -45,7 +45,7 @@ export default defineConfig(({ command, isPreview }) => ({
     react(),
     // Service worker (#289). Two cache tiers, deliberately:
     //
-    //   PRECACHE (~167 kB, 15 files) — the shell and the 7 shared chunks. Downloaded
+    //   PRECACHE (~166 kB, 17 files) — the shell and the 9 shared chunks. Downloaded
     //   on install, atomically, so the app always boots offline.
     //   RUNTIME  — the 137 diversion chunks, the neural-ca weights, and the sprites.
     //   Fetched when actually asked for, then kept.
@@ -61,16 +61,30 @@ export default defineConfig(({ command, isPreview }) => ({
     // not 1.5 MB spent silently on everyone.
     VitePWA({
       strategies: 'generateSW',
-      // autoUpdate, NOT the 'prompt' default. 'prompt' only ever calls onNeedRefresh,
-      // and with no update UI wired that means the app NEVER updates: a tab left open
-      // — i.e. the shelf-mounted display this whole feature is for — stays pinned to
-      // the first build it ever saw, accumulating one precache generation per deploy.
+      // autoUpdate, NOT the 'prompt' default — but be precise about what that buys
+      // here, because the obvious reading is wrong in both directions.
       //
-      // autoUpdate is safe here BECAUSE the precache is shell-only. It activates
-      // immediately and deletes the outdated precache, which under a full precache
-      // would strand an in-flight lazy import() on a chunk that is now 404 on Pages
-      // (and #292 makes that terminal for the diversion). Diversion chunks live in a
-      // RUNTIME cache, which cleanupOutdatedCaches does not touch, so they survive.
+      // What it DOES do: the new SW skips waiting, activates, and runs
+      // cleanupOutdatedCaches. Measured across three simulated deploys, the precache
+      // stays at exactly 16 entries and storage goes DOWN on cleanup. Under 'prompt'
+      // + skipWaiting:false the new SW would sit in `waiting` forever while a tab is
+      // open, so nothing is ever pruned and each deploy adds a whole generation.
+      //
+      // What it does NOT do: reload the page. Nothing imports `virtual:pwa-register`,
+      // so injectRegister falls back to the simple script — a bare register() call
+      // with no workbox-window and no `activated` listener. An open tab therefore
+      // keeps running the OLD bundle until something reloads it naturally. That is a
+      // deliberate keep: auto-reloading would restart a propped-up display mid-piece
+      // on every deploy, and this repo deploys often. Wiring the reload is a one-line
+      // change (import registerSW and call it) if that trade ever flips.
+      //
+      // Stranding: shell-only precache means diversion chunks live in a RUNTIME cache
+      // that cleanupOutdatedCaches cannot touch (it filters on '-precache-'), so they
+      // survive an activation. Their PRECACHED shared-chunk dependencies do not — a
+      // stale document can therefore still fail a lazy import whose dep was evicted
+      // and is 404 on Pages. Narrow (a document holding a chunk has usually resolved
+      // its deps already) but real, and #292 makes it terminal for that id until a
+      // reload. The SW neither causes nor cures that; it behaves the same without one.
       registerType: 'autoUpdate',
       // public/manifest.webmanifest is hand-authored and guarded by manifest.test.ts
       // (its missing `id` is load-bearing on this shared origin). Letting the plugin
@@ -85,7 +99,18 @@ export default defineConfig(({ command, isPreview }) => ({
         // Deliberately absent: assets/d/**, models-*.json (858 kB for one piece), and
         // the 512px launcher icons (114 kB the OS fetches itself, at install time,
         // which is inherently online).
-        globPatterns: ['index.html', 'assets/*.{js,css}', 'manifest.webmanifest', '*.svg', 'icon-192.png'],
+        // registerSW.js is in the list because index.html loads it: without it, every
+        // offline load logs a failed resource fetch. Harmless (the SW is already
+        // registered by then) but it is the ONLY error on an otherwise clean offline
+        // load, so it is the first red herring anyone debugging offline would chase.
+        globPatterns: [
+          'index.html',
+          'registerSW.js',
+          'assets/*.{js,css}',
+          'manifest.webmanifest',
+          '*.svg',
+          'icon-192.png',
+        ],
         // deploy.yml copies index.html to 404.html AFTER the build; it still serves
         // every uncontrolled client and every browser without SW support, so it stays
         // — it just must not be a second precache entry for the same bytes.
@@ -111,7 +136,7 @@ export default defineConfig(({ command, isPreview }) => ({
               // break the exact case this exists for — a shelf device offline for
               // weeks finding its chunks expired and falling through to a dead network.
               expiration: { maxEntries: 220, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] }, // 0 = opaque cross-origin; unreachable behind sameOrigin
             },
           },
           {
@@ -123,7 +148,7 @@ export default defineConfig(({ command, isPreview }) => ({
             options: {
               cacheName: 'diversion-weights-v1',
               expiration: { maxEntries: 3, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] }, // 0 = opaque cross-origin; unreachable behind sameOrigin
             },
           },
           {
@@ -136,7 +161,7 @@ export default defineConfig(({ command, isPreview }) => ({
             options: {
               cacheName: 'diversion-pictures-v1',
               expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] }, // 0 = opaque cross-origin; unreachable behind sameOrigin
             },
           },
         ],

@@ -48,10 +48,26 @@ if (manifestLinks !== 1) {
   fail(`dist/index.html has ${manifestLinks} <link rel="manifest">, expected exactly 1.`)
 }
 
+// ── 1b. The runtime route must point at the directory the build actually emits ─
+// `chunkFileNames` writes diversion chunks to assets/d/, and the runtime route
+// matches /assets/d/. NOTHING otherwise ties those two strings together: rename the
+// directory, or fat-finger the regex, and the 137 chunks are neither precached NOR
+// runtime-cached. Offline silently degrades to "the gallery loads but nothing
+// plays", the runtime cache stays empty forever, and both guards pass green —
+// verified by mutation, which is why this check exists.
+if (!/assets\\\/d\\\//.test(sw)) {
+  fail(
+    'sw.js has no route matching assets/d/ — the runtime-cache route and\n' +
+      "  vite.config.ts's chunkFileNames have diverged. The diversion chunks would be\n" +
+      '  neither precached nor runtime-cached, and offline would play nothing.',
+  )
+}
+
 // ── 2. navigateFallback must stay RELATIVE ───────────────────────────────────
 // Precache entries resolve against the service worker's own URL (/diversion/sw.js),
-// so bare 'index.html' is correct and lands on /diversion/index.html in prod AND on
-// / in preview. #289 asks to verify it resolves to an absolute '/diversion/...';
+// so bare 'index.html' is correct: it lands on /diversion/index.html in prod and in
+// preview alike (resolveBase returns '/diversion/' for isPreview too), and on / in
+// dev. #289 asks to verify it resolves to an absolute '/diversion/...';
 // it does not, and hardcoding that would break `vite preview` and any future base
 // change. This asserts nobody "fixes" it.
 if (!/createHandlerBoundToURL\(["']index\.html["']\)/.test(sw)) {

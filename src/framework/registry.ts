@@ -3,9 +3,12 @@ import type { Diversion, DiversionMeta } from './types'
 
 // Two globs over the same 137 folders (#288).
 //
-//   meta.ts  — EAGER. Four string fields, no imports, ~300 B minified each. Stays in
-//              the entry chunk so the gallery grid and the router can render on the
-//              first paint without a network round-trip.
+//   meta.ts  — EAGER. Four string fields, no imports, ~300 B minified each. Emitted
+//              as its own `metas` chunk, statically imported and modulepreloaded, so
+//              the gallery grid and the router still render on the first paint with
+//              no round-trip. (It is NOT in the entry chunk: while it was, all 137
+//              lazy chunks statically imported the entry, whose hash moves on every
+//              deploy — so one changed line rehashed 138 of 147 emitted files.)
 //   index.ts — LAZY (no `eager`). Rolldown emits one chunk per folder, fetched only
 //              when a tile mounts a preview or a /d/<slug> route opens.
 //
