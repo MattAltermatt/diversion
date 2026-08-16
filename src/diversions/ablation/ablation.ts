@@ -53,6 +53,11 @@ export interface AblationState {
   rand: () => number
   /** how many pictures have been fully consumed */
   pictures: number
+  /** turrets minted since this picture was crewed. Only ever used to keep the
+   *  sub-cell entry jitter unique — see `makeTurret`. A turret added by a live fleet
+   *  resize must continue the sequence rather than restart it, or it lands on an
+   *  existing turret's jitter and the two weld together for the rest of the run. */
+  minted: number
   /** distance the last-released turret still has to travel before the gate reopens */
   gateClear: number
   /** cells killed since render last synced the picture buffer */
@@ -99,6 +104,7 @@ export function createState(cfg: AblationConfig, size: Size): AblationState {
     hist: new Uint32Array(field.bands),
     rand: mulberry32(cfg.seed),
     pictures: 0,
+    minted: 0,
     gateClear: 0,
     patches: [],
     buffer: null,
@@ -109,6 +115,23 @@ export function createState(cfg: AblationConfig, size: Size): AblationState {
 }
 
 const PHI = 0.618033988749895
+
+/** How many turrets should exist right now: the two counts the viewer controls,
+ *  floored per targeting mode. See `resolveFleet` for why the floor is Mixed-only. */
+function fleetTarget(s: AblationState): number {
+  const minTotal = s.cfg.targeting === 'Mixed' ? s.field.bands : 1
+  return resolveFleet(s.cfg.capacity, s.cfg.queued, minTotal)
+}
+
+/** Mints one turret at the back of the queue. The jitter walks a golden-ratio
+ *  sequence keyed on a counter that survives a live fleet resize — two turrets
+ *  sharing a jitter and released in the same frame (which is every release at
+ *  Spacing 0) would be welded together for life. */
+function mint(s: AblationState, band: number): Turret {
+  const t = makeTurret(((++s.minted * PHI) % 1) * s.geom.cell, band, s.cfg.charge)
+  s.queue.push(t)
+  return t
+}
 
 /** Builds the fleet for the picture now in `s.field` and puts all of it in the
  *  queue. A turret is never used up, so this runs once per picture rather than once
@@ -134,12 +157,11 @@ function crew(s: AblationState): void {
   for (let i = 0; i < s.field.idx.length; i++) if (s.field.alive[i]) total[s.field.idx[i]]++
   s.bandAlive = total.slice()
 
-  const size = resolveFleet(s.cfg.fleet, bands)
   s.track.length = 0
   s.queue.length = 0
   s.retired.length = 0
-  const mint = (band: number, n: number) =>
-    s.queue.push(makeTurret(((n * PHI) % 1) * s.geom.cell, band, s.cfg.charge))
+  s.minted = 0
+  const size = fleetTarget(s)
 
   if (s.cfg.targeting === 'Unison') {
     // Unison crews the WHOLE fleet onto one exposed band immediately. The lock is
@@ -151,12 +173,11 @@ function crew(s: AblationState): void {
     const hist = new Uint32Array(bands)
     exposedHistogram(s.field, s.front, hist)
     s.lockBand = temperedPick(hist, s.cfg.targetingBias, s.rand)
-    for (let n = 1; n <= size; n++) mint(Math.max(0, s.lockBand), n)
+    for (let n = 0; n < size; n++) mint(s, Math.max(0, s.lockBand))
   } else {
     const alloc = allocateFleet(total, s.cfg.targetingBias, size)
-    let n = 0
     for (let b = 0; b < bands; b++) {
-      for (let i = 0; i < alloc[b]; i++) mint(b, ++n)
+      for (let i = 0; i < alloc[b]; i++) mint(s, b)
     }
     // Shuffle, or the gate releases every turret of band 0 before any of band 1 and
     // the opening minutes of a picture are monochrome. Unison needs no shuffle — the
@@ -170,11 +191,99 @@ function crew(s: AblationState): void {
   s.gateClear = 0
 }
 
+/** How many turrets are still hunting `band` — riding the track or waiting in the
+ *  queue. The retired row does not count: those are out of rotation for this picture
+ *  and cover nothing. */
+function covering(s: AblationState, band: number): number {
+  let n = 0
+  for (const t of s.track) if (t.band === band) n++
+  for (const t of s.queue) if (t.band === band) n++
+  return n
+}
+
+/** Reconciles the fleet to `fleetTarget` after a live "Turrets on track" / "In queue"
+ *  edit, WITHOUT clearing the track. A full `crew()` is simpler but empties the ring
+ *  back to the gate, and "Turrets on track" is the slider most likely to be dragged —
+ *  a pop there is the one place that is unaffordable.
+ *
+ *  The two modes reconcile differently, for the same reason their floors differ: Mixed
+ *  must preserve per-band coverage and Unison has none to preserve. Both cases are
+ *  argued at their branch below.
+ *
+ *  Surplus comes off the QUEUE and the retired row only. A turret already riding
+ *  keeps its shift and sheds at the gate instead (see `rotate`), which means the
+ *  total can sit above target for a shift — harmless, and it converges. */
+function resizeCrew(s: AblationState): void {
+  // The picture is already gone and the track is draining for the quiet beat. There is
+  // no live band to allocate against — `allocateFleet` returns all zeros when nothing
+  // is alive, which would mint nothing and trim the whole queue away — and there is
+  // nothing to reallocate FOR, since `crew()` rebuilds the fleet for the next picture
+  // moments later. Leave it alone. The drain is not always brief: it lasts until the
+  // last turret crosses the gate, which at Track speed 2 is a lap, ~25 minutes.
+  if (s.field.aliveCount === 0) return
+
+  const bands = s.field.bands
+  const target = fleetTarget(s)
+
+  // Retired turrets hunt colours that are gone from this picture, and `rotate` can
+  // never shed them since they are not on the track. They are pure surplus, so they
+  // go before anything still in rotation is touched.
+  while (s.track.length + s.queue.length + s.retired.length > target && s.retired.length > 0) {
+    s.retired.pop()
+  }
+
+  if (s.cfg.targeting === 'Unison') {
+    // No per-band coverage to respect — one lock band covers everything — so a plain
+    // tail trim is safe here, and it is also the RIGHT thing: reallocating the queue
+    // onto the current lock would teleport the colour transition that the mode sells
+    // as its tell ("a crew converts as its turrets rotate, so a switch shows up in the
+    // queue before it reaches the track", `schema.ts`). Dragging a SIZE slider must not
+    // recolour turrets that are merely surplus. New turrets take the lock; existing
+    // ones keep their colour and convert on their own rotation, as documented.
+    while (s.track.length + s.queue.length > target && s.queue.length > 0) s.queue.pop()
+    for (let i = s.track.length + s.queue.length; i < target; i++) mint(s, Math.max(0, s.lockBand))
+    return
+  }
+
+  // Mixed reconciles PER BAND rather than trimming a tail. An arbitrary tail trim can
+  // take the last turret hunting a live colour, and nothing else destroys that
+  // colour's cells, so the picture would never finish and the piece would hang — the
+  // exact failure `resolveFleet`'s floor exists to prevent, reached by the back door.
+  // Reusing `allocateFleet` gets coverage for free: it reserves one turret per
+  // surviving band before sharing the rest out. The basis is the same one `crew` uses
+  // minus the cells already destroyed, so the split still describes what is on screen.
+  const want = allocateFleet(s.bandAlive, s.cfg.targetingBias, target)
+  const have = new Uint32Array(bands)
+  for (const t of s.track) have[t.band]++
+  for (const t of s.queue) have[t.band]++
+
+  for (let i = s.queue.length - 1; i >= 0; i--) {
+    const b = s.queue[i].band
+    if (have[b] > want[b]) {
+      s.queue.splice(i, 1)
+      have[b]--
+    }
+  }
+  for (let b = 0; b < bands; b++) for (let i = have[b]; i < want[b]; i++) mint(s, b)
+}
+
 /** A turret leaving the track. It is NEVER destroyed: it goes back to the gate at
  *  full charge and joins the BACK of the queue — or the retired row, if the colour
  *  it hunts no longer exists anywhere in this picture and it would otherwise ride
  *  shift after shift with nothing to shoot. */
 function rotate(s: AblationState, t: Turret): void {
+  // …unless the fleet has been shrunk under it. A live "Turrets on track" / "In
+  // queue" edit sheds its surplus HERE rather than deleting turrets where they ride:
+  // nothing may ever appear or disappear mid-track (spec §4), so a surplus turret
+  // finishes its shift and then simply does not rejoin. `t` is already out of
+  // `s.track` at this point, hence the +1.
+  //
+  // It must never shed the LAST turret covering a colour that is still standing:
+  // nothing else destroys that colour's cells, so the picture would never finish and
+  // the piece would hang (see `resolveFleet`). Riding one shift over target is
+  // harmless by comparison — the surplus comes off at the next rotation that is safe.
+  if (s.track.length + s.queue.length + s.retired.length + 1 > fleetTarget(s)
+      && (s.bandAlive[t.band] === 0 || covering(s, t.band) > 0)) return
   resetTurret(t, s.cfg.charge)
   // Unison: a rotating turret takes the engine's current target. Applied HERE and
   // nowhere else, so a switch shows up first as a new colour entering the back of
@@ -386,15 +495,18 @@ export function applyConfig(s: AblationState, next: AblationConfig, _size: Size)
   if (structural) return false
 
   s.cfg = next
-  // A fleet resize or a mode change re-crews. Both change what colour every turret
-  // ought to be carrying, and reconciling that in place would mean inventing a
-  // policy for which existing turrets keep their colour — invisible rules for no
-  // visible gain. The picture itself is untouched, so this is still a live apply.
+  // A targeting change re-crews from scratch: it changes what colour EVERY turret
+  // ought to be carrying at once, and reconciling that in place would mean inventing
+  // a policy for which existing turrets keep their colour — invisible rules for no
+  // visible gain. A fleet-size change is different: it only adds or removes turrets,
+  // so it reconciles in place and the ring keeps riding (see `resizeCrew`). Both leave
+  // the picture itself untouched, so this is still a live apply.
   // NO early return here. Falling through to the colour check below is load-bearing:
   // one `update` carrying BOTH a fleet change and a palette change must still
   // invalidate the baked picture buffer, or the map stays in the old palette while
   // turrets, bolts and dying cells switch — for the rest of the picture.
-  if (next.fleet !== prev.fleet || next.targeting !== prev.targeting) crew(s)
+  if (next.targeting !== prev.targeting) crew(s)
+  else if (next.capacity !== prev.capacity || next.queued !== prev.queued) resizeCrew(s)
   // The picture is a BAKED buffer. A recolour that does not invalidate it leaves
   // the map in the old palette while the turrets, bolts and dying cells switch to
   // the new one — and it stays wrong until the picture completes.

@@ -13,7 +13,7 @@ function cfg(over: Partial<AblationConfig> = {}): AblationConfig {
 
 /** A busy state: turrets riding, cells dying, bolts in flight, queue backed up. */
 function busy() {
-  const s = createState(cfg({ capacity: 6, fleet: 24 }), SIZE)
+  const s = createState(cfg({ capacity: 6, queued: 18 }), SIZE)
   for (let i = 0; i < 600; i++) step(s, 1 / 60)
   return s
 }
@@ -71,7 +71,7 @@ describe('render', () => {
 
   it('reuses the picture buffer across frames and drains the patch list', () => {
     const ctx = make2DContext() as unknown as CanvasRenderingContext2D
-    const s = createState(cfg({ capacity: 6, fleet: 24 }), SIZE)
+    const s = createState(cfg({ capacity: 6, queued: 18 }), SIZE)
     render(s, ctx)
     const first = s.buffer
     expect(first).not.toBe(null)
@@ -125,7 +125,7 @@ describe('the ablation diversion', () => {
     // A missing conversion makes the piece run 1000x fast and is invisible in a
     // still screenshot, so pin it: 1000ms of frames must advance ~1s of arrivals.
     const ctx = make2DContext()
-    const config = cfg({ capacity: 40, fleet: 24 })
+    const config = cfg({ capacity: 40, queued: 0 })
     const state = ablation.setup(ctx as never, config, SIZE) as { track: unknown[] }
     let t = 0
     for (let i = 0; i < 60; i++) { t += 16.67; ablation.frame(state as never, ctx as never, t, 16.67) }
@@ -186,7 +186,7 @@ describe('the parked turret rows', () => {
   }
 
   it('draws a dot per queued turret and per retired turret, retired smaller', () => {
-    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    const s = createState(cfg({ capacity: 12, queued: 8 }), SIZE)
     s.retired.push(...s.queue.splice(0, 3))
     const { ctx, arcs } = recordArcs()
     render(s, ctx)
@@ -201,7 +201,7 @@ describe('the parked turret rows', () => {
     // 0.3 the darker half of every shipped ramp composites to 1.12-1.5 WCAG against
     // its own background, under the 1.88 floor the palettes are built to hold, and
     // retirement fills from the dark bands first. Size carries the signal instead.
-    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    const s = createState(cfg({ capacity: 12, queued: 8 }), SIZE)
     s.retired.push(...s.queue.splice(0, 6))
     const { ctx, arcs } = recordArcs()
     render(s, ctx)
@@ -211,7 +211,7 @@ describe('the parked turret rows', () => {
   it('keeps each parked row inside its own quarter of the track', () => {
     // A big fleet on a small viewport used to run the pending row straight through
     // the retired row's anchor at perimeter/2.
-    const s = createState(cfg({ fleet: 128, capacity: 1 }), { width: 640, height: 480 })
+    const s = createState(cfg({ capacity: 1, queued: 127 }), { width: 640, height: 480 })
     const { ctx, arcs } = recordArcs()
     render(s, ctx)
     expect(arcs.length).toBeGreaterThan(100)
@@ -224,7 +224,7 @@ describe('the parked turret rows', () => {
   })
 
   it('anchors the retired row on the corner diagonally opposite the gate', () => {
-    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    const s = createState(cfg({ capacity: 12, queued: 8 }), SIZE)
     // One retired turret only, so the last arc drawn is unambiguously its dot.
     s.retired.push(s.queue.shift()!)
     const { ctx, arcs } = recordArcs()
@@ -236,7 +236,7 @@ describe('the parked turret rows', () => {
   })
 
   it('draws nothing for an empty retired row', () => {
-    const s = createState(cfg({ fleet: 20, capacity: 12 }), SIZE)
+    const s = createState(cfg({ capacity: 12, queued: 8 }), SIZE)
     const { ctx, arcs } = recordArcs()
     render(s, ctx)
     expect(arcs.length).toBe(20)

@@ -32,13 +32,18 @@ export const ablationPresets: PresetGroup<AblationConfig>[] = [
   {
     label: 'Demolition',
     options: [
-      { name: 'Patient',    patch: { capacity: 5,  fleet: 9,   charge: 30,  speed: 70,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Steady',     patch: { capacity: 12, fleet: 20,  charge: 60,  speed: 140, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Sentinels',  patch: { capacity: 2,  fleet: 6,   charge: 90,  speed: 90,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Ring',       patch: { capacity: 16, fleet: 26,  charge: 50,  speed: 120, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Swarm',      patch: { capacity: 40, fleet: 64,  charge: 45,  speed: 200, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Relentless', patch: { capacity: 14, fleet: 24,  charge: 120, speed: 160, targetingBias: 2.2, spacing: 1, targeting: 'Mixed'  } },
-      { name: 'Strip Mine', patch: { capacity: 14, fleet: 22,  charge: 70,  speed: 150, targetingBias: 1,   spacing: 1, targeting: 'Unison' } },
+      // `queued` is the reserve, NOT the total — every option below keeps the same
+      // fleet it shipped with (Steady is still 20 turrets: 12 riding, 8 waiting).
+      // One qualification: `Strip Mine` is Unison, whose floor is now 1 rather than the
+      // band count, so at a 23- or 24-colour palette it crews 22 where the old build
+      // crewed 23-24. Identical at every palette up to 22, and deliberate.
+      { name: 'Patient',    patch: { capacity: 5,  queued: 4,  charge: 30,  speed: 70,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Steady',     patch: { capacity: 12, queued: 8,  charge: 60,  speed: 140, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Sentinels',  patch: { capacity: 2,  queued: 4,  charge: 90,  speed: 90,  targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Ring',       patch: { capacity: 16, queued: 10, charge: 50,  speed: 120, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Swarm',      patch: { capacity: 40, queued: 24, charge: 45,  speed: 200, targetingBias: 1,   spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Relentless', patch: { capacity: 14, queued: 10, charge: 120, speed: 160, targetingBias: 2.2, spacing: 1, targeting: 'Mixed'  } },
+      { name: 'Strip Mine', patch: { capacity: 14, queued: 8,  charge: 70,  speed: 150, targetingBias: 1,   spacing: 1, targeting: 'Unison' } },
     ],
   },
 ]

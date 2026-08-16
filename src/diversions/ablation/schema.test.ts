@@ -50,7 +50,8 @@ describe('ablation schema', () => {
     expect(d.spacing).toBe(1)
     expect(d.targetingBias).toBe(1)
     expect(d.targeting).toBe('Mixed')
-    expect(d.fleet).toBeGreaterThan(d.capacity)
+    // A reserve by default, so the queue is something to read rather than an empty row.
+    expect(d.queued).toBeGreaterThan(0)
   })
 
   it('has no arrivalRate field', () => {

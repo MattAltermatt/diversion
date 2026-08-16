@@ -74,12 +74,26 @@ describe('temperedPick', () => {
 const total = (...v: number[]) => Uint32Array.from(v)
 
 describe('resolveFleet', () => {
-  it('leaves a fleet larger than the band count alone', () => {
-    expect(resolveFleet(20, 6)).toBe(20)
+  it('is the track plus the queue — the two counts the viewer controls', () => {
+    expect(resolveFleet(12, 8, 6)).toBe(20)
   })
 
-  it('clamps UP to the band count, so no band can go unallocated', () => {
-    expect(resolveFleet(4, 12)).toBe(12)
+  it('takes a queue of zero, so a fleet can ride with no reserve at all', () => {
+    expect(resolveFleet(4, 0, 1)).toBe(4)
+  })
+
+  it('clamps UP to the floor, so no band can go unallocated', () => {
+    // Mixed passes the band count here: a band with no turret is immortal.
+    expect(resolveFleet(3, 0, 12)).toBe(12)
+  })
+
+  it('does not clamp when the floor is already met', () => {
+    expect(resolveFleet(3, 9, 12)).toBe(12)
+    expect(resolveFleet(3, 10, 12)).toBe(13)
+  })
+
+  it('never clamps at a floor of 1 — Unison needs no per-band coverage', () => {
+    expect(resolveFleet(2, 0, 1)).toBe(2)
   })
 })
 

@@ -3,6 +3,10 @@
 **Date:** 2026-08-15
 **Slug:** `ablation`
 **Status:** shipped 2026-08-15
+**Superseded in part by:** `2026-08-15-ablation-queue-controls.md` — the `Fleet`
+field described in §2 and listed in §8 no longer exists. The turret count is set by
+`Turrets on track` + `In queue`, and the one-per-band clamp is Mixed-only. Everything
+else here still stands.
 **Supersedes:** parts of `2026-08-07-ablation-design.md` — §4 "Supply, spacing and
 queue", §5 "The scheduler", §8 "Schema". Everything else in that document still
 stands, in particular §1 (the outermost-survivor rule), §2 (the picture), §3

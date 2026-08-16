@@ -36,16 +36,28 @@ export function temperedPick(hist: Uint32Array, k: number, rand: () => number): 
   return -1
 }
 
-/** The fleet size actually used. Nothing but a turret tuned to band `b` ever
+/** The fleet size actually used: everything on the track plus everything in the
+ *  queue, floored at `minTotal`.
+ *
+ *  Those two counts are the controls because they are the two a viewer can COUNT on
+ *  screen — turrets riding the track, dots waiting at the gate. The total is the
+ *  derived one, and asking for it directly meant reading the queue as a subtraction.
+ *
+ *  In Mixed, `minTotal` is the number of bands, and the floor is a correctness
+ *  requirement rather than balance: nothing but a turret tuned to band `b` ever
  *  destroys a cell of band `b`, so a band that draws zero turrets survives forever,
  *  the picture never reaches zero cells, and the piece hangs permanently — no new
- *  picture, no quiet beat, just a frozen remnant and a track going round. The clamp
- *  is therefore a correctness requirement, not balance.
+ *  picture, no quiet beat, just a frozen remnant and a track going round. Unison
+ *  mints its whole crew onto one lock band and re-picks that band from whatever is
+ *  exposed, so it cannot leave a colour uncovered and passes a `minTotal` of 1.
  *
- *  It cannot live on the `fleet` slider's `min`, because it depends on
- *  `palette.length`, a different field; it is resolved here where both are visible. */
-export function resolveFleet(fleet: number, bands: number): number {
-  return Math.max(fleet, bands)
+ *  The floor cannot live on either slider's `min`: it depends on `palette.length` and
+ *  on `targeting`, both different fields, so it is resolved where all three are
+ *  visible. The surplus lands in the QUEUE, never on the track — "Turrets on track"
+ *  is the number the viewer counts against the track, so it is never silently
+ *  raised out from under them. */
+export function resolveFleet(capacity: number, queued: number, minTotal: number): number {
+  return Math.max(capacity + queued, minTotal)
 }
 
 /** Distributes `fleetSize` turrets across bands in proportion to `total[band]^k`,

@@ -33,9 +33,18 @@ export const ablationSchema = z.object({
   // ─── Turrets ───────────────────────────────────────────────────────────────
   capacity: z.number().int().min(1).max(64).default(12)
     .meta({ section: 'Turrets', ui: 'slider', min: 1, max: 64, step: 1, label: 'Turrets on track',
-            help: 'How many turrets ride the track at the same time. The rest of the Fleet '
-                + 'waits in the queue outside the gate until a slot frees. Set it to 2 with '
-                + 'Spacing at 1 for a pair working exactly opposite each other.' }),
+            help: 'How many turrets ride the track at the same time. This plus "In queue" is '
+                + 'the whole fleet — a turret is never used up, it rides a shift, rotates out '
+                + 'at the gate, recharges and queues for another. Set it to 2 with Spacing at '
+                + '1 for a pair working exactly opposite each other.' }),
+  queued: z.number().int().min(0).max(64).default(8)
+    .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 64, step: 1, label: 'In queue',
+            help: 'How many turrets wait outside the gate for a slot to free. 0 means no '
+                + 'reserve at all — a turret rotating out is released again straight away. In '
+                + 'Mixed this is raised automatically if the fleet would otherwise be smaller '
+                + 'than the number of colours, since a colour with no turret hunting it can '
+                + 'never be cleared. It is a starting count, not a promise: as colours run out '
+                + 'the queue also drains into the retired row.' }),
   spacing: z.number().min(0).max(1).default(1)
     .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Spacing',
             help: 'How turrets are distributed around the track. 0 sends every one in at the '
@@ -43,14 +52,6 @@ export const ablationSchema = z.object({
                 + 'sweeping round. 1 spreads them at perfectly even intervals — and because '
                 + 'they all travel at the same speed, they stay evenly spread, so the whole '
                 + 'perimeter is worked at once.' }),
-  fleet: z.number().int().min(2).max(128).default(20)
-    .meta({ section: 'Turrets', ui: 'slider', min: 2, max: 128, step: 1, label: 'Fleet',
-            help: 'How many turrets exist in total. They are never used up — a turret '
-                + 'rides a shift, rotates out at the gate, recharges and queues for '
-                + 'another. Anything beyond "Turrets on track" waits in the queue, so '
-                + 'a fleet larger than the track is what gives you a queue to read. '
-                + 'Raised automatically if it is smaller than the number of colours, '
-                + 'since every colour needs at least one turret hunting it.' }),
   targeting: z.enum(['Mixed', 'Unison']).default('Mixed')
     .meta({ section: 'Turrets', ui: 'segmented', label: 'Targeting',
             options: ['Mixed', 'Unison'],
