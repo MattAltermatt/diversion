@@ -2,6 +2,13 @@ import type { PresetGroup } from '../../framework/types'
 import type { AblationConfig } from './schema'
 
 // Two independent axes: colour (Palette) and turret-crew feel (Demolition).
+//
+// Every Palette option also sets `source: 'Contours'`. Picking a named ramp is a
+// statement that you want the generated map — the ramp is inert against an
+// imported picture, whose colours come out of its own pixels, so without this a
+// pick would silently do nothing and `matchPresets` would then show a group label
+// for a palette that is not on screen. Demolition is left alone: turret feel is
+// genuinely orthogonal to where the picture came from.
 // Every option within a group patches the SAME key-set (framework matchPresets
 // rule — see src/framework/presets.ts).
 //
@@ -15,18 +22,18 @@ export const ablationPresets: PresetGroup<AblationConfig>[] = [
   {
     label: 'Palette',
     options: [
-      { name: 'Bathymetric', patch: { palette: ['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'], background: '#05070a' } },
-      { name: 'Ember',       patch: { palette: ['#6b2810', '#963a12', '#c25518', '#e08128', '#f4ad46', '#ffe0a3'], background: '#070403' } },
-      { name: 'Monochrome',  patch: { palette: ['#4d4d4d', '#f2f2f2'], background: '#050505' } },
-      { name: 'Verdigris',   patch: { palette: ['#18543d', '#217a58', '#33a074', '#6fc298', '#a9dcb8', '#e6f2d9'], background: '#040806' } },
-      { name: 'Ultraviolet', patch: { palette: ['#4d2694', '#6b34b3', '#8b4cd1', '#ac72e0', '#cd9bee', '#f0d9ff'], background: '#050210' } },
+      { name: 'Bathymetric', patch: { source: 'Contours', palette: ['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'], background: '#05070a' } },
+      { name: 'Ember',       patch: { source: 'Contours', palette: ['#6b2810', '#963a12', '#c25518', '#e08128', '#f4ad46', '#ffe0a3'], background: '#070403' } },
+      { name: 'Monochrome',  patch: { source: 'Contours', palette: ['#4d4d4d', '#f2f2f2'], background: '#050505' } },
+      { name: 'Verdigris',   patch: { source: 'Contours', palette: ['#18543d', '#217a58', '#33a074', '#6fc298', '#a9dcb8', '#e6f2d9'], background: '#040806' } },
+      { name: 'Ultraviolet', patch: { source: 'Contours', palette: ['#4d2694', '#6b34b3', '#8b4cd1', '#ac72e0', '#cd9bee', '#f0d9ff'], background: '#050210' } },
       // Old-school Seattle Mariners (1977–86 trident era): royal blue → gold, the
       // same brand identity Flow Field, Squiral and Particle Life carry, and the
       // same #4d9bff / gold anchors. Re-spaced for contour work — a straight
       // navy→royal→sky→gold→cream ramp bunches at the light end (gold, cream and
       // silver sit within 1.2 of each other), so the blues carry three of the six
       // bands and silver is dropped entirely.
-      { name: 'Mariners',    patch: { palette: ['#1a3d9e', '#2350d0', '#3d72f0', '#4d9bff', '#f0b429', '#ffe9b0'], background: '#050810' } },
+      { name: 'Mariners',    patch: { source: 'Contours', palette: ['#1a3d9e', '#2350d0', '#3d72f0', '#4d9bff', '#f0b429', '#ffe9b0'], background: '#050810' } },
     ],
   },
   {

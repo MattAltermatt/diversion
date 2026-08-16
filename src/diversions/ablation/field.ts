@@ -103,3 +103,24 @@ export function buildField(opts: FieldOptions): Field {
 
   return { cols, rows, bands, idx, alive: new Uint8Array(n).fill(1), aliveCount: n }
 }
+
+/** Wrap a ready-made index grid (an image quantization) as a fresh, fully-alive
+ *  Field. The indices are COPIED: the quantizer caches its result so a re-peel can
+ *  skip the work, and a Field mutates `alive` in place — aliasing would let one
+ *  picture's erosion leak into the next peel of the same image. */
+export function buildFieldFromIndices(
+  idx: Uint8Array,
+  cols: number,
+  rows: number,
+  bands: number,
+): Field {
+  const n = cols * rows
+  return {
+    cols,
+    rows,
+    bands: Math.max(1, bands),
+    idx: idx.slice(0, n),
+    alive: new Uint8Array(n).fill(1),
+    aliveCount: n,
+  }
+}

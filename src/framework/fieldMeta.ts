@@ -3,7 +3,7 @@ import type { ZodType, ZodObject } from 'zod'
 // 'hidden' — a field that is part of the schema (so the URL codec round-trips it)
 // but is not rendered as a form control. Used for values driven indirectly, e.g.
 // a preset-dropdown-only field. SchemaForm skips it in renderField.
-export type FieldUi = 'slider' | 'number' | 'segmented' | 'select' | 'toggle' | 'color' | 'colorList' | 'group' | 'matrix' | 'hidden'
+export type FieldUi = 'slider' | 'number' | 'segmented' | 'select' | 'toggle' | 'color' | 'colorList' | 'group' | 'matrix' | 'image' | 'hidden'
 
 export interface FieldMeta {
   ui: FieldUi
@@ -18,6 +18,7 @@ export interface FieldMeta {
   section?: string // groups the field under a collapsible subpanel in the config form
   collapsed?: boolean // section starts collapsed if ANY field in it sets this (e.g. 'Advanced')
   randomizeOnFreshLoad?: boolean // numeric field rolled to a fresh random value on a bare load (empty query); share-links still pin it
+  local?: boolean // value lives only in THIS browser (e.g. an uploaded image's id) — never encoded into a link, pinned or not
   deriveFrom?: (config: any) => number[] // ui:'matrix' — derive the seed-based table (flat row-major, length colors²) from the full config, so the generic control imports no diversion math
 }
 

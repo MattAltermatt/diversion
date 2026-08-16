@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildField, cellAt, type FieldOptions } from './field'
+import { buildField, buildFieldFromIndices, cellAt, type FieldOptions } from './field'
 
 const OPTS: FieldOptions = {
   seed: 1234, cols: 60, rows: 40, bands: 6, featureSize: 12, roughness: 0.5,
@@ -93,5 +93,26 @@ describe('buildField', () => {
   it('survives a single-band palette without dividing by zero', () => {
     const f = buildField({ ...OPTS, bands: 1 })
     expect(Array.from(f.idx).every((v) => v === 0)).toBe(true)
+  })
+})
+
+describe('buildFieldFromIndices (#278)', () => {
+  it('wraps indices as a fully-alive field', () => {
+    const f = buildFieldFromIndices(new Uint8Array([0, 1, 1, 0, 2, 2]), 3, 2, 3)
+    expect(f.cols).toBe(3)
+    expect(f.rows).toBe(2)
+    expect(f.bands).toBe(3)
+    expect(f.aliveCount).toBe(6)
+    expect(Array.from(f.alive)).toEqual([1, 1, 1, 1, 1, 1])
+    expect(Array.from(f.idx)).toEqual([0, 1, 1, 0, 2, 2])
+  })
+
+  it('copies rather than aliasing — a re-peel must not share mutable state', () => {
+    const src = new Uint8Array([0, 1])
+    const f = buildFieldFromIndices(src, 2, 1, 2)
+    src[0] = 1
+    expect(f.idx[0]).toBe(0)
+    f.alive[0] = 0
+    expect(Array.from(src)).toEqual([1, 1])
   })
 })

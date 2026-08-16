@@ -1,6 +1,6 @@
 import { parseHex6, parseHex8, rgba, type RGB } from '../../framework/color'
 import { trackPoint, type Turret } from './turrets'
-import type { AblationState } from './ablation'
+import { paletteFor, type AblationState } from './ablation'
 
 // Everything that touches the canvas. The picture itself lives in a persistent
 // offscreen buffer patched only where cells die — at cell size 16 that saves
@@ -45,11 +45,18 @@ interface Derived {
 const derived = new WeakMap<AblationState, Derived>()
 
 function palette(s: AblationState): Palette {
+  // Image mode draws in the colours the quantizer pulled OUT of the picture — the
+  // configured list is, in that mode, both the wrong length and the wrong colours.
+  // `paletteFor` returns null only when the store is cold, and the field on screen
+  // is then a contour fallback, so `cfg.palette` is genuinely right in that case.
+  // The list is held on the state, so its identity is stable frame to frame and
+  // the `key ===` check below still short-circuits.
+  const list = paletteFor(s)
   const d = derived.get(s)
-  if (d && d.palette.key === s.cfg.palette && d.palette.background === s.cfg.background) return d.palette
-  const bands = s.cfg.palette.map(toRgb)
+  if (d && d.palette.key === list && d.palette.background === s.cfg.background) return d.palette
+  const bands = list.map(toRgb)
   const p: Palette = {
-    key: s.cfg.palette,
+    key: list,
     bands,
     css: bands.map((c) => rgba(c, 1)),
     background: s.cfg.background,

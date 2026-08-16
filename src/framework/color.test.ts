@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseHex8, parseHex6, hexToRgb, mix, rgba, hslToRgb } from './color'
+import { parseHex8, parseHex6, hexToRgb, mix, rgba, hslToRgb, srgbToOklab, oklabToHex } from './color'
 
 describe('parseHex8', () => {
   it('parses #rrggbbaa to 0-255 channels with alpha in 0..1', () => {
@@ -71,5 +71,30 @@ describe('hslToRgb', () => {
   it('wraps hue past 360 and below 0', () => {
     expect(hslToRgb(360, 100, 50)).toEqual(hslToRgb(0, 100, 50))
     expect(hslToRgb(-120, 100, 50)).toEqual(hslToRgb(240, 100, 50))
+  })
+})
+
+describe('OKLab (#278)', () => {
+  it('black and white sit at the ends of L', () => {
+    expect(srgbToOklab(0, 0, 0).L).toBeCloseTo(0, 3)
+    expect(srgbToOklab(255, 255, 255).L).toBeCloseTo(1, 3)
+  })
+
+  it('greys are achromatic', () => {
+    const g = srgbToOklab(128, 128, 128)
+    expect(g.a).toBeCloseTo(0, 3)
+    expect(g.b).toBeCloseTo(0, 3)
+  })
+
+  it('round-trips a saturated colour to within one channel step', () => {
+    for (const hex of ['#1b4f6b', '#f2e2b0', '#ff0000', '#00ff00', '#0000ff']) {
+      const n = parseInt(hex.slice(1), 16)
+      const lab = srgbToOklab((n >> 16) & 255, (n >> 8) & 255, n & 255)
+      expect(oklabToHex(lab)).toBe(hex)
+    }
+  })
+
+  it('clamps out-of-gamut Lab back into sRGB rather than emitting NaN', () => {
+    expect(oklabToHex({ L: 1.4, a: 0.3, b: -0.3 })).toMatch(/^#[0-9a-f]{6}$/)
   })
 })

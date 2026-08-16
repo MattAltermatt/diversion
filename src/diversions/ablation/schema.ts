@@ -5,16 +5,43 @@ import { z } from 'zod'
 // Two preset axes (Palette = colours, Demolition = turret feel) live in presets.ts.
 export const ablationSchema = z.object({
   // ─── Picture ──────────────────────────────────────────────────────────────
+  // `source` gates everything below it. It has to be an enum rather than a
+  // derived "is an image set" test, because showWhen.equals only validates
+  // against enum siblings — and an explicit mode reads better anyway than
+  // controls silently swapping the moment a file is picked.
+  source: z.enum(['Contours', 'Image']).default('Contours')
+    .meta({ section: 'Picture', ui: 'segmented', label: 'Source',
+            options: ['Contours', 'Image'],
+            help: 'Contours generates a fresh topographic map for every picture. Image peels '
+                + 'a picture you choose, reduced to a handful of colours — and re-peels the '
+                + 'same one each time, since the crew is shuffled fresh per picture and never '
+                + 'dissolves it the same way twice.' }),
+  image: z.string().optional()
+    .meta({ section: 'Picture', ui: 'image', label: 'Image', local: true,
+            showWhen: { field: 'source', equals: 'Image' },
+            help: 'Stays on this machine — a picture is far too big to ride in a link. Your own '
+                + 'reloads keep it; someone opening a link you share sees the generated contour '
+                + 'map instead, or their own picture if they have one here.' }),
+  colors: z.number().int().min(2).max(24).default(6)
+    .meta({ section: 'Picture', ui: 'slider', min: 2, max: 24, step: 1, label: 'Colors',
+            showWhen: { field: 'source', equals: 'Image' },
+            help: 'How many colours the picture is reduced to, which is also how many bands '
+                + 'the crew divides into. Like is grouped with like, and the range is stretched '
+                + 'to span dark to light — so 2 gives you a stark two-tone picture. The dark end '
+                + 'stops short of the ground on purpose: a band that matched the background '
+                + 'would be indistinguishable from the space a turret had already cleared.' }),
   cellSize: z.number().int().min(2).max(40).default(10)
     .meta({ section: 'Picture', ui: 'slider', min: 2, max: 40, step: 1, label: 'Cell size',
             help: 'Size of one cell in pixels. Smaller means a finer picture and a far longer '
                 + 'demolition — at 2 there are a quarter-million cells to get through.' }),
   featureSize: z.number().min(4).max(60).default(18)
     .meta({ section: 'Picture', ui: 'slider', min: 4, max: 60, step: 1, label: 'Feature size',
+            showWhen: { field: 'source', equals: 'Contours' },
             help: 'Cells per contour feature. Large gives a few huge lazy bands that take an age '
                 + 'to peel; small gives crenellated ridges and islands that fragment fast.' }),
   roughness: z.number().min(0).max(1).default(0.5)
     .meta({ section: 'Picture', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Roughness',
+            showWhen: { field: 'source', equals: 'Contours' },
             help: 'How much the finer octaves contribute. 0 is smooth rolling contours; 1 is '
                 + 'ragged, noisy coastline.' }),
 
@@ -23,6 +50,7 @@ export const ablationSchema = z.object({
     // Deliberately stops short of the ground — see the note in presets.ts.
     .default(['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'])
     .meta({ section: 'Color', ui: 'colorList', label: 'Palette',
+            showWhen: { field: 'source', equals: 'Contours' },
             help: 'The contour bands, outermost value first. The LENGTH of this list is the '
                 + 'number of bands — two colours gives a stark black-and-white map, twenty a '
                 + 'slow topographic dissolve.' }),

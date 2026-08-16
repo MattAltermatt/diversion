@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ablationSchema } from './schema'
 import { ablationPresets } from './presets'
+import { encodeConfig } from '../../framework/urlCodec'
 
 describe('ablation schema', () => {
   it('parses to a complete default config', () => {
@@ -92,5 +93,68 @@ describe('ablation presets', () => {
   it('offers a Unison option in the Demolition group', () => {
     const demolition = ablationPresets.find((g) => g.label === 'Demolition')!
     expect(demolition.options.some((o) => o.patch.targeting === 'Unison')).toBe(true)
+  })
+})
+
+describe('image source (#278)', () => {
+  const d = ablationSchema.parse({})
+
+  it('defaults to Contours so every existing link is unchanged', () => {
+    expect(d.source).toBe('Contours')
+    expect(d.image).toBeUndefined()
+  })
+
+  it('the image id never reaches a link, even a pinned one', () => {
+    const sp = encodeConfig(ablationSchema, { ...d, source: 'Image', image: 'img_x' } as never,
+      { includePinned: true })
+    expect(sp.has('image')).toBe(false)
+    expect(sp.get('source')).toBe('Image')
+  })
+
+  type FieldName = keyof typeof ablationSchema.shape
+  const showWhenOf = (k: FieldName) => ablationSchema.shape[k].meta()?.showWhen
+
+  it('contour-only fields are gated on source', () => {
+    for (const k of ['featureSize', 'roughness', 'palette'] as FieldName[]) {
+      expect(showWhenOf(k)).toEqual({ field: 'source', equals: 'Contours' })
+    }
+  })
+
+  it('image-only fields are gated on source', () => {
+    for (const k of ['image', 'colors'] as FieldName[]) {
+      expect(showWhenOf(k)).toEqual({ field: 'source', equals: 'Image' })
+    }
+  })
+
+  it('cellSize and background are gated on neither — they serve both modes', () => {
+    expect(ablationSchema.shape.cellSize.meta()?.showWhen).toBeUndefined()
+    expect(ablationSchema.shape.background.meta()?.showWhen).toBeUndefined()
+  })
+
+  it('colors covers the same band range the palette does', () => {
+    expect(() => ablationSchema.parse({ colors: 1 })).toThrow()
+    expect(() => ablationSchema.parse({ colors: 25 })).toThrow()
+    expect(ablationSchema.parse({ colors: 24 }).colors).toBe(24)
+  })
+})
+
+describe('presets vs image source (#278)', () => {
+  const group = (label: string) => ablationPresets.find((g) => g.label === label)!
+
+  it('every Palette option returns the piece to Contours', () => {
+    for (const opt of group('Palette').options) {
+      expect(opt.patch.source).toBe('Contours')
+    }
+  })
+
+  it('the Demolition axis leaves source alone — it is orthogonal', () => {
+    for (const opt of group('Demolition').options) {
+      expect(opt.patch.source).toBeUndefined()
+    }
+  })
+
+  it('every Palette option still patches the same key-set (matchPresets rule)', () => {
+    const keys = group('Palette').options.map((o) => Object.keys(o.patch).sort().join(','))
+    expect(new Set(keys).size).toBe(1)
   })
 })

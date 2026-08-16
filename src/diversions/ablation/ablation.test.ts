@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ablationSchema, type AblationConfig } from './schema'
-import { createState, step, applyConfig, resizeState, type AblationState } from './ablation'
-import { EDGE, exposedHistogram } from './front'
+import { createState, step, applyConfig, resizeState, bandsFor, paletteFor, type AblationState } from './ablation'
+import { putImage, clearImage } from '../../framework/imageStore'
+import { EDGE, exposedHistogram, buildFront } from './front'
 
 const SIZE = { width: 480, height: 360 }
 
@@ -1096,5 +1097,184 @@ describe('unison at picture start', () => {
     run(s, 5)
     expect(applyConfig(s, { ...c, targeting: 'Unison' }, SIZE)).toBe(true)
     expect(new Set([...s.track, ...s.queue].map((t) => t.band)).size).toBe(1)
+  })
+})
+
+describe('image source (#278)', () => {
+  const size = { width: 400, height: 300 }
+  const imgCfg = (over: Partial<AblationConfig> = {}): AblationConfig =>
+    ({ ...ablationSchema.parse({}), source: 'Image', image: 'i1', colors: 4, ...over })
+
+  /** A w*h half-dark/half-light image in the store under `id`. */
+  function storeSplitImage(id: string) {
+    const w = 64, h = 64
+    const pixels = new Uint8ClampedArray(w * h * 4)
+    for (let i = 0; i < w * h; i++) {
+      const v = (i % w) < w / 2 ? 12 : 220
+      pixels[i * 4] = v; pixels[i * 4 + 1] = v; pixels[i * 4 + 2] = v; pixels[i * 4 + 3] = 255
+    }
+    putImage({ id, dataUrl: 'data:,', width: w, height: h, pixels })
+  }
+
+  beforeEach(() => { clearImage() })
+  afterEach(() => { clearImage() })
+
+  it('builds the picture from the image, with colors as the band count', () => {
+    storeSplitImage('i1')
+    const s = createState(imgCfg(), size)
+    expect(s.field.bands).toBe(4)
+    expect(s.field.aliveCount).toBe(s.field.cols * s.field.rows)
+  })
+
+  it('bandsFor reads colors in Image mode and the palette length in Contours', () => {
+    expect(bandsFor(imgCfg({ colors: 9 }))).toBe(9)
+    const contours = ablationSchema.parse({})
+    expect(bandsFor(contours)).toBe(contours.palette.length)
+  })
+
+  it('falls back to contours when the store has no such image', () => {
+    const s = createState(imgCfg(), size)
+    expect(s.field.bands).toBe(ablationSchema.parse({}).palette.length)
+    expect(paletteFor(s)).toEqual(ablationSchema.parse({}).palette)
+  })
+
+  it('paletteFor derives colours from the pixels, not the configured list', () => {
+    storeSplitImage('i1')
+    const s = createState(imgCfg({ colors: 2 }), size)
+    const derived = paletteFor(s)
+    expect(derived).toHaveLength(2)
+    expect(derived).not.toEqual(ablationSchema.parse({}).palette)
+  })
+
+  it('re-peels the SAME picture when one completes', () => {
+    storeSplitImage('i1')
+    const s = createState(imgCfg(), size)
+    const before = Array.from(s.field.idx)
+    s.field.alive.fill(0)
+    s.field.aliveCount = 0
+    s.track.length = 0
+    s.dying.length = 0
+    step(s, 1 / 60)
+    expect(s.pictures).toBe(1)
+    expect(Array.from(s.field.idx)).toEqual(before)
+    expect(s.field.aliveCount).toBe(s.field.cols * s.field.rows)
+  })
+
+  it('a contours picture, by contrast, becomes a DIFFERENT map on completion', () => {
+    const s = createState(ablationSchema.parse({}), size)
+    const before = Array.from(s.field.idx)
+    s.field.alive.fill(0)
+    s.field.aliveCount = 0
+    s.track.length = 0
+    s.dying.length = 0
+    step(s, 1 / 60)
+    expect(Array.from(s.field.idx)).not.toEqual(before)
+  })
+
+  it('source, image and colors are all structural', () => {
+    storeSplitImage('i1')
+    const s = createState(imgCfg(), size)
+    expect(applyConfig(s, imgCfg({ colors: 8 }), size)).toBe(false)
+    expect(applyConfig(s, imgCfg({ image: 'i2' }), size)).toBe(false)
+    expect(applyConfig(s, imgCfg({ source: 'Contours' }), size)).toBe(false)
+  })
+
+  it('a rehydrated image swaps in mid-run rather than waiting for the next picture', () => {
+    // setup with a cold store → contour fallback, then the decode lands.
+    const s = createState(imgCfg(), size)
+    expect(s.field.bands).toBe(ablationSchema.parse({}).palette.length)
+    storeSplitImage('i1')
+    step(s, 1 / 60)
+    expect(s.field.bands).toBe(4)
+    expect(s.pictures).toBe(0) // swapped in place, NOT counted as a completed picture
+  })
+
+  it('a band holding zero cells retires instead of cycling forever', () => {
+    // An image with fewer distinct tones than `colors` leaves clusters empty, and
+    // they keep their seed centre rather than being dropped. Those turrets must
+    // leave rotation on their first gate crossing.
+    storeSplitImage('i1')
+    const s = createState(imgCfg({ colors: 6, capacity: 6, queued: 6 }), size)
+    const empty = [...s.bandAlive].findIndex((n) => n === 0)
+    expect(empty).toBeGreaterThanOrEqual(0) // the fixture has 2 tones, so 6 bands cannot all fill
+    for (let i = 0; i < 60000 && s.field.aliveCount > 0; i++) step(s, 1 / 60)
+    expect(s.field.aliveCount).toBe(0)
+  })
+
+  it('an interior-only band still lets the picture finish', () => {
+    // Band 1 touches no border, so its turrets start with nothing to strike. They
+    // must keep cycling rather than retire, and the picture must still complete.
+    const s = createState({ ...ablationSchema.parse({}), palette: ['#000000', '#ffffff'] }, size)
+    s.field.idx.fill(0)
+    for (let row = 2; row < s.field.rows - 2; row++) {
+      for (let col = 2; col < s.field.cols - 2; col++) s.field.idx[row * s.field.cols + col] = 1
+    }
+    s.field.alive.fill(1)
+    s.field.aliveCount = s.field.cols * s.field.rows
+    s.front = buildFront(s.field)
+    for (let i = 0; i < 400000 && s.field.aliveCount > 0; i++) step(s, 1 / 60)
+    expect(s.field.aliveCount).toBe(0)
+  })
+})
+
+describe('an image survives a reload (#278)', () => {
+  const size = { width: 400, height: 300 }
+  const contourBands = ablationSchema.parse({}).palette.length
+
+  function storeImage(id: string) {
+    const w = 64, h = 64
+    const pixels = new Uint8ClampedArray(w * h * 4)
+    for (let i = 0; i < w * h; i++) {
+      const v = (i % w) < w / 2 ? 12 : 220
+      pixels[i * 4] = v; pixels[i * 4 + 1] = v; pixels[i * 4 + 2] = v; pixels[i * 4 + 3] = 255
+    }
+    putImage({ id, dataUrl: 'data:,', width: w, height: h, pixels })
+  }
+
+  beforeEach(() => { clearImage() })
+  afterEach(() => { clearImage() })
+
+  // A reload restores the PIXELS (localStorage) but not the id: the field is
+  // `local`, so it never enters the URL, and the URL is the config's only
+  // persistence. The store's single slot has to be authoritative or every reload
+  // silently drops to the contour map with a full image sitting in storage.
+  const reloaded = (): AblationConfig =>
+    ({ ...ablationSchema.parse({}), source: 'Image', colors: 4, image: undefined })
+
+  it('peels the stored image even though the config lost its id', () => {
+    storeImage('img_restored')
+    const s = createState(reloaded(), size)
+    expect(s.field.bands).toBe(4)
+  })
+
+  it('still falls back to contours when the store is genuinely empty', () => {
+    const s = createState(reloaded(), size)
+    expect(s.field.bands).toBe(contourBands)
+  })
+
+  it('paletteFor resolves the stored image with no id in the config', () => {
+    storeImage('img_restored')
+    const s = createState(reloaded(), size)
+    expect(paletteFor(s)).toHaveLength(4)
+  })
+
+  it('does NOT re-quantize every frame when the config carries no id', () => {
+    // The cache keys on the RESOLVED image's id. Keying it on `cfg.image` instead
+    // would miss on every frame here, re-running k-means each time.
+    storeImage('img_restored')
+    const s = createState(reloaded(), size)
+    const first = paletteFor(s)
+    for (let i = 0; i < 5; i++) step(s, 1 / 60)
+    // Same ARRAY IDENTITY proves the cache was reused, not merely equal output.
+    expect(paletteFor(s)).toBe(first)
+  })
+
+  it('clearing the store drops a running image picture back to contours', () => {
+    storeImage('img_restored')
+    const s = createState(reloaded(), size)
+    expect(s.field.bands).toBe(4)
+    clearImage()
+    step(s, 1 / 60)
+    expect(s.field.bands).toBe(contourBands)
   })
 })

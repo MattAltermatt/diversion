@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization } from './urlCodec'
+import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization, localKeys } from './urlCodec'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -329,5 +329,38 @@ describe('applyFreshLoadRandomization', () => {
     expect(pinned.get('seed')).toBe('4242')
     // and it reproduces the exact seed on decode
     expect(decodeConfig(freshSchema, pinned).seed).toBe(4242)
+  })
+})
+
+describe('local fields never reach a link (#278)', () => {
+  const localSchema = z.object({
+    size: z.number().default(4).meta({ ui: 'number', label: 'Size' }),
+    seed: z.number().default(1)
+      .meta({ ui: 'number', label: 'Seed', randomizeOnFreshLoad: true }),
+    image: z.string().optional().meta({ ui: 'image', label: 'Image', local: true }),
+  })
+
+  it('localKeys reports the flagged field and nothing else', () => {
+    expect(localKeys(localSchema).has('image')).toBe(true)
+    expect(localKeys(localSchema).has('seed')).toBe(false)
+    expect(localKeys(localSchema).has('size')).toBe(false)
+  })
+
+  it('encodeConfig omits a SET local field', () => {
+    const cfg = { ...localSchema.parse({}), image: 'img_abc123' }
+    expect(encodeConfig(localSchema, cfg as never).has('image')).toBe(false)
+    expect(encodeConfig(localSchema, cfg as never).get('size')).toBe('4')
+  })
+
+  it('includePinned emits the seed but STILL omits the local field', () => {
+    const cfg = { ...localSchema.parse({}), image: 'img_abc123' }
+    const sp = encodeConfig(localSchema, cfg as never, { includePinned: true })
+    expect(sp.has('seed')).toBe(true)
+    expect(sp.has('image')).toBe(false)
+  })
+
+  it('a link with no image decodes to a config with none', () => {
+    const round = decodeConfig(localSchema, encodeConfig(localSchema, localSchema.parse({}) as never))
+    expect(round.image).toBeUndefined()
   })
 })

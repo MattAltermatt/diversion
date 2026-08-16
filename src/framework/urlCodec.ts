@@ -201,6 +201,22 @@ export function freshLoadKeys(schema: ZodObject<any>): Set<string> {
   return keys
 }
 
+/** Encoded URL keys of fields flagged `local`. Distinct from pin-only: a pin-only
+ *  field (the seed) IS emitted when `includePinned` is set, because pinning it is
+ *  what reproduces the world. A `local` field is an id for something held in THIS
+ *  browser — an uploaded image's pixels — so emitting it either way would encode a
+ *  dangling reference the recipient cannot resolve. Note it cannot simply reuse
+ *  `randomizeOnFreshLoad`: that flag ALSO drives `applyFreshLoadRandomization`,
+ *  which would try to roll a random *string*. */
+export function localKeys(schema: ZodObject<any>): Set<string> {
+  const { encode } = buildUrlKeyMap(schema)
+  const keys = new Set<string>()
+  for (const [name, field] of Object.entries(schema.shape)) {
+    if (readMeta(field as ZodType)?.local) keys.add(encode.get(name) ?? name)
+  }
+  return keys
+}
+
 export function encodeConfig<T extends ZodObject<any>>(
   schema: T,
   value: ReturnType<T['parse']>,
@@ -211,7 +227,9 @@ export function encodeConfig<T extends ZodObject<any>>(
   // Default: skip pin-only fields (seed) so a shared link stays seedless / "new world
   // every visit". includePinned=true emits them too → a link that reproduces THIS exact
   // world (used by copy-link-with-seed).
-  const skip = opts.includePinned ? new Set<string>() : freshLoadKeys(schema)
+  // `local` fields are skipped in BOTH modes; pin-only fields only when not pinning.
+  const skip = localKeys(schema)
+  if (!opts.includePinned) for (const k of freshLoadKeys(schema)) skip.add(k)
   const sp = new URLSearchParams()
   for (const [path, v] of Object.entries(flatVal)) {
     const key = encode.get(path) ?? path

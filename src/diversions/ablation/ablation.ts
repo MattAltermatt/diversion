@@ -1,6 +1,8 @@
 import { mulberry32 } from '../../framework/rng'
 import type { Size } from '../../framework/types'
-import { buildField, type Field } from './field'
+import { buildField, buildFieldFromIndices, type Field } from './field'
+import { getImage, currentImage, storeVersion } from '../../framework/imageStore'
+import { quantize } from './quantize'
 import { buildFront, frontCell, killCell, exposedHistogram, type Front } from './front'
 import { temperedPick, resolveFleet, allocateFleet } from './scheduler'
 import { makeGeom, makeTurret, resetTurret, advance, trackPoint, type Geom, type Turret } from './turrets'
@@ -51,8 +53,14 @@ export interface AblationState {
   bolts: Bolt[]
   hist: Uint32Array
   rand: () => number
+  /** the picture's quantization when Image mode resolved one, else null. Held on
+   *  the state so two concurrent hosts cannot thrash a shared cache. */
+  quant: Quant | null
   /** how many pictures have been fully consumed */
   pictures: number
+  /** last `storeVersion()` seen, so an image rehydrated after a reload swaps in
+   *  mid-run rather than waiting for a picture that may be 25 minutes away */
+  imageVersion: number
   /** turrets minted since this picture was crewed. Only ever used to keep the
    *  sub-cell entry jitter unique — see `makeTurret`. A turret added by a live fleet
    *  resize must continue the sequence rather than restart it, or it lands on an
@@ -75,24 +83,127 @@ const BOLT_S = 0.11
  *  note that rebuild is not free, so this is a safety net, not a cheap valve. */
 const PATCH_LIMIT = 20000
 
-function newField(cfg: AblationConfig, geom: Geom, generation: number): Field {
-  return buildField({
+/** The band count for the picture this config describes. Contours takes it from
+ *  the palette's LENGTH (promised in that field's help, and depended on by every
+ *  shared link already in the wild); Image takes it from the explicit `colors`
+ *  control, since the palette in that mode is an output, not an input. */
+export function bandsFor(cfg: AblationConfig): number {
+  return cfg.source === 'Image' ? cfg.colors : cfg.palette.length
+}
+
+// Quantizing is the most expensive thing in setup, and its result is STABLE for a
+// fixed (image, colours, grid, seed) — so a re-peel of the same picture reuses it
+// and only resets `alive`, which makes a cycled image picture CHEAPER than a
+// cycled procedural one. One entry: the store holds one image, so a second entry
+// could only ever be dead weight for an upload that has been replaced.
+//
+// The key is compared FIELD BY FIELD rather than as a joined string because
+// `render` resolves the palette through here on every frame: building a template
+// literal per frame would be a pure per-frame allocation on the hot path, for
+/** A finished quantization, held on the STATE rather than in a module singleton.
+ *  Two concurrently-running hosts at different canvas sizes would each miss the
+ *  other's entry in a shared single slot and re-run the k-means every frame, in
+ *  both — the exact hazard `render.ts`'s per-instance `derived` WeakMap exists to
+ *  avoid. Holding it here also means `paletteFor` is a property read rather than
+ *  a cache probe, so the per-frame path touches no store at all. */
+export interface Quant {
+  key: string
+  idx: Uint8Array
+  palette: string[]
+}
+
+function quantKey(cfg: AblationConfig, geom: Geom, imageId: string): string {
+  return `${imageId}|${cfg.colors}|${geom.cols}|${geom.rows}`
+}
+
+/** Seed the clustering from the IMAGE, not from `cfg.seed`.
+ *
+ *  `seed` is `randomizeOnFreshLoad`, so it is rolled fresh on every seedless load
+ *  and again when the viewer clicks through to Play. Keying the palette on it
+ *  would mean the same photograph came back a different set of colours on every
+ *  visit — the picture would not look like itself. Deriving it from the image id
+ *  makes the palette a property of the photo. `seed` still varies everything it
+ *  should: which turret hunts what, the shuffle, the entry jitter, the lock draw. */
+function hashId(id: string): number {
+  let h = 2166136261
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/** The pixels this config wants. Prefers the id the config carries, but falls back
+ *  to whatever single image the store holds — because that id cannot survive a
+ *  reload (it is `local`, so it never enters the URL, which is the config's only
+ *  persistence) while the pixels can and do. Without the fallback, every reload
+ *  silently drops back to the contour map with a full image sitting in storage. */
+function resolveImage(cfg: AblationConfig) {
+  return getImage(cfg.image) ?? currentImage()
+}
+
+/** The quantization this config+geometry wants, reusing `prev` when it still
+ *  describes the same picture. Returns null when the store is cold. */
+function quantFor(cfg: AblationConfig, geom: Geom, prev: Quant | null): Quant | null {
+  if (cfg.source !== 'Image') return null
+  const img = resolveImage(cfg)
+  if (!img) return null
+  const key = quantKey(cfg, geom, img.id)
+  if (prev && prev.key === key) return prev
+  return { key, ...quantize(img, geom.cols, geom.rows, cfg.colors, hashId(img.id)) }
+}
+
+/** The colours a picture is actually drawn in. Image mode uses the colours pulled
+ *  OUT of the pixels; Contours uses the hand-authored list. Falls back to
+ *  `cfg.palette` whenever no image resolved, which is exactly when the field on
+ *  screen is a contour fallback — so the two always agree.
+ *
+ *  Two properties a caller must tolerate, both legitimate: the list can contain
+ *  DUPLICATE hex strings, and a band can hold ZERO cells — an image with fewer
+ *  distinct tones than `colors` leaves clusters empty, and they keep their seed
+ *  centre rather than being dropped (dropping them would make the band count a
+ *  lie). An empty band retires on its first rotation, which is the correct
+ *  outcome and needs no special case. */
+export function paletteFor(s: AblationState): string[] {
+  return s.quant?.palette ?? s.cfg.palette
+}
+
+function newPicture(
+  cfg: AblationConfig,
+  geom: Geom,
+  generation: number,
+  prev: Quant | null,
+): { field: Field; quant: Quant | null } {
+  const quant = quantFor(cfg, geom, prev)
+  // A cold store — a shared link, a cleared slot, a rehydrate still in flight —
+  // falls through to contours rather than rendering nothing. `step` watches the
+  // store's version and rebuilds the moment pixels arrive.
+  //
+  // `generation` is deliberately unused on the image path: a finished image
+  // picture re-peels the SAME image, and the variation between cycles comes from
+  // `crew()`'s RNG — the Mixed shuffle, the entry jitter, the Unison lock draw
+  // all keep advancing. Contours below still varies the map itself per generation.
+  if (quant) {
+    return { field: buildFieldFromIndices(quant.idx, geom.cols, geom.rows, bandsFor(cfg)), quant }
+  }
+  return { quant: null, field: buildField({
     seed: cfg.seed + generation,
     cols: geom.cols,
     rows: geom.rows,
     bands: cfg.palette.length,
     featureSize: cfg.featureSize,
     roughness: cfg.roughness,
-  })
+  }) }
 }
 
 export function createState(cfg: AblationConfig, size: Size): AblationState {
   const geom = makeGeom(size, cfg.cellSize, cfg.trackOffset)
-  const field = newField(cfg, geom, 0)
+  const { field, quant } = newPicture(cfg, geom, 0, null)
   const s: AblationState = {
     cfg,
     geom,
     field,
+    quant,
     front: buildFront(field),
     track: [],
     queue: [],
@@ -104,6 +215,7 @@ export function createState(cfg: AblationConfig, size: Size): AblationState {
     hist: new Uint32Array(field.bands),
     rand: mulberry32(cfg.seed),
     pictures: 0,
+    imageVersion: storeVersion(),
     minted: 0,
     gateClear: 0,
     patches: [],
@@ -294,6 +406,34 @@ function rotate(s: AblationState, t: Turret): void {
 }
 
 export function step(s: AblationState, dt: number): void {
+  // 0. A reload rehydrates the stored image asynchronously, so `setup` may have
+  //    built a contour fallback. Swap the moment the pixels land — NOT at the next
+  //    picture boundary, since a lap runs ~25 minutes at the slowest Track speed
+  //    and deferring would mean showing the fallback for the whole session. This
+  //    has to run before the destructure below, which would otherwise capture the
+  //    field we are about to replace.
+  if (s.cfg.source === 'Image' && storeVersion() !== s.imageVersion) {
+    s.imageVersion = storeVersion()
+    const swapped = newPicture(s.cfg, s.geom, s.pictures, s.quant)
+    // Only rebuild if the picture ACTUALLY changed. The version moves for any
+    // store activity — a failed decode, a clear on a machine that never had an
+    // image — and regenerating a bit-identical contour field would restart the
+    // piece and reshuffle the whole crew for nothing.
+    if ((swapped.quant?.key ?? null) !== (s.quant?.key ?? null)) {
+      s.field = swapped.field
+      s.quant = swapped.quant
+      s.front = buildFront(s.field)
+      s.patches.length = 0
+      s.buffer = null
+      // Both lists index into the OLD field: a dying cell holds a cell index and
+      // a band that may not exist in the new picture. `resizeState` clears them
+      // for exactly this reason.
+      s.dying.length = 0
+      s.bolts.length = 0
+      crew(s)
+    }
+  }
+
   const { cfg, geom, field, front } = s
 
   // 1. Age the short-lived visual lists.
@@ -451,7 +591,9 @@ export function step(s: AblationState, dt: number): void {
   //    is re-crewed for the new map: the retired row clears and every turret returns.
   if (field.aliveCount === 0 && s.track.length === 0 && s.dying.length === 0) {
     s.pictures++
-    s.field = newField(cfg, geom, s.pictures)
+    const next = newPicture(cfg, geom, s.pictures, s.quant)
+    s.field = next.field
+    s.quant = next.quant
     s.front = buildFront(s.field)
     s.patches.length = 0
     s.buffer = null
@@ -485,6 +627,10 @@ export function applyConfig(s: AblationState, next: AblationConfig, _size: Size)
     next.featureSize !== prev.featureSize ||
     next.roughness !== prev.roughness ||
     next.seed !== prev.seed ||
+    // the picture's whole source, its pixels, and how many bands it quantizes to
+    next.source !== prev.source ||
+    next.image !== prev.image ||
+    next.colors !== prev.colors ||
     // a different NUMBER of colours is a different number of contour bands
     next.palette.length !== prev.palette.length ||
     // the track offset sets the margin, which sets how many cells fit — so it
@@ -520,7 +666,9 @@ export function applyConfig(s: AblationState, next: AblationConfig, _size: Size)
 export function resizeState(s: AblationState, size: Size): void {
   s.size = size
   s.geom = makeGeom(size, s.cfg.cellSize, s.cfg.trackOffset)
-  s.field = newField(s.cfg, s.geom, s.pictures)
+  const rebuilt = newPicture(s.cfg, s.geom, s.pictures, s.quant)
+  s.field = rebuilt.field
+  s.quant = rebuilt.quant
   s.front = buildFront(s.field)
   s.dying.length = 0
   s.bolts.length = 0

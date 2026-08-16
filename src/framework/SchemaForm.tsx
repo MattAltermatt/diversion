@@ -11,6 +11,7 @@ import { ColorList } from './controls/ColorList'
 import { Group } from './controls/Group'
 import { Subpanel } from './controls/Subpanel'
 import { MatrixEditor } from './controls/MatrixEditor'
+import { ImagePicker } from './controls/ImagePicker'
 
 type AnyObj = Record<string, any>
 
@@ -45,6 +46,8 @@ function controlFor(ui: FieldMeta['ui']): ControlComponent | null {
       return Swatch as ControlComponent
     case 'colorList':
       return ColorList as ControlComponent
+    case 'image':
+      return ImagePicker as ControlComponent
     default:
       return null
   }

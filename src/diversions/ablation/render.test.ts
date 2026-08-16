@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { make2DContext } from '../../test-setup'
 import { ablationSchema, type AblationConfig } from './schema'
 import { createState, step } from './ablation'
 import { render } from './render'
 import ablation from './index'
+import { putImage, clearImage } from '../../framework/imageStore'
 
 const SIZE = { width: 400, height: 300 }
 
@@ -240,5 +241,69 @@ describe('the parked turret rows', () => {
     const { ctx, arcs } = recordArcs()
     render(s, ctx)
     expect(arcs.length).toBe(20)
+  })
+})
+
+describe('image palette (#278)', () => {
+  /** Records every fillStyle assigned during a render. */
+  function recordingContext(): { ctx: CanvasRenderingContext2D; fills: string[] } {
+    const base = make2DContext() as unknown as Record<string, unknown>
+    const fills: string[] = []
+    const ctx = new Proxy(base, {
+      set(target, prop, value) {
+        if (prop === 'fillStyle') fills.push(String(value))
+        target[prop as string] = value
+        return true
+      },
+    })
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, fills }
+  }
+
+  function storeSplitImage(id: string) {
+    const w = 64, h = 64
+    const pixels = new Uint8ClampedArray(w * h * 4)
+    for (let i = 0; i < w * h; i++) {
+      const v = (i % w) < w / 2 ? 12 : 220
+      pixels[i * 4] = v; pixels[i * 4 + 1] = v; pixels[i * 4 + 2] = v; pixels[i * 4 + 3] = 255
+    }
+    putImage({ id, dataUrl: 'data:,', width: w, height: h, pixels })
+  }
+
+  beforeEach(() => { clearImage() })
+  afterEach(() => { clearImage() })
+
+  it('draws an image picture in the DERIVED colours, not the configured palette', () => {
+    storeSplitImage('i1')
+    const s = createState(cfg({ source: 'Image', image: 'i1', colors: 2 }), SIZE)
+    const { ctx, fills } = recordingContext()
+    render(s, ctx)
+
+    expect(fills.length).toBeGreaterThan(0)
+    // '#1b4f6b' is the configured palette's outermost band → rgb 27,79,107.
+    expect(fills.some((f) => f.includes('27,79,107'))).toBe(false)
+    // And the darkest thing drawn must still clear the ground — the quantizer
+    // floors band 0 at OKLab L 0.40 precisely so an intact cell never reads as
+    // already-destroyed space. Nothing may be painted at or below the background.
+    const channels = fills
+      .map((f) => /rgba?\((\d+),(\d+),(\d+)/.exec(f))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => (Number(m[1]) + Number(m[2]) + Number(m[3])) / 3)
+    expect(channels.length).toBeGreaterThan(0)
+    // #05070a averages 7.3; the floor puts band 0 far above it.
+    expect(Math.max(...channels)).toBeGreaterThan(40)
+  })
+
+  it('still draws a contours picture in the CONFIGURED palette', () => {
+    const s = createState(cfg(), SIZE)
+    const { ctx, fills } = recordingContext()
+    render(s, ctx)
+    expect(fills.some((f) => f.includes('27,79,107'))).toBe(true)
+  })
+
+  it('falls back to the configured palette when the store is cold', () => {
+    const s = createState(cfg({ source: 'Image', image: 'missing', colors: 2 }), SIZE)
+    const { ctx, fills } = recordingContext()
+    render(s, ctx)
+    expect(fills.some((f) => f.includes('27,79,107'))).toBe(true)
   })
 })
