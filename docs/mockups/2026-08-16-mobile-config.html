@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diversion — mobile Config layout, A/B (#284)</title>
+<style>
+  /* Real tokens, copied from src/framework/theme.css so the mockup reads as the
+     shipped product rather than as a wireframe. */
+  :root {
+    --bg: #08080a;
+    --panel: #0b0b0e;
+    --fg: #f0f0f2;
+    --muted: #8a8a94;
+    --accent: #7df5cf;
+    --accent-2: #5fd0ff;
+    --accent-ink: #062018;
+    --line: #26262c;
+    --line-2: #30303a;
+    --field: #121218;
+    --radius: 7px;
+    --mono: ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #050506; color: var(--fg);
+    font-family: var(--mono); font-size: 14px; -webkit-font-smoothing: antialiased;
+    padding: 32px 24px 64px;
+  }
+  h1 { font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 12px; line-height: 1.6; max-width: 900px; margin: 0 0 32px; }
+  .rail { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  .col { width: 390px; }
+  .col > h2 {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 4px;
+  }
+  .col > p { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 0 0 14px; min-height: 62px; }
+
+  /* Phone frame — 390x844, the measured iPhone-class viewport. */
+  .phone {
+    width: 390px; height: 844px; position: relative; overflow: hidden;
+    background: var(--bg); border: 1px solid var(--line-2); border-radius: 22px;
+  }
+
+  /* ── Shared config chrome ───────────────────────────────────────────────── */
+  .preview {
+    position: relative;
+    background: radial-gradient(130% 130% at 72% 28%, #0c161b, #050507);
+    overflow: hidden;
+  }
+  .sand { position: absolute; inset: 0; }
+  .pill {
+    position: absolute; z-index: 2; font-size: 12px; color: var(--accent);
+    background: rgba(8,16,18,0.6); border: 1px solid #2a3a40; border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .pill.animate { top: 14px; left: 16px; }
+  .pill.reset { top: 50px; left: 16px; }
+
+  .panel {
+    background: var(--panel); padding: 18px 18px 28px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .head { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  .head .back { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  .head h3 { margin: 8px 0 0; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .sect {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent-2); border-bottom: 1px solid var(--line); padding-bottom: 8px;
+  }
+  .ctl { display: flex; flex-direction: column; gap: 7px; }
+  .ctl-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctl-name { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .ctl-val { color: var(--accent); font-size: 13px; }
+  .help { color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .track { height: 4px; border-radius: 2px; background: var(--line-2); position: relative; }
+  .track::after {
+    content: ''; position: absolute; top: 50%; width: 26px; height: 26px;
+    border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%);
+    left: var(--at, 40%);
+  }
+  .select {
+    background: var(--field); border: 1px solid var(--line-2); border-radius: var(--radius);
+    padding: 12px 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .cta {
+    background: var(--accent); color: var(--accent-ink); border-radius: var(--radius);
+    padding: 14px; text-align: center; font-weight: 600; letter-spacing: 0.08em;
+  }
+
+  /* ── A: stacked, sticky preview ─────────────────────────────────────────── */
+  .stacked { height: 100%; overflow-y: auto; }
+  .stacked .preview { position: sticky; top: 0; z-index: 1; height: 380px; }
+  .stacked .panel { border-top: 1px solid var(--line); }
+
+  /* ── B: bottom sheet over full-bleed canvas ─────────────────────────────── */
+  .sheet-stage { position: absolute; inset: 0; }
+  .sheet-stage .preview { position: absolute; inset: 0; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 65%;
+    background: var(--panel); border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.55);
+    z-index: 3; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .grip { padding: 10px 0 4px; display: flex; justify-content: center; flex: none; }
+  .grip span { width: 44px; height: 4px; border-radius: 2px; background: var(--line-2); }
+  .sheet .panel { overflow-y: auto; padding-top: 8px; }
+  .peek-note {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 44px; z-index: 4;
+    border-top: 1px dashed var(--accent); pointer-events: none;
+  }
+
+  .note {
+    margin-top: 14px; font-size: 11px; line-height: 1.7; color: var(--muted);
+    border-left: 2px solid var(--line-2); padding-left: 12px;
+  }
+  .note b { color: var(--fg); font-weight: 600; }
+  .win { color: var(--accent); }
+  .lose { color: #ff9b8a; }
+</style>
+</head>
+<body>
+
+<h1>Config screen on a phone — A/B</h1>
+<p class="sub">
+  Both frames are 390×844, the measured iPhone-class viewport. Shipped today at this width, the Config
+  screen is a 320px sidebar beside a <b>70px</b> preview sliver with the Play button clipped off the right
+  edge. Content and tokens below are taken from the real Falling Sand schema and
+  <code>src/framework/theme.css</code>, so this reads as the product, not a wireframe.
+</p>
+
+<div class="rail">
+
+  <!-- ─────────────────────────── A ─────────────────────────── -->
+  <div class="col">
+    <h2>A · Stacked, sticky preview</h2>
+    <p>
+      Preview pins to the top at ~380px; the whole control panel flows beneath it and the page scrolls
+      normally. No hidden state — everything is one scroll away, always.
+    </p>
+    <div class="phone">
+      <div class="stacked">
+        <div class="preview">
+          <canvas class="sand" width="390" height="380"></canvas>
+          <div class="pill animate">animate →</div>
+          <div class="pill reset">↺ reset</div>
+        </div>
+        <div class="panel">
+          <div class="head">
+            <div class="back">← gallery</div>
+            <h3>Falling Sand</h3>
+          </div>
+          <div class="sect">Palette</div>
+          <div class="select"><span>Classic</span><span style="color:var(--muted)">⌄</span></div>
+          <div class="sect">Simulation</div>
+          <div class="ctl">
+            <div class="ctl-row"><span class="ctl-name">Cell Size</span><span class="ctl-val">4</span></div>
+            <div class="track" style="--at:28%"></div>
+            <div class="help">Pixel size of each grain. Smaller means a finer, denser powder.</div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-row"><span class="ctl-name">Sim Speed</span><span class="ctl-val">60</span></div>
+            <div class="track" style="--at:46%"></div>
+            <div class="help">Physics steps per second — how fast grains fall and fire climbs.</div>
+          </div>
+          <div class="sect">Emitters</div>
+          <div class="ctl">
+            <div class="ctl-row"><span class="ctl-name">Emitters</span><span class="ctl-val">2</span></div>
+            <div class="track" style="--at:30%"></div>
+          </div>
+          <div class="cta">▶ PLAY</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <b class="win">Wins:</b> nothing is hidden (UX invariant #2 needs no argument); the clipped Play
+      button stops being a special case, because nothing is forced into 320px any more; zero JSX changes —
+      the flip rides on <code>grid-template-areas</code>.<br />
+      <b class="lose">Costs:</b> the preview permanently occupies ~45% of every scroll frame, including deep
+      in Advanced where you have stopped watching it. Preview is smaller than B's at all times.
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── B ─────────────────────────── -->
+  <div class="col">
+    <h2>B · Bottom sheet over full-bleed canvas</h2>
+    <p>
+      Canvas fills the viewport. Controls live in a sheet that rests as a 44px peek strip (dashed line) and
+      pulls up to 65%. Shown here open — the state you edit in.
+    </p>
+    <div class="phone">
+      <div class="sheet-stage">
+        <div class="preview">
+          <canvas class="sand" width="390" height="844"></canvas>
+          <div class="pill animate">animate →</div>
+          <div class="pill reset">↺ reset</div>
+        </div>
+        <div class="sheet">
+          <div class="grip"><span></span></div>
+          <div class="panel">
+            <div class="head">
+              <div class="back">← gallery</div>
+              <h3>Falling Sand</h3>
+            </div>
+            <div class="sect">Palette</div>
+            <div class="select"><span>Classic</span><span style="color:var(--muted)">⌄</span></div>
+            <div class="sect">Simulation</div>
+            <div class="ctl">
+              <div class="ctl-row"><span class="ctl-name">Cell Size</span><span class="ctl-val">4</span></div>
+              <div class="track" style="--at:28%"></div>
+              <div class="help">Pixel size of each grain. Smaller means a finer, denser powder.</div>
+            </div>
+            <div class="ctl">
+              <div class="ctl-row"><span class="ctl-name">Sim Speed</span><span class="ctl-val">60</span></div>
+              <div class="track" style="--at:46%"></div>
+              <div class="help">Physics steps per second — how fast grains fall and fire climbs.</div>
+            </div>
+            <div class="cta">▶ PLAY</div>
+          </div>
+        </div>
+        <div class="peek-note"></div>
+      </div>
+    </div>
+    <div class="note">
+      <b class="win">Wins:</b> when the sheet is down, the piece is genuinely full-bleed — the closest thing
+      to the Play screen while still being the Config screen.<br />
+      <b class="lose">Costs:</b> with the sheet open you edit against the top ~35% only, so a centred
+      composition (Apollonian, Doyle Spiral) is a fragment while you drag. A thumb-drag starting near the
+      bottom edge is ambiguous between "expand the sheet" and "paint on the canvas" for a diversion with
+      <code>onPointer</code>. Needs new <code>sheetOpen</code> state and a drag state machine to feel native.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Cheap falling-sand stand-in so the preview reads as a live piece rather than
+  // an empty box. Static render, deterministic — this is a mockup, not the sim.
+  const PAL = ['#d9a441', '#c98f34', '#e8c169', '#3f7fb8', '#4fa3d1', '#6fbf5a'];
+  for (const cv of document.querySelectorAll('canvas.sand')) {
+    const g = cv.getContext('2d');
+    const W = cv.width, H = cv.height, C = 5;
+    let s = 1234;
+    const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    g.fillStyle = '#07090c'; g.fillRect(0, 0, W, H);
+    const surface = new Array(Math.ceil(W / C)).fill(0).map((_, i) =>
+      H * 0.62 + Math.sin(i * 0.18) * 26 + Math.sin(i * 0.05) * 40);
+    for (let cx = 0; cx < W / C; cx++) {
+      for (let y = surface[cx]; y < H; y += C) {
+        g.fillStyle = PAL[(rnd() * 3) | 0 + (y > H * 0.86 ? 3 : 0)] || PAL[0];
+        g.fillRect(cx * C, y, C, C);
+      }
+    }
+    // a few grains still in flight above the pile
+    for (let i = 0; i < 90; i++) {
+      const x = (rnd() * W / C | 0) * C, y = (rnd() * surface[0] / C | 0) * C;
+      g.fillStyle = PAL[(rnd() * PAL.length) | 0];
+      g.fillRect(x, y, C, C);
+    }
+  }
+</script>
+
+</body>
+</html>
