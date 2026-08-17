@@ -284,8 +284,9 @@ export function AnimationHost({
       diversion.resize?.(run.state, run.size, ctx)
       // A paused / reduced-motion tile won't repaint itself, so the just-cleared canvas
       // (the size change reset it) would stay blank until unpause. Paint one static frame —
-      // the same #120 repaint the config-edit and GL-restore paths already do.
-      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, performance.now(), 0)
+      // the same #120 repaint the config-edit and GL-restore paths already do. `t` comes
+      // from the LOOP, never performance.now(): #310.
+      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, loop.time(), 0)
     }
     // ResizeObserver catches container/layout reflow and fullscreen transitions
     // that never fire a window 'resize'. Observe the canvas — exactly the drawn box.
@@ -349,7 +350,7 @@ export function AnimationHost({
       // If another source still freezes the loop (e.g. the reduced-motion gate),
       // it won't repaint the freshly-rebuilt context — paint one static frame so
       // a restore-while-paused doesn't leave a blank canvas (#120).
-      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, performance.now(), 0)
+      if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, loop.time(), 0)
     }
     if (diversion.kind === 'webgl') {
       canvas.addEventListener('webglcontextlost', onLost as EventListener)
@@ -451,8 +452,10 @@ export function AnimationHost({
     // When the loop is frozen (reduced-motion gate, manual pause, offscreen, …)
     // it never repaints, so a live config edit would look dead. Paint exactly one
     // static frame to reflect the change. When NOT paused the running loop owns
-    // the repaint, so this is skipped (#120).
-    if (shouldPause(pauseRef.current)) diversion.frame(run.state, run.ctx, performance.now(), 0)
+    // the repaint, so this is skipped (#120). `t` is the loop's accumulated dt, not
+    // wall clock — a time-driven piece must not be teleported by an edit (#310).
+    if (shouldPause(pauseRef.current))
+      diversion.frame(run.state, run.ctx, loopRef.current?.time() ?? 0, 0)
   }, [diversion, config])
 
   // reflect manual pause into the running loop without re-running setup

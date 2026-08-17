@@ -250,6 +250,86 @@ describe('AnimationHost static repaint when paused (#120)', () => {
   })
 })
 
+describe('AnimationHost mounted while the tab is hidden (#298)', () => {
+  // jsdom's `hidden` is a prototype getter, so override it as an own property.
+  const setHidden = (v: boolean) =>
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => v })
+  const restoreHidden = () => {
+    // @ts-expect-error deleting the own override restores the prototype getter
+    delete document.hidden
+  }
+
+  // ⚠️ Do NOT drain rAF while hidden in these tests. A real hidden tab delivers no
+  // rAF callbacks at all — it PARKS them — and it is precisely that parked callback
+  // meeting the resume's second one that forks the loop. The shared harness delivers
+  // on demand regardless of visibility, so draining first would consume the parked
+  // frame and defuse the bug: the first draft of this test passed against the
+  // unfixed loop for exactly that reason.
+  it('runs frame() ONCE per rAF turn after the tab is revealed', () => {
+    harness.reducedMotion = false
+    const calls: string[] = []
+    setHidden(true) // ⌘-click from the gallery / restored session / prerender
+    try {
+      render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
+      setHidden(false)
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+      act(() => drainRaf())
+      // Two self-re-queuing chains (start() queued one while paused, setPaused(false)
+      // queued another and overwrote the single handle) gave 2 here — and 2 on every
+      // turn after, for the rest of the session.
+      expect(calls.filter((c) => c === 'frame').length).toBe(1)
+      act(() => drainRaf())
+      expect(calls.filter((c) => c === 'frame').length).toBe(2)
+      act(() => drainRaf())
+      expect(calls.filter((c) => c === 'frame').length).toBe(3)
+    } finally {
+      restoreHidden()
+    }
+  })
+
+  it('schedules NO rAF at all while hidden, so the page can idle', () => {
+    harness.reducedMotion = false
+    const calls: string[] = []
+    setHidden(true)
+    // Delegating spy: counts without replacing the harness queue.
+    const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame')
+    try {
+      render(<AnimationHost diversion={makeDiv(calls, true)} config={{ v: 0 }} />)
+      expect(rafSpy).not.toHaveBeenCalled()
+    } finally {
+      rafSpy.mockRestore()
+      restoreHidden()
+    }
+  })
+})
+
+describe('AnimationHost static repaint clock (#310)', () => {
+  it('hands a paused repaint the LOOP clock, not performance.now()', () => {
+    harness.reducedMotion = true
+    const times: number[] = []
+    const div: Diversion = {
+      id: 'clock',
+      title: 'Clock',
+      description: '',
+      kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({ s: 1 }),
+      frame: (_state, _ctx, t) => {
+        times.push(t)
+      },
+      update: () => true,
+    }
+    const { rerender } = render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    act(() => drainRaf()) // one real frame; the reduced gate then freezes the loop
+    // flushRaf stamps 0, so the loop's accumulated t is 0 while wall-clock time is not —
+    // which is exactly what makes this assertion discriminating rather than vacuous.
+    expect(performance.now()).toBeGreaterThan(0)
+    act(() => rerender(<AnimationHost diversion={div} config={{ v: 1 }} />))
+    expect(times.length).toBe(2) // the frozen loop repainted once for the edit
+    expect(times[1]).toBe(0) // the loop's t — NOT ms since page load
+  })
+})
+
 describe('AnimationHost offscreen pause (#6)', () => {
   it('stops animating when scrolled out of view, resumes when back', () => {
     const calls: string[] = []
