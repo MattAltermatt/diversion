@@ -7,7 +7,7 @@ export const termitePresets: PresetGroup<TermiteSortingConfig>[] = [
   {
     label: 'Scene',
     options: [
-      { name: 'Sort by color', patch: { chipDensity: 0.28, colorCount: 3, sameColorBias: 0.9, wanderStrength: 0.25 } },
+      { name: 'Sort by color', patch: { chipDensity: 0.28, colorCount: 3, sameColorBias: 0.85, wanderStrength: 0.25 } },
       { name: 'Single heap', patch: { chipDensity: 0.28, colorCount: 1, sameColorBias: 0, wanderStrength: 0.25 } },
       { name: 'Rainbow mix', patch: { chipDensity: 0.28, colorCount: 5, sameColorBias: 0.25, wanderStrength: 0.25 } },
       { name: 'Sparse', patch: { chipDensity: 0.12, colorCount: 3, sameColorBias: 0.9, wanderStrength: 0.3 } },

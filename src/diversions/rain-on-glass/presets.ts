@@ -9,7 +9,7 @@ export interface PalettePreset {
 }
 
 export const palettePresets: PalettePreset[] = [
-  { name: 'City Night', background: '#05070c', palette: DEFAULT_PALETTE, hueDrift: 0.12 },
+  { name: 'City Night', background: '#05070c', palette: DEFAULT_PALETTE, hueDrift: 0.15 },
   {
     name: 'Dusk',
     background: '#140b1f',

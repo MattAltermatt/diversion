@@ -15,7 +15,7 @@ const defaults = (): ForestConfig => forestSchema.parse({})
 describe('schema', () => {
   it('parses with valid defaults', () => {
     const cfg = defaults()
-    expect(cfg.treeCount).toBe(10)
+    expect(cfg.treeCount).toBe(16)
     expect(cfg.depth).toBe(7)
     expect(cfg.season).toBe('Autumn')
     expect(cfg.background).toMatch(/^#[0-9a-fA-F]{6}$/)

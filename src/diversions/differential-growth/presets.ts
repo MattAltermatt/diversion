@@ -30,7 +30,7 @@ type StyleFields = Pick<
 export const stylePresets: { name: string; patch: StyleFields }[] = [
   // Landing look — deep-sea black, neon growth front glowing as it buds.
   { name: 'Bioluma', patch: { renderStyle: 'line', colorMode: 'age', smoothing: true,
-      lineWidth: 1.25, glow: 0.5, history: 0.85, background: '#04060a',
+      lineWidth: 1.25, glow: 0.4, history: 0.85, background: '#04060a',
       colors: ['#0e3b32', '#1f9e6b', '#5ff0c8', '#eafff8'] } },
   // Showpiece — warm fleshy brain-coral lobes with soft interior volume.
   { name: 'Ember Coral', patch: { renderStyle: 'membrane', colorMode: 'ink', smoothing: true,

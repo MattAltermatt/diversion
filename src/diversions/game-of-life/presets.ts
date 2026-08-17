@@ -3,6 +3,9 @@ import type { GameOfLifeConfig } from './schema'
 // Style = a rule + how long its ghosts linger, as a named look.
 export const stylePresets: { name: string; patch: Pick<GameOfLifeConfig, 'rule' | 'trail'> }[] = [
   { name: 'Classic',   patch: { rule: 'Life', trail: 0 } },
+  // The landing look — enough persistence to read as warm blobs rather than
+  // sparse pixels, well short of Cloud's smear. This is the schema default (#311).
+  { name: 'Phosphor',  patch: { rule: 'Life', trail: 10 } },
   { name: 'Cloud',     patch: { rule: 'Life', trail: 22 } },
   { name: 'HighLife',  patch: { rule: 'HighLife', trail: 8 } },
   { name: 'Day/Night', patch: { rule: 'Day/Night', trail: 8 } },

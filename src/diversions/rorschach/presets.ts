@@ -19,7 +19,7 @@ type InkFields = Pick<RorschachConfig, 'edgeSoftness' | 'twoTone' | 'blotColor' 
 
 export const inkPresets: { name: string; patch: InkFields }[] = [
   // The iconic look — near-black ink on cream card, crisp bold silhouette.
-  { name: 'Inkblot', patch: { edgeSoftness: 0.3, twoTone: false,
+  { name: 'Inkblot', patch: { edgeSoftness: 0.35, twoTone: false,
       blotColor: '#111014', accentColor: '#8a1f2b', background: '#efe9dc' } },
   // A little pigment feathering into the paper.
   { name: 'Sanguine', patch: { edgeSoftness: 0.5, twoTone: true,

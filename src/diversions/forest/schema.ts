@@ -12,7 +12,7 @@ import { z } from 'zod'
 // codec, AND the Config type. SEASON palettes live in `tree.ts`.
 export const forestSchema = z.object({
   // ─── Forest (scene + reveal) ────────────────────────────────────────────────
-  treeCount: z.number().int().min(3).max(24).default(10)
+  treeCount: z.number().int().min(3).max(24).default(16)
     .meta({ section: 'Forest', ui: 'slider', min: 3, max: 24, step: 1, label: 'Trees',
             help: 'How many trees populate the scene, scattered across the ground at random '
                 + 'depths. More trees read as a denser, deeper forest.' }),

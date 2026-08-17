@@ -10,6 +10,10 @@ export interface Preset {
 // leaf shapes reproduce the source video's range from one golden-angle rule:
 // overlapping petals, a bloom of spikes, and the zoomed folded-tile vortex.
 export const formPresets: Preset[] = [
+  // The landing look: a radiating burst of dashes. These ARE the schema defaults —
+  // 'Mesh' below was authored from them by flipping renderMode alone, which left the
+  // default itself unnamed and the Form dropdown opening on "Custom" (#311).
+  { name: 'Sunburst', patch: { renderMode: 'leaf', leafLength: 48, leafWidth: 14, leafAlpha: 0.8, leafRound: 0.5, leafShade: 0, zoom: 1 } },
   { name: 'Pompom', patch: { renderMode: 'leaf', leafLength: 34, leafWidth: 18, leafAlpha: 0.95, leafRound: 0.6, leafShade: 0.1, zoom: 1 } },
   { name: 'Bloom', patch: { renderMode: 'leaf', leafLength: 150, leafWidth: 5, leafAlpha: 0.45, leafRound: 1, leafShade: 0, zoom: 1 } },
   { name: 'Spiral Tiles', patch: { renderMode: 'leaf', leafLength: 62, leafWidth: 46, leafAlpha: 1, leafRound: 0.15, leafShade: 0.75, zoom: 1.8 } },

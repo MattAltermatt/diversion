@@ -83,3 +83,87 @@ describe('preset sweep — every diversion that declares presets (#127)', () => 
     })
   }
 })
+
+// OPENS-ON-A-NAME SWEEP (#311). The picker's job is to say *where you are*, and 24 of
+// 184 groups opened on "Custom" against an untouched default config — telling you that
+// you had drifted off the presets before you touched anything. Eight of those differed
+// from a named option in exactly ONE key: the signature of a tuning change that moved a
+// default and left the preset behind. Those eight are fixed; this stops the next one.
+//
+// Note what this compares. `matchPresets` is given `freshLoadKeys` exactly as
+// PresetPicker gives it, so a pin-only seed is excluded — that half is #305, and
+// omitting it here would re-report those three diversions forever.
+//
+// The remaining unmatched groups are listed rather than skipped, on the same principle
+// `check-cache-lanes.mjs` uses for its UNCACHED rules: a deliberate omission is declared
+// with a reason, and a declaration that no longer applies is itself a failure. So
+// resolving one of these means DELETING its line, not editing it — and a new diversion
+// whose defaults match no preset fails until someone writes down why.
+const UNMATCHED_AT_DEFAULTS: Record<string, string> = {
+  'ant-colony / Scene': 'default differs from nearest ("Single hive") in 2 of 5 keys',
+  'aurora / Activity': 'default differs from nearest ("Calm ribbons") in 4 of 4 keys',
+  'boids / Flock': 'default differs from nearest ("Tight Formation") in 5 of 5 keys',
+  'boxfit / Style': 'default differs from nearest ("Mondrian") in 4 of 6 keys',
+  'cynosure / Motion': 'default differs from nearest ("Meditative") in 2 of 3 keys',
+  'differential-growth / Growth': 'default differs from nearest ("Coral") in 3 of 7 keys',
+  'hextrail / Pace': 'default differs from nearest ("Zen") in 4 of 6 keys',
+  'kuramoto / Regime': 'default differs from nearest ("Spirals") in 2 of 2 keys',
+  'logarithmic-circles / Motion': 'default differs from nearest ("Calm") in 2 of 3 keys',
+  'mccabe / Pattern': 'default differs from nearest ("Fingerprint") in 2 of 2 keys',
+  'morphogen / Body plan': 'default differs from nearest ("Territories") in 4 of 12 keys',
+  'outbreak / Scenario': 'default differs from nearest ("Standoff") in 4 of 8 keys',
+  'percolation / Sweep': 'default differs from nearest ("Rising Tide") in 2 of 5 keys',
+  'raymarcher / Form': 'default differs from nearest ("Molten Core") in 3 of 3 keys',
+  'sugarscape / Scene': 'default differs from nearest ("Two mountains") in 2 of 4 keys',
+  'vicsek / Dynamics': 'default differs from nearest ("Critical Edge") in 2 of 3 keys',
+}
+
+describe('preset sweep — the Config screen opens on a name, not "Custom" (#311)', () => {
+  const unmatched = new Set<string>()
+
+  for (const d of withPresets) {
+    const groups = d.presets!
+    const defaults = d.schema.parse({}) as Record<string, unknown>
+    const matched = matchPresets(groups as never, defaults as never, freshLoadKeys(d.schema))
+
+    groups.forEach((group, gi) => {
+      const key = `${d.id} / ${group.label}`
+      if (matched[gi] === null) unmatched.add(key)
+
+      it(`${key}: opens on a named option at defaults`, () => {
+        if (key in UNMATCHED_AT_DEFAULTS) {
+          expect(
+            matched[gi],
+            `${key} is declared as deliberately unmatched (${UNMATCHED_AT_DEFAULTS[key]}) but now matches "${matched[gi]}" — delete its UNMATCHED_AT_DEFAULTS line`,
+          ).toBeNull()
+          return
+        }
+        expect(
+          matched[gi],
+          `${key} opens on "Custom": the untouched default config matches none of its options. ` +
+            `Either move the default onto a preset, move the preset onto the default, or add a ` +
+            `named option for the default — then, if the drift is deliberate, declare it in ` +
+            `UNMATCHED_AT_DEFAULTS with a reason.`,
+        ).not.toBeNull()
+      })
+    })
+  }
+
+  // A declaration for a group that does not exist is dead weight that reads as coverage.
+  it('every UNMATCHED_AT_DEFAULTS key names a real preset group', () => {
+    const all = new Set(
+      withPresets.flatMap((d) => d.presets!.map((g) => `${d.id} / ${g.label}`)),
+    )
+    for (const key of Object.keys(UNMATCHED_AT_DEFAULTS)) {
+      expect(all.has(key), `UNMATCHED_AT_DEFAULTS names "${key}", which is not a preset group`).toBe(true)
+    }
+  })
+
+  // Non-vacuity: the sweep must be running against the real registry, not an empty list.
+  it('sweeps the whole gallery', () => {
+    const groupCount = withPresets.reduce((n, d) => n + d.presets!.length, 0)
+    expect(withPresets.length).toBeGreaterThan(50)
+    expect(groupCount).toBeGreaterThan(100)
+    expect(unmatched.size).toBe(Object.keys(UNMATCHED_AT_DEFAULTS).length)
+  })
+})

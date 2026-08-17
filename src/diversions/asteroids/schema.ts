@@ -47,7 +47,7 @@ export const asteroidsSchema = z.object({
   sizeScale: z.number().min(0.4).max(2).default(1)
     .meta({ section: 'Asteroids', ui: 'slider', min: 0.4, max: 2, step: 0.05, label: 'Size',
             help: 'Overall size of the asteroids (a mix of boulders and specks either way).' }),
-  jaggedness: z.number().min(0).max(1).default(0.55)
+  jaggedness: z.number().min(0).max(1).default(0.45)
     .meta({ section: 'Asteroids', ui: 'slider', min: 0, max: 1, step: 0.05, label: 'Jaggedness',
             help: 'How craggy and irregular the rock outlines are. Low = smooth pebbles.' }),
   mottle: z.number().min(0).max(1).default(0.7)
