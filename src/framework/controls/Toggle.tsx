@@ -17,11 +17,11 @@ export function Toggle({
           className={`sw ${value ? 'on' : ''}`}
           role="switch"
           aria-checked={value}
-          // The switch paints a pill, so it has no text of its own, and .ctl-name is
-          // a sibling <span> rather than a <label for> — leaving the accessible name
-          // empty, which a screen reader announces as an unlabelled "switch, on".
-          // That is a WCAG 4.1.2 (Level A) failure, one level more serious than the
-          // target-size item this branch started from.
+          // Load-bearing, not decoration. The switch paints a pill, so it has no text
+          // of its own, and .ctl-name is a sibling <span> rather than a <label for> —
+          // without this the accessible name is EMPTY and a screen reader announces an
+          // unlabelled "switch, on". That was a WCAG 4.1.2 (Level A) failure, fixed in
+          // #290, and it is guarded by SchemaForm.test.tsx's getByRole('switch', {name}).
           aria-label={meta.label}
           onClick={() => onChange(!value)}
         />
