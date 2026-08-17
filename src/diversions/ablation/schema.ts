@@ -77,7 +77,10 @@ export const ablationSchema = z.object({
             help: 'How many turrets ride the track at the same time. This plus "In queue" is '
                 + 'the whole fleet — a turret is never used up, it rides a shift, rotates out '
                 + 'at the gate, recharges and queues for another. Set it to 2 with Spacing at '
-                + '1 for a pair working exactly opposite each other.' }),
+                + '1 for a pair working exactly opposite each other. Turning this DOWN takes '
+                + 'effect one shift at a time: nothing is removed from the track where it '
+                + 'rides, so each surplus turret finishes its lap and then leaves the fleet '
+                + 'at the gate instead of requeueing.' }),
   queued: z.number().int().min(0).max(64).default(8)
     .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 64, step: 1, label: 'In queue',
             help: 'How many turrets wait outside the gate for a slot to free. 0 means no '
@@ -85,7 +88,8 @@ export const ablationSchema = z.object({
                 + 'Mixed this is raised automatically if the fleet would otherwise be smaller '
                 + 'than the number of colours, since a colour with no turret hunting it can '
                 + 'never be cleared. It is a starting count, not a promise: as colours run out '
-                + 'the queue also drains into the retired row.' }),
+                + 'the queue also drains into the retired row, and shrinking the fleet retires '
+                + 'surplus turrets at the gate as each one finishes its shift.' }),
   spacing: z.number().min(0).max(1).default(1)
     .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Spacing',
             help: 'How turrets are distributed around the track. 0 sends every one in at the '

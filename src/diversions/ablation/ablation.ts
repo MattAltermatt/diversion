@@ -444,10 +444,22 @@ function resizeCrew(s: AblationState): void {
   for (let b = 0; b < bands; b++) for (let i = have[b]; i < want[b]; i++) mint(s, b)
 }
 
-/** A turret leaving the track. It is NEVER destroyed: it goes back to the gate at
- *  full charge and joins the BACK of the queue — or the retired row, if the colour
- *  it hunts no longer exists anywhere in this picture and it would otherwise ride
- *  shift after shift with nothing to shoot. */
+/** A turret leaving the track. It has THREE destinations, and the third is the one
+ *  the README and the help text used to omit (#285):
+ *
+ *   1. the BACK OF THE QUEUE, at full charge — the ordinary case;
+ *   2. the RETIRED ROW, if the colour it hunts is gone from this picture entirely and
+ *      it would otherwise ride shift after shift with nothing to shoot;
+ *   3. OFF THE FLEET, if the viewer has shrunk the fleet under it since it started
+ *      its shift.
+ *
+ *  (3) is not attrition and cannot happen on its own: it fires only while the fleet is
+ *  over target, which only a live "Turrets on track" / "In queue" edit can cause —
+ *  `resizeCrew` can trim the queue and the retired row but must not delete a turret
+ *  where it rides (spec §4: nothing appears or disappears mid-track). At steady state
+ *  the count equals the target and the test below is false, so a fresh load never
+ *  sheds. It is visible at `capacity: 1`, where the track holds one turret and every
+ *  rotation is the whole show. */
 function rotate(s: AblationState, t: Turret): void {
   // …unless the fleet has been shrunk under it. A live "Turrets on track" / "In
   // queue" edit sheds its surplus HERE rather than deleting turrets where they ride:
