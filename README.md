@@ -158,6 +158,7 @@ npm run lint     # oxlint
 npm run build    # tsc -b + vite build
 npm run size     # entry-chunk + precache budgets (after a build)
 npm run check:pwa # service worker + manifest contracts
+npm run check:preload # deep-link modulepreload map (after a build)
 npm run check:cache # every emitted file has exactly one caching lane (after a build)
 ```
 
@@ -228,7 +229,7 @@ export default myDiversion
 
 ## Control vocabulary
 
-`slider` · `number` · `segmented` (enum) · `select` (enum, dropdown — for long option lists) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested) · `matrix` (config-aware grid; Particle Life's interaction table) · `hidden` (round-trips through the URL but renders no control — for preset-driven values). More get added when a diversion needs them.
+`slider` · `number` · `segmented` (enum) · `select` (enum, dropdown — for long option lists) · `toggle` (bool) · `color` (swatch) · `colorList` (add/remove swatches, each with alpha) · `group` (nested) · `matrix` (config-aware grid; Particle Life's interaction table) · `image` (pick a picture off your own machine — the one control that owns state *outside* the config: the pixels go to a browser-local store and only an id lands in the field, so it never travels in a shared link) · `hidden` (round-trips through the URL but renders no control — for preset-driven values). More get added when a diversion needs them.
 
 Any field can carry `.meta({ showWhen: { field, equals } })` to render only when a sibling field holds a given value — used by Flow Field's Color panel to swap palette vs gradient controls by mode.
 
