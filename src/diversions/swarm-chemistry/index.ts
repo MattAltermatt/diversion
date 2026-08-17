@@ -98,6 +98,18 @@ const interactive = () => drivenByViewer(cv)
     state.camDirty = true
   }
 
+  /** Translate the view by a CLIENT-pixel delta. Used by BOTH the one-finger drag
+   *  and a two-finger pinch's midpoint travel, so the two cannot drift apart on the
+   *  y sign — which differs between these three cameras and mirrors their WGSL. */
+  const panByClient = (dx: number, dy: number) => {
+    const r = cv.getBoundingClientRect()
+    const sc = scaleOf()
+    state.cam.panX -= (dx * (cv.width / r.width)) / sc
+    state.cam.panY -= (dy * (cv.height / r.height)) / sc
+    clampPan()
+    state.camDirty = true
+  }
+
   const onWheel = (e: WheelEvent) => {
     // NOT `interactive()` alone (#294): on the Config preview below 820px this canvas
     // is sticky over a form the viewer came to scroll, and consuming the wheel there
@@ -114,6 +126,11 @@ const interactive = () => drivenByViewer(cv)
   // this world's — arena-fit, y-down, and null until the GPU device resolves.
   const pinch = createPinchTracker()
   const canPinch = () => interactive() && gesturesYielded(cv)
+  /** Zoom at the moment the current pinch anchored. A step's `scale` is ABSOLUTE
+   *  against that anchor, so the target below is clamped exactly once and idempotently
+   *  — folding incremental ratios into an already-clamped zoom lets a two-finger PAN
+   *  ratchet the view in at minimum zoom. See PinchStep.scale. */
+  let pinchZoom0 = 1
 
   // The pointer that owns the drag, not a boolean: onUp used to accept ANY pointerId,
   // so on a full-bleed Play canvas a second finger lifting ended the primary finger's
@@ -141,8 +158,13 @@ const interactive = () => drivenByViewer(cv)
   const onMove = (e: PointerEvent) => {
     const step = canPinch() ? pinch.move(e) : null
     if (step) {
+      if (step.anchor) pinchZoom0 = state.cam.zoom
       const mid = cursorDev({ clientX: step.cx, clientY: step.cy })
-      zoomAbout(mid.x, mid.y, step.scale)
+      zoomAbout(mid.x, mid.y, (pinchZoom0 * step.scale) / state.cam.zoom)
+      // Zoom FIRST, then translate: the pan is applied at the scale the viewer now
+      // sees. Two fingers moving together without changing their span is a pan, and
+      // without this it would do nothing — zoomAbout(mid, 1) is the identity.
+      panByClient(step.dx, step.dy)
       return
     }
     // No guard on `pinch.active()` here: the drag is already disarmed at pointerdown
@@ -151,13 +173,8 @@ const interactive = () => drivenByViewer(cv)
     // — deleting it fails no test, which is exactly why it should not sit here
     // looking load-bearing.
     if (e.pointerId !== activeId) return
-    const r = cv.getBoundingClientRect()
-    const sc = scaleOf()
-    state.cam.panX -= ((e.clientX - last.x) * (cv.width / r.width)) / sc
-    state.cam.panY -= ((e.clientY - last.y) * (cv.height / r.height)) / sc
+    panByClient(e.clientX - last.x, e.clientY - last.y)
     last = { x: e.clientX, y: e.clientY }
-    clampPan()
-    state.camDirty = true
   }
   const onUp = (e: PointerEvent) => {
     const remaining = pinch.up(e)

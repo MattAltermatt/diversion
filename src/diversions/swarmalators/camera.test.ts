@@ -199,6 +199,36 @@ describe('swarmalators camera — wheel policy and pinch (#294, #295)', () => {
     expect(state.cam.zoom).toBe(1)
   })
 
+  it('pans on a two-finger drag that does not change the span', () => {
+    // Both fingers travel 120px together: the span is unchanged, so this is a pure
+    // pan. Applying only the scale would make it a no-op — and it is the gesture a
+    // phone viewer reaches for first.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 420, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 620, 300, 2))
+    expect(state.cam.zoom).toBeCloseTo(1, 6)
+    expect(state.cam.panX).not.toBe(0)
+    expect(Number.isFinite(state.cam.panX)).toBe(true)
+  })
+
+  it('treats TWO fingers as a pinch, not three', () => {
+    // Pins the threshold in `active()`: raising it to 3 leaves every other test in
+    // this file green, because a second finger is separately blocked from arming a
+    // drag by `isPrimary`.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 320, 300, 1))
+    const panned = state.cam.panX
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    // Finger 1 keeps moving; with only 2 fingers this must be the PINCH path (zoom
+    // changes), never the drag path.
+    cv.dispatchEvent(touch('pointermove', 200, 300, 1))
+    expect(state.cam.zoom).not.toBe(1)
+    expect(state.cam.panX).not.toBe(panned)
+  })
+
   it('hands the pan back to the finger still down, re-seeded from where it IS', () => {
     attach()
     cv.dispatchEvent(touch('pointerdown', 300, 300, 1))

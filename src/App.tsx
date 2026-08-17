@@ -39,7 +39,11 @@ function ConfigRoute() {
 // The fallback is a bare themed panel, not a spinner: the median diversion chunk is
 // 3.4 kB gzipped, so on anything but a cold slow connection it is a sub-frame flash,
 // and a spinner would read as slower than nothing.
-function DiversionRoute({ children }: { children: React.ReactNode }) {
+// Exported for App.test.tsx: the `fallback` prop below is the single line that closes
+// #292, and with the component private the only way to reach it was to render the
+// whole router. Deleting the prop left the entire suite green — the exact vacuous-
+// guard failure this repo keeps getting bitten by.
+export function DiversionRoute({ children }: { children: React.ReactNode }) {
   const { slug } = useParams()
   return (
     <DiversionErrorBoundary key={slug} fallback={<RouteLoadError />}>

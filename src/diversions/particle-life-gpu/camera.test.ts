@@ -132,7 +132,7 @@ describe('particle-life-gpu camera (#290)', () => {
       // out of browser gestures. Below 820px the Config preview deliberately hands
       // them back (theme.css) because that page scrolls and the preview is sticky —
       // so panning there would fight the scroll the viewer actually asked for.
-      // jsdom computes touchAction as '' (never 'none'), which is the retained case.
+      // jsdom computes touchAction as 'auto' unless a test sets it, which is the retained case.
       cv.dispatchEvent(wheel(-600))
       cv.dispatchEvent(new PointerEvent('pointerdown', {
         clientX: 400, clientY: 300, isPrimary: true, pointerId: 1,
@@ -296,6 +296,36 @@ describe('particle-life-gpu camera — wheel policy and pinch (#294, #295)', () 
     cv.dispatchEvent(touch('pointermove', 100, 500, 1)) // finger 1 travels a long way
     expect(state.cam.panX).toBe(panned)
     expect(state.cam.zoom).toBe(1)
+  })
+
+  it('pans on a two-finger drag that does not change the span', () => {
+    // Both fingers travel 120px together: the span is unchanged, so this is a pure
+    // pan. Applying only the scale would make it a no-op — and it is the gesture a
+    // phone viewer reaches for first.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 420, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 620, 300, 2))
+    expect(state.cam.zoom).toBeCloseTo(1, 6)
+    expect(state.cam.panX).not.toBe(0)
+    expect(Number.isFinite(state.cam.panX)).toBe(true)
+  })
+
+  it('treats TWO fingers as a pinch, not three', () => {
+    // Pins the threshold in `active()`: raising it to 3 leaves every other test in
+    // this file green, because a second finger is separately blocked from arming a
+    // drag by `isPrimary`.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 320, 300, 1))
+    const panned = state.cam.panX
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    // Finger 1 keeps moving; with only 2 fingers this must be the PINCH path (zoom
+    // changes), never the drag path.
+    cv.dispatchEvent(touch('pointermove', 200, 300, 1))
+    expect(state.cam.zoom).not.toBe(1)
+    expect(state.cam.panX).not.toBe(panned)
   })
 
   it('hands the pan back to the finger still down, re-seeded from where it IS', () => {

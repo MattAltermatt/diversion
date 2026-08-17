@@ -84,6 +84,13 @@ export function pageScrolls(cv: HTMLCanvasElement): boolean {
  *  spelling of the same intent. So the escape hatch is the gesture a viewer would
  *  reach for anyway, and it hands the three cameras trackpad pinch-zoom for free.
  *
+ *  It is not costless, and the cost should not have to be rediscovered: on Windows
+ *  and Linux — and with a plain mouse anywhere — ctrl+wheel is ALSO the browser's
+ *  page-zoom chord, so over the sticky Config preview that chord now zooms the piece
+ *  rather than the page. Judged the better trade (it is what Maps and Figma do, and
+ *  dropping the clause would leave a narrow desktop window with no way to zoom at
+ *  all) — but a trade, not a free win.
+ *
  *  What it deliberately does NOT use is `gesturesYielded`. That was the obvious fix
  *  and it is the wrong shape: `touch-action` is a TOUCH property with no bearing on
  *  wheel, so keying wheel policy on it works only by coincidence of which rule the
@@ -101,14 +108,32 @@ interface PinchPoint {
   y: number
 }
 
-/** A single increment of a two-finger pinch. */
+/** A single step of a two-finger pinch. */
 export interface PinchStep {
-  /** Multiply the camera's zoom by this. 1 is no change. */
+  /** Scale relative to the span the fingers had when this pair FORMED — absolute, not
+   *  an increment, and that distinction is load-bearing.
+   *
+   *  With an incremental ratio the caller must fold each step into a CLAMPED zoom, and
+   *  the clamp then ratchets: two fingers travelling together do not move in lockstep
+   *  (pointermove fires per pointer), so the span wobbles down and back up. At the
+   *  minimum zoom the "down" halves are clamped away while the "up" halves apply, and
+   *  a pure two-finger PAN silently zooms in. Anchored, the caller can compute an
+   *  absolute target from the zoom it had at the start of the gesture, and clamping
+   *  that is idempotent — wobble in, no wobble out. */
   scale: number
+  /** True on the first step after the pair formed or re-formed (a third finger landing
+   *  or lifting re-anchors). The caller latches its starting zoom on this. */
+  anchor: boolean
   /** Midpoint between the two fingers, in CLIENT coordinates — the point the caller
    *  should keep pinned while it scales, exactly as the wheel pins the cursor. */
   cx: number
   cy: number
+  /** How far that midpoint has TRAVELLED since the previous step, in client pixels.
+   *  Without applying this, moving two fingers across the screen together does
+   *  nothing at all — `zoomAbout(mid, 1)` is algebraically the identity — and a
+   *  two-finger drag is the gesture a phone viewer reaches for first. */
+  dx: number
+  dy: number
 }
 
 export interface PinchTracker {
@@ -138,7 +163,10 @@ export interface PinchTracker {
  *  invert the black-box rule and make the framework own a world it cannot interpret. */
 export function createPinchTracker(): PinchTracker {
   const pts = new Map<number, PinchPoint>()
-  let prevDist = 0
+  /** Span at the moment the current pair formed. Every `scale` is measured against it. */
+  let anchorDist = 0
+  let pendingAnchor = false
+  let prevMid: PinchPoint | null = null
 
   const firstTwo = (): [PinchPoint, PinchPoint] | null => {
     const it = pts.values()
@@ -152,12 +180,26 @@ export function createPinchTracker(): PinchTracker {
     // to measure against, so the pinch idles rather than jumping between pairs.
     return two && pts.size === 2 ? Math.hypot(two[0].x - two[1].x, two[0].y - two[1].y) : 0
   }
+  /** Re-measure the pair. Called whenever the population changes, so a third finger
+   *  landing or lifting starts a fresh gesture rather than folding a discontinuity
+   *  into the running scale. */
+  const reanchor = (): void => {
+    anchorDist = spanOf()
+    prevMid = midOf()
+    pendingAnchor = true
+  }
+  const midOf = (): PinchPoint | null => {
+    const two = firstTwo()
+    return two && pts.size === 2
+      ? { x: (two[0].x + two[1].x) / 2, y: (two[0].y + two[1].y) / 2 }
+      : null
+  }
 
   return {
     down(e) {
       if (e.pointerType !== 'touch') return
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      prevDist = spanOf()
+      reanchor()
     },
     move(e) {
       if (!pts.has(e.pointerId)) return null
@@ -165,21 +207,29 @@ export function createPinchTracker(): PinchTracker {
       const two = firstTwo()
       if (!two || pts.size !== 2) return null
       const d = Math.hypot(two[0].x - two[1].x, two[0].y - two[1].y)
-      // prevDist is 0 for the frame a pair first forms or re-forms. Dividing by it
-      // would be Infinity, and a Math.min/max clamp PROPAGATES a non-finite value
-      // rather than correcting it — the same way `movementX` being undefined
-      // destroyed the view in #290.
-      const scale = prevDist > 0 ? d / prevDist : 1
-      prevDist = d
-      return { scale, cx: (two[0].x + two[1].x) / 2, cy: (two[0].y + two[1].y) / 2 }
+      // `reanchor` seeds anchorDist from the REAL span the moment a pair forms or
+      // re-forms, so this guard has exactly one live case: two fingers landing on the
+      // same client point, where the span is genuinely 0. It stays because the cost of
+      // being wrong here is not a wrong number but a poisoned view — dividing by 0
+      // gives Infinity, and a Math.min/max clamp propagates a non-finite value rather
+      // than correcting it, exactly as an undefined `movementX` did in #290.
+      const scale = anchorDist > 0 ? d / anchorDist : 1
+      const mid = { x: (two[0].x + two[1].x) / 2, y: (two[0].y + two[1].y) / 2 }
+      const from = prevMid ?? mid
+      prevMid = mid
+      const anchor = pendingAnchor
+      pendingAnchor = false
+      return { scale, anchor, cx: mid.x, cy: mid.y, dx: mid.x - from.x, dy: mid.y - from.y }
     },
     up(e) {
       if (!pts.has(e.pointerId)) return null
-      const wasPinching = pts.size === 2
       pts.delete(e.pointerId)
-      prevDist = spanOf()
+      reanchor()
+      // `left === 1` IS "was pinching": the delete removed exactly one live pointer,
+      // so one remaining means two were down. A separate `wasPinching` flag measured
+      // as dead code — either clause could go with the suite still green.
       const left = pts.size
-      if (!wasPinching || left !== 1) return null
+      if (left !== 1) return null
       const [pointerId, p] = [...pts.entries()][0]
       return { pointerId, x: p.x, y: p.y }
     },

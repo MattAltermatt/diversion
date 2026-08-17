@@ -175,13 +175,45 @@ describe('createPinchTracker (#295)', () => {
     expect(step?.cy).toBeCloseTo(0, 6)
   })
 
-  it('is INCREMENTAL — each step is measured against the previous span, not the first', () => {
+  it('is ABSOLUTE — every step is measured against the span the pair STARTED with', () => {
+    // Not an increment. The caller folds this into a clamped zoom, and an incremental
+    // ratio makes that clamp ratchet: fingers travelling together do not move in
+    // lockstep, so the span wobbles, and at minimum zoom the shrink halves are clamped
+    // away while the grow halves apply — a pure two-finger pan would zoom in.
     const p = createPinchTracker()
     p.down(pt(1, 0, 0))
     p.down(pt(2, 100, 0))
     expect(p.move(pt(2, 200, 0))?.scale).toBeCloseTo(2, 6)
-    // Doubling again from 200 to 400 is another 2x, not 4x.
-    expect(p.move(pt(2, 400, 0))?.scale).toBeCloseTo(2, 6)
+    expect(p.move(pt(2, 400, 0))?.scale).toBeCloseTo(4, 6)
+    // ...and coming back to the starting span reports exactly 1, however it got there.
+    expect(p.move(pt(2, 100, 0))?.scale).toBeCloseTo(1, 6)
+  })
+
+  it('flags the anchor step, and re-anchors when the population changes', () => {
+    const p = createPinchTracker()
+    p.down(pt(1, 0, 0))
+    p.down(pt(2, 100, 0))
+    expect(p.move(pt(2, 200, 0))?.anchor).toBe(true)
+    expect(p.move(pt(2, 300, 0))?.anchor).toBe(false)
+    // A third finger landing and lifting is a NEW gesture: the span it re-forms with
+    // becomes the new 1.0, so the discontinuity is never folded into the scale.
+    p.down(pt(3, 500, 0))
+    p.up(pt(3, 500, 0))
+    const after = p.move(pt(2, 300, 0))
+    expect(after?.anchor).toBe(true)
+    expect(after?.scale).toBeCloseTo(1, 6)
+  })
+
+  it('reports the midpoint TRAVEL, so two fingers moving together is a pan', () => {
+    const p = createPinchTracker()
+    p.down(pt(1, 100, 100))
+    p.down(pt(2, 300, 100)) // midpoint (200, 100)
+    p.move(pt(1, 150, 140))
+    const step = p.move(pt(2, 350, 140)) // both moved +50/+40; span unchanged
+    expect(step?.scale).toBeCloseTo(1, 6)
+    expect(step?.cx).toBeCloseTo(250, 6)
+    // dx/dy are per-step, so the second move reports only ITS share of the travel.
+    expect((step?.dx ?? 0) + (step?.dy ?? 0)).not.toBe(0)
   })
 
   it('never returns a non-finite scale when a pair first forms', () => {
