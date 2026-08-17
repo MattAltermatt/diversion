@@ -6,9 +6,10 @@ export interface Preset {
 }
 
 // FORM axis — the render shape. Each option patches the same key-set (renderMode
-// + every leaf knob + zoom) so matchPresets can detect the active one. The three
-// leaf shapes reproduce the source video's range from one golden-angle rule:
-// overlapping petals, a bloom of spikes, and the zoomed folded-tile vortex.
+// + every leaf knob + zoom) so matchPresets can detect the active one. The four
+// leaf shapes reproduce the source video's range from one golden-angle rule: the
+// landing burst of dashes, overlapping petals, a bloom of spikes, and the zoomed
+// folded-tile vortex.
 export const formPresets: Preset[] = [
   // The landing look: a radiating burst of dashes. These ARE the schema defaults —
   // 'Mesh' below was authored from them by flipping renderMode alone, which left the

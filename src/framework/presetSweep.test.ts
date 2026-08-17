@@ -101,19 +101,21 @@ describe('preset sweep — every diversion that declares presets (#127)', () => 
 // whose defaults match no preset fails until someone writes down why.
 const UNMATCHED_AT_DEFAULTS: Record<string, string> = {
   'ant-colony / Scene': 'default differs from nearest ("Single hive") in 2 of 5 keys',
-  'aurora / Activity': 'default differs from nearest ("Calm ribbons") in 4 of 4 keys',
-  'boids / Flock': 'default differs from nearest ("Tight Formation") in 5 of 5 keys',
+  // These four differ in EVERY key from every option, so no option is "nearest" —
+  // the default is its own composition rather than a drifted preset.
+  'aurora / Activity': 'default differs from every option in all 4 keys',
+  'boids / Flock': 'default differs from every option in all 5 keys',
   'boxfit / Style': 'default differs from nearest ("Mondrian") in 4 of 6 keys',
   'cynosure / Motion': 'default differs from nearest ("Meditative") in 2 of 3 keys',
   'differential-growth / Growth': 'default differs from nearest ("Coral") in 3 of 7 keys',
   'hextrail / Pace': 'default differs from nearest ("Zen") in 4 of 6 keys',
-  'kuramoto / Regime': 'default differs from nearest ("Spirals") in 2 of 2 keys',
+  'kuramoto / Regime': 'default differs from every option in all 2 keys',
   'logarithmic-circles / Motion': 'default differs from nearest ("Calm") in 2 of 3 keys',
   'mccabe / Pattern': 'default differs from nearest ("Fingerprint") in 2 of 2 keys',
   'morphogen / Body plan': 'default differs from nearest ("Territories") in 4 of 12 keys',
   'outbreak / Scenario': 'default differs from nearest ("Standoff") in 4 of 8 keys',
   'percolation / Sweep': 'default differs from nearest ("Rising Tide") in 2 of 5 keys',
-  'raymarcher / Form': 'default differs from nearest ("Molten Core") in 3 of 3 keys',
+  'raymarcher / Form': 'default differs from every option in all 3 keys',
   'sugarscape / Scene': 'default differs from nearest ("Two mountains") in 2 of 4 keys',
   'vicsek / Dynamics': 'default differs from nearest ("Critical Edge") in 2 of 3 keys',
 }
@@ -131,7 +133,7 @@ describe('preset sweep — the Config screen opens on a name, not "Custom" (#311
       if (matched[gi] === null) unmatched.add(key)
 
       it(`${key}: opens on a named option at defaults`, () => {
-        if (key in UNMATCHED_AT_DEFAULTS) {
+        if (Object.prototype.hasOwnProperty.call(UNMATCHED_AT_DEFAULTS, key)) {
           expect(
             matched[gi],
             `${key} is declared as deliberately unmatched (${UNMATCHED_AT_DEFAULTS[key]}) but now matches "${matched[gi]}" — delete its UNMATCHED_AT_DEFAULTS line`,
@@ -159,11 +161,16 @@ describe('preset sweep — the Config screen opens on a name, not "Custom" (#311
     }
   })
 
-  // Non-vacuity: the sweep must be running against the real registry, not an empty list.
+  // Non-vacuity, and it must be MONOTONE against the live population rather than a
+  // loose floor. A slack threshold protects only the groups named above: every group
+  // that currently matches is guarded by this number alone, so at `> 50` a diversion
+  // could lose its presets entirely — the Config screen silently dropping both its
+  // dropdowns — and this sweep would pass with 588 green cases. Measured, not theorized.
+  // Stated as >= the current population so any loss fails, while growth needs no edit.
   it('sweeps the whole gallery', () => {
     const groupCount = withPresets.reduce((n, d) => n + d.presets!.length, 0)
-    expect(withPresets.length).toBeGreaterThan(50)
-    expect(groupCount).toBeGreaterThan(100)
+    expect(withPresets.length).toBeGreaterThanOrEqual(102)
+    expect(groupCount).toBeGreaterThanOrEqual(184)
     expect(unmatched.size).toBe(Object.keys(UNMATCHED_AT_DEFAULTS).length)
   })
 })
