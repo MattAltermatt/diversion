@@ -1,6 +1,6 @@
 # Diversion — project conventions
 
-A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/superpowers/specs/` for the design spec.
+A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 137 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code.
 
 ## Commands
 
