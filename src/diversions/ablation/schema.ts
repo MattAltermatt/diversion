@@ -57,7 +57,12 @@ export const ablationSchema = z.object({
                 + 'ragged, noisy coastline.' }),
 
   // ─── Color ────────────────────────────────────────────────────────────────
-  palette: z.array(z.string()).min(2).max(24)
+  // The element regex matches the other 86 colorLists in the gallery. Without it this
+  // was the ONE array leaf where a truncated share link degraded to "quietly wrong"
+  // instead of reverting: #299 keeps an undecodable element raw, and a bare
+  // z.string() accepts '%2' — yielding a stop that is invalid as a fillStyle (so the
+  // previous fill silently persists) beside a hex box reading '%2'.
+  palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(24)
     // Deliberately stops short of the ground — see the note in presets.ts.
     .default(['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'])
     // min/max are the Zod bounds above, surfaced so ColorList stops falling back to

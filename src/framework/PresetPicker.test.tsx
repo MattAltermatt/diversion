@@ -95,7 +95,7 @@ describe('PresetPicker', () => {
       expect(screen.queryByText('Custom')).toBeNull()
     })
 
-    it('a real drift on a non-pinned field still reads Custom', () => {
+    it('drifting a non-pinned field moves to the sibling option it now matches', () => {
       render(
         <PresetPicker
           groups={seedGroups}

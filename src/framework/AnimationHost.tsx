@@ -4,7 +4,7 @@ import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
 import { applyFreshLoadRandomization } from './urlCodec'
 import { INTERACTIVE_ATTR } from './canvasGestures'
-import { onSharedDeviceLost } from './webgpu'
+import { onSharedDeviceLost, getSharedDevice } from './webgpu'
 
 // A reseed rolls fresh randomizeOnFreshLoad values against an EMPTY query — the same
 // path a bare page load takes — so every restart gets a brand-new world.
@@ -331,27 +331,42 @@ export function AnimationHost({
       pauseRef.current.lost = true
       syncPaused()
     }
-    const onRestored = () => {
-      // teardown-before-setup, matching the invariant the rest of the host upholds:
-      // free any CPU-side state the diversion stashed before rebuilding, so a
-      // restore doesn't leak it. (The GL resources are already gone with the
-      // context; this frees the diversion's own bookkeeping.)
-      freeRun(diversion, run)
-      run.size = sizeOf()
+    // teardown-before-setup, matching the invariant the rest of the host upholds:
+    // free any CPU-side state the diversion stashed before rebuilding, so a
+    // restore doesn't leak it. (The GL resources are already gone with the
+    // context; this frees the diversion's own bookkeeping.) Returns false when
+    // setup() threw — the error is already routed to the boundary, and the caller
+    // must leave the `lost` flag set rather than resume on a failed rebuild.
+    const rebuild = (): boolean => {
       try {
+        // freeRun (i.e. the diversion's teardown) and sizeOf are INSIDE the try: a
+        // throw from teardown would otherwise escape, and on the #300 path it escapes
+        // into webgpu.ts's sibling-protecting `catch {}` — leaving this tile frozen
+        // with `lost` set, no boundary, and `run.state` still non-null for the next
+        // [config] effect to double-free.
+        freeRun(diversion, run)
+        run.size = sizeOf()
         run.state = diversion.setup(ctx, lastConfigRef.current, run.size)
       } catch (e) {
         setSetupError(() => {
           throw e
         })
-        return // stay paused (lost flag still set) — the rebuild failed
+        return false
       }
+      return true
+    }
+
+    const clearLostAndResume = () => {
       pauseRef.current.lost = false
       syncPaused()
       // If another source still freezes the loop (e.g. the reduced-motion gate),
       // it won't repaint the freshly-rebuilt context — paint one static frame so
       // a restore-while-paused doesn't leave a blank canvas (#120).
       if (shouldPause(pauseRef.current)) diversion.frame(run.state, ctx, loop.time(), 0)
+    }
+
+    const onRestored = () => {
+      if (rebuild()) clearLostAndResume()
     }
     if (diversion.kind === 'webgl') {
       canvas.addEventListener('webglcontextlost', onLost as EventListener)
@@ -376,7 +391,29 @@ export function AnimationHost({
         if (runRef.current !== run) return
         pauseRef.current.lost = true
         syncPaused()
-        onRestored()
+        if (!rebuild()) return
+        // ⚠️ A webgpu setup() RETURNING proves nothing. All three webgpu diversions
+        // follow the ready-flag pattern — they return synchronously with
+        // `ready:false` and acquire the device in a fire-and-forget tail whose
+        // .catch only console.warns. So clearing `lost` here (as the WebGL path
+        // legitimately does) would resume the loop on a piece whose device never
+        // came back, restoring the EXACT silent freeze this fix exists to remove:
+        // frozen canvas, fps counting up, no pause source, no boundary. Wait for
+        // the same device the diversion is waiting for, and surface a failure
+        // instead of pretending we recovered.
+        void getSharedDevice()
+          .then(() => {
+            if (runRef.current === run) clearLostAndResume()
+          })
+          .catch((e: unknown) => {
+            if (runRef.current !== run) return
+            setSetupError(() => {
+              throw e
+            })
+          })
+        // (A device that arrives but whose pipelines then fail to build inside the
+        // diversion's own tail still ends up quietly not-ready — but that is
+        // identical to what a first mount does, and is not this seam's to fix.)
       })
     }
 

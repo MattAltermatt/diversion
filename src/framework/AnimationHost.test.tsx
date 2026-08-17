@@ -147,6 +147,9 @@ describe('AnimationHost WebGPU device loss → rebuild (#300)', () => {
   // needs A device to exist and then lose it.
   const origGpu = (navigator as { gpu?: unknown }).gpu
   let loseNow: () => void
+  // Flip to make the NEXT acquisition fail — a GPU process that has not come back
+  // yet, which is the common case immediately after a loss.
+  let adapterGone = false
 
   const installGpu = () => {
     const requestDevice = async () => {
@@ -159,7 +162,7 @@ describe('AnimationHost WebGPU device loss → rebuild (#300)', () => {
     }
     Object.defineProperty(navigator, 'gpu', {
       configurable: true,
-      value: { requestAdapter: async () => ({ requestDevice }) },
+      value: { requestAdapter: async () => (adapterGone ? null : { requestDevice }) },
     })
   }
 
@@ -181,12 +184,14 @@ describe('AnimationHost WebGPU device loss → rebuild (#300)', () => {
     },
   })
 
-  // Let the device's `lost` promise settle through webgpu.ts's own .then chain.
+  // Let the loss run through webgpu.ts's `lost` chain AND the host's follow-up
+  // getSharedDevice() (requestAdapter → requestDevice, each a microtask hop).
   const settle = async () => {
-    for (let i = 0; i < 4; i++) await Promise.resolve()
+    for (let i = 0; i < 16; i++) await Promise.resolve()
   }
 
   beforeEach(() => {
+    adapterGone = false
     __resetSharedDeviceForTests()
     installGpu()
   })
@@ -246,6 +251,65 @@ describe('AnimationHost WebGPU device loss → rebuild (#300)', () => {
     expect(drawn.length).toBeGreaterThan(0)
     expect(drawn.every((g) => g === 2)).toBe(true) // the post-loss world, not the dead one
     expect(glCalls.filter((c) => c === 'setup').length).toBe(1) // untouched by a GPU loss
+  })
+
+  // THE production failure shape. Every shipped webgpu diversion follows the
+  // ready-flag pattern: setup() returns synchronously with ready:false and acquires
+  // the device in a fire-and-forget tail whose .catch only console.warns. So a host
+  // that clears `lost` when setup() RETURNS resumes the loop on a piece whose device
+  // never came back — fps counting up over a frozen canvas with no pause source,
+  // which is precisely the bug #300 is about. The synchronous-throw test below
+  // cannot catch this: no shipped webgpu diversion throws out of setup().
+  it('stays paused when the device does not come back (ready-flag diversion)', async () => {
+    const drawn: string[] = []
+    let sources: { lost: boolean } | null = null
+    const div: Diversion = {
+      id: 'gpuready',
+      title: '',
+      description: '',
+      kind: 'webgpu',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        const st = { ready: false }
+        // The real pattern, swallowed .catch and all.
+        void getSharedDevice()
+          .then(() => {
+            st.ready = true
+          })
+          .catch(() => {})
+        return st
+      },
+      frame: (state) => {
+        if ((state as { ready: boolean }).ready) drawn.push('frame')
+      },
+    }
+    render(
+      <TestBoundary>
+        <AnimationHost
+          diversion={div}
+          config={{ v: 0 }}
+          onPauseSourcesChange={(s) => {
+            sources = s as { lost: boolean }
+          }}
+        />
+      </TestBoundary>,
+    )
+    await act(async () => {
+      await settle()
+    })
+    act(() => drainRaf())
+    expect(drawn.length).toBeGreaterThan(0) // healthy before the loss
+
+    adapterGone = true // the GPU process has not come back
+    loseNow()
+    await act(async () => {
+      await settle()
+    })
+    drawn.length = 0
+    act(() => drainRaf())
+    act(() => drainRaf())
+    expect(drawn).toEqual([]) // not drawing…
+    expect(sources!.lost).toBe(true) // …and HONEST about it, rather than claiming recovery
   })
 
   it('surfaces a failed post-loss rebuild instead of freezing silently', async () => {

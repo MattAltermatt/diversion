@@ -65,7 +65,11 @@ export function getSharedDevice(opts: { forceNew?: boolean } = {}): Promise<GPUD
       // back the dead handle. Guard on identity so a loss can't clear a newer
       // device someone already requested via forceNew.
       void device.lost.then(() => {
-        if (devicePromise === pending) devicePromise = null
+        // Inside the identity guard, not beside it: if a NEWER device has already been
+        // requested via forceNew, this is a stale corpse and nobody is running on it —
+        // telling three healthy tiles to tear down and rebuild would be pure damage.
+        if (devicePromise !== pending) return
+        devicePromise = null
         // Notify AFTER the cache drop, so a listener rebuilding via getSharedDevice()
         // requests a fresh device rather than being handed back the dead handle.
         // Snapshot the set: a listener commonly unsubscribes from inside its own
@@ -96,4 +100,7 @@ export function getSharedDevice(opts: { forceNew?: boolean } = {}): Promise<GPUD
  *  between cases without cross-test bleed). */
 export function __resetSharedDeviceForTests(): void {
   devicePromise = null
+  // Also drop subscriptions: a leaked one from a previous file would fire a rebuild
+  // into a torn-down host and read as a mystery failure in an unrelated suite.
+  lostListeners.clear()
 }

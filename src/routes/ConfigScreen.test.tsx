@@ -196,17 +196,53 @@ describe('ConfigScreen URL write throttling (#303)', () => {
     expect(range().value).toBe('1234')
   })
 
-  it('flushes the pending write on unmount, so the last edit is never lost', async () => {
-    const router = makeRouter(['/d/flow-field?particles=1000'])
-    let unmount!: () => void
+  it('DROPS a pending write on unmount rather than landing it on the next route', async () => {
+    // This started life as "flush on unmount so the last edit is never lost", which
+    // sounds protective and is the opposite. `navigate({search})` carries no pathname
+    // and react-router resolves that against router.state.location AT CALL TIME; an
+    // unmount cleanup runs after the route change has committed, so the flush wrote
+    // this screen's ~340-char query onto whatever the app had just navigated to —
+    // and on a POP it REPLACED the pop target's own search, so reloading that history
+    // entry decoded mostly defaults. Nothing reads this URL: playHref and
+    // CopyLinkButton both render from the synchronous `config` state.
+    const router = makeRouter(['/d/flow-field?particles=1000'], 0)
     await act(async () => {
-      unmount = render(<RouterProvider router={router} />).unmount
+      render(<RouterProvider router={router} />)
     })
-    drag(1777) // queued for the next frame…
+    drag(1777) // queued for a frame that never comes
     await act(async () => {
-      unmount() // …which never comes
+      await router.navigate('/')
     })
-    expect(router.state.location.search).toContain('particles=1777')
+    await act(async () => {
+      flushRaf() // and the cancelled frame must stay cancelled
+    })
+    expect(router.state.location.pathname).toBe('/')
+    expect(router.state.location.search).toBe('') // no foreign config query
+  })
+
+  it('leaves an unrelated history entry untouched when the drag is abandoned', async () => {
+    // particle-life, not an arbitrary slug: it is preloaded in beforeAll, and a Back
+    // target is warm by definition — you can only go back to a config you have already
+    // opened. A cold slug SUSPENDS, the render never commits, and the effect that
+    // guards this never runs (which is why writeSearch carries a second, commit-free
+    // guard for real browsers).
+    const router = makeRouter(
+      ['/d/particle-life?count=900', '/d/flow-field?particles=1000'],
+      1,
+    )
+    await act(async () => {
+      render(<RouterProvider router={router} />)
+    })
+    drag(1777)
+    await act(async () => {
+      await router.navigate(-1) // browser Back, mid-drag
+    })
+    await act(async () => {
+      flushRaf()
+    })
+    expect(router.state.location.pathname).toBe('/d/particle-life')
+    expect(router.state.location.search).toBe('?count=900') // its own, intact
+    expect(router.state.location.search).not.toContain('particles')
   })
 
   it('survives a refused history write and keeps taking edits', async () => {

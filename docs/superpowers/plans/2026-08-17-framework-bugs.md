@@ -118,6 +118,12 @@ matches; the three real diversions (`hopalong`, `strange-attractors`,
 `src/diversions/morphogen/schema.ts`, `intermomentary/schema.ts`,
 `ablation/schema.ts`, sweep `src/framework/diversionMeta.test.ts`.
 
+> **Landed differently.** `Select.tsx` and `intermomentary/schema.ts` needed **no
+> change**. `Select` was already correct — the bug was `morphogen` declaring no
+> options — and `intermomentary`'s 8-hex defaults already carry the signal once
+> `Swatch` reads the value's length, which is a better answer than editing the
+> schema. Don't go hunting for edits to those two files.
+
 Four live bugs, one cause — the sweep guards `ui:'segmented'` options and
 `ui:'number'` bounds only.
 

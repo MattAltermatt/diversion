@@ -71,6 +71,7 @@ export function ConfigScreen() {
   // one the viewer stopped on.
   const pendingSearch = useRef<string | null>(null)
   const rafId = useRef<number | null>(null)
+  const pendingPath = useRef<string | null>(null)
   const navigateRef = useRef(navigate)
   navigateRef.current = navigate
 
@@ -78,8 +79,21 @@ export function ConfigScreen() {
   const writeSearch = () => {
     rafId.current = null
     const search = pendingSearch.current
-    if (search === null) return
+    const queuedFor = pendingPath.current
     pendingSearch.current = null
+    pendingPath.current = null
+    if (search === null) return
+    // Backstop for "the route moved under this write". Changing slug remounts this
+    // screen, so the unmount cleanup below already drops the pending write — that is
+    // what the two regression tests exercise. It does NOT cover a destination whose
+    // chunk is cold: React keeps the old tree mounted while the new route suspends,
+    // so no cleanup runs and this frame would `replace` the DESTINATION's URL with
+    // this screen's params (`navigate({search})` carries no pathname and resolves
+    // against the router's location at call time). window.location updates
+    // synchronously inside a browser router's navigate, so it is readable with no
+    // commit. ⚠️ Inert under MemoryRouter, which never touches it — so this branch is
+    // reasoned, not test-covered; the tests below cover the remount path only.
+    if (queuedFor !== null && queuedFor !== window.location.pathname) return
     try {
       // preventScrollReset (#302): <ScrollRestoration/> lives in Root and its restore
       // layout-effect keys on the location, and `replace` mints a NEW location key per
@@ -89,8 +103,10 @@ export function ConfigScreen() {
       // form on the first tick and stayed there for the whole drag.
       //
       // A data router's navigate() is ASYNC (it awaits router.navigate), so a history
-      // throw surfaces as a REJECTION, not as a sync throw — the try/catch alone would
-      // miss the very case this exists for. Guard both shapes.
+      // throw surfaces as a REJECTION, not as a sync throw. The `.then` below is the
+      // guard that actually fires in production; the surrounding try/catch is
+      // belt-and-braces for a non-data router. Do NOT "simplify" by deleting the
+      // .then because the try/catch looks like it covers it — it does not.
       const settled = navigateRef.current({ search }, { replace: true, preventScrollReset: true }) as
         | Promise<void>
         | void
@@ -105,18 +121,28 @@ export function ConfigScreen() {
 
   const queueSearch = (search: string) => {
     pendingSearch.current = search
+    pendingPath.current = window.location.pathname
     if (rafId.current === null) rafId.current = requestAnimationFrame(writeSearch)
   }
 
   useEffect(() => {
-    // Flush on unmount so the last edit of a drag always reaches the URL even if the
-    // screen goes away inside the same frame.
+    // Cancel a pending write on unmount — and deliberately do NOT flush it.
+    //
+    // A flush here looked like "never lose the last edit of a drag", and it is
+    // actively harmful: `navigate({search})` carries no pathname, and react-router
+    // resolves that against `router.state.location` AT CALL TIME. An unmount cleanup
+    // runs after the route change has committed, so the write lands on the
+    // DESTINATION. Measured through a real data router: an edit one frame before
+    // "← gallery" put a 340-char config query on `/`, and one frame before a browser
+    // Back REPLACED the pop target's own search with this screen's — so reloading
+    // that history entry decoded mostly defaults. A permanently rewritten history
+    // entry, to save a sub-frame of slider travel that nothing reads: `playHref` and
+    // CopyLinkButton both render from the synchronous `config` state, not the URL.
     return () => {
-      if (rafId.current === null) return
-      cancelAnimationFrame(rafId.current)
-      writeSearch()
+      if (rafId.current !== null) cancelAnimationFrame(rafId.current)
+      rafId.current = null
+      pendingSearch.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!diversion || !config) return <div className="empty">Unknown diversion.</div>
