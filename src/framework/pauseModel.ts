@@ -4,7 +4,9 @@ export interface PauseSources {
   hidden: boolean // tab/document not visible
   reduced: boolean // OS prefers-reduced-motion, not yet opted out of (#39)
   offscreen: boolean // wrapper scrolled out of view (#6)
-  lost: boolean // WebGL context lost; stays paused until restored (#124)
+  // Drawing context is gone: a WebGL context loss (#124) or a lost shared WebGPU
+  // device (#300). Stays paused until the host has rebuilt against a live one.
+  lost: boolean
 }
 
 export const shouldPause = (s: PauseSources): boolean =>

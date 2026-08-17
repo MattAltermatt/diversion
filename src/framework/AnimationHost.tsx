@@ -4,6 +4,7 @@ import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
 import { applyFreshLoadRandomization } from './urlCodec'
 import { INTERACTIVE_ATTR } from './canvasGestures'
+import { onSharedDeviceLost } from './webgpu'
 
 // A reseed rolls fresh randomizeOnFreshLoad values against an EMPTY query — the same
 // path a bare page load takes — so every restart gets a brand-new world.
@@ -357,6 +358,28 @@ export function AnimationHost({
       canvas.addEventListener('webglcontextrestored', onRestored)
     }
 
+    // WebGPU device loss (#300). WebGPU has no lost/restored event pair and no
+    // in-place restore at all: the device's one-shot `lost` promise is the only
+    // signal, and recovery means building everything against a BRAND-NEW device.
+    // So the two halves arrive together — flag the loss, then immediately run the
+    // same teardown→setup rebuild `onRestored` does. The diversion re-acquires
+    // inside its own setup() via getSharedDevice(), which by now has dropped the
+    // dead handle from its cache, and re-configures this GPUCanvasContext against
+    // the new device. Without this the piece froze on its last frame while the
+    // chrome kept counting fps, because operations on a lost device are silent
+    // no-ops per spec.
+    let unsubscribeDeviceLost: (() => void) | undefined
+    if (diversion.kind === 'webgpu') {
+      unsubscribeDeviceLost = onSharedDeviceLost(() => {
+        // Guard against a loss that lands after this host has torn down: the
+        // notification is page-level and its promise can resolve a tick late.
+        if (runRef.current !== run) return
+        pauseRef.current.lost = true
+        syncPaused()
+        onRestored()
+      })
+    }
+
     // Pointer input (#9): only wired when the diversion opts in via onPointer AND
     // this mount is one the viewer drives — a gallery tile is a thumbnail inside a
     // link, so painting into one is not a feature and the listeners are pure cost. The
@@ -406,6 +429,7 @@ export function AnimationHost({
         canvas.removeEventListener('webglcontextlost', onLost as EventListener)
         canvas.removeEventListener('webglcontextrestored', onRestored)
       }
+      unsubscribeDeviceLost?.()
       if (onPointer) {
         canvas.removeEventListener('pointerdown', onPointerDown)
         canvas.removeEventListener('pointermove', onPointerMove)

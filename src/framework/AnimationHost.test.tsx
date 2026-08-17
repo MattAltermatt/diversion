@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
+import { getSharedDevice, __resetSharedDeviceForTests } from './webgpu'
 import { Component, type ReactNode } from 'react'
 import { z } from 'zod'
 import { AnimationHost } from './AnimationHost'
@@ -136,6 +137,168 @@ describe('AnimationHost WebGL context loss → pause source (#124)', () => {
     expect(calls).toEqual(['setup'])
     container.querySelector('canvas')!.dispatchEvent(new Event('webglcontextrestored'))
     expect(calls).toEqual(['setup', 'teardown', 'setup'])
+  })
+})
+
+describe('AnimationHost WebGPU device loss → rebuild (#300)', () => {
+  // A controllable navigator.gpu, mirroring webgpu.test.ts's mock. The host does not
+  // acquire the device itself (a webgpu diversion does that inside setup(), via
+  // getSharedDevice) — it subscribes to the page-level loss signal, so the test only
+  // needs A device to exist and then lose it.
+  const origGpu = (navigator as { gpu?: unknown }).gpu
+  let loseNow: () => void
+
+  const installGpu = () => {
+    const requestDevice = async () => {
+      let resolveLost!: (v: unknown) => void
+      const lost = new Promise((res) => {
+        resolveLost = res
+      })
+      loseNow = () => resolveLost({ reason: 'destroyed' })
+      return { lost }
+    }
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: { requestAdapter: async () => ({ requestDevice }) },
+    })
+  }
+
+  const webgpuDiv = (calls: string[]): Diversion => ({
+    id: 'gpufake',
+    title: '',
+    description: '',
+    kind: 'webgpu',
+    schema: z.object({ v: z.number().default(0) }),
+    setup: () => {
+      calls.push('setup')
+      return {}
+    },
+    frame: () => {
+      calls.push('frame')
+    },
+    teardown: () => {
+      calls.push('teardown')
+    },
+  })
+
+  // Let the device's `lost` promise settle through webgpu.ts's own .then chain.
+  const settle = async () => {
+    for (let i = 0; i < 4; i++) await Promise.resolve()
+  }
+
+  beforeEach(() => {
+    __resetSharedDeviceForTests()
+    installGpu()
+  })
+  afterEach(() => {
+    Object.defineProperty(navigator, 'gpu', { configurable: true, value: origGpu })
+    __resetSharedDeviceForTests()
+  })
+
+  it('rebuilds through teardown→setup when the shared device is lost', async () => {
+    const calls: string[] = []
+    render(<AnimationHost diversion={webgpuDiv(calls)} config={{ v: 0 }} />)
+    await getSharedDevice() // a device now exists to lose
+    expect(calls).toEqual(['setup'])
+
+    loseNow()
+    await act(async () => {
+      await settle()
+    })
+    // Same teardown-before-setup invariant the WebGL restore path upholds. Before
+    // #300 nothing happened at all: the piece froze on its last frame while the
+    // chrome kept counting fps, because a lost device silently no-ops per spec.
+    expect(calls.filter((c) => c === 'setup' || c === 'teardown')).toEqual([
+      'setup',
+      'teardown',
+      'setup',
+    ])
+  })
+
+  it('draws with the REBUILT state afterwards, and leaves a WebGL host alone', async () => {
+    // Frame count alone proves nothing here: an unfixed host also keeps ticking —
+    // that is the bug, frames landing on a dead device as silent no-ops. What has
+    // to change is WHICH state frame() receives.
+    let generation = 0
+    const drawn: number[] = []
+    const glCalls: string[] = []
+    const div: Diversion = {
+      id: 'gpugen',
+      title: '',
+      description: '',
+      kind: 'webgpu',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({ gen: ++generation }),
+      frame: (state) => drawn.push((state as { gen: number }).gen),
+    }
+    render(<AnimationHost diversion={div} config={{ v: 0 }} />)
+    render(<AnimationHost diversion={makeWebglDiv(glCalls)} config={{ v: 0 }} />)
+    await getSharedDevice()
+    act(() => drainRaf())
+    expect(drawn).toContain(1)
+
+    loseNow()
+    await act(async () => {
+      await settle()
+    })
+    drawn.length = 0
+    act(() => drainRaf())
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.every((g) => g === 2)).toBe(true) // the post-loss world, not the dead one
+    expect(glCalls.filter((c) => c === 'setup').length).toBe(1) // untouched by a GPU loss
+  })
+
+  it('surfaces a failed post-loss rebuild instead of freezing silently', async () => {
+    let first = true
+    const div: Diversion = {
+      id: 'gpuboom',
+      title: '',
+      description: '',
+      kind: 'webgpu',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => {
+        if (first) {
+          first = false
+          return {}
+        }
+        throw new Error('no device')
+      },
+      frame: () => {},
+    }
+    const { container } = render(
+      <TestBoundary>
+        <AnimationHost diversion={div} config={{ v: 0 }} />
+      </TestBoundary>,
+    )
+    await getSharedDevice()
+    expect(container.querySelector('canvas')).not.toBeNull()
+    loseNow()
+    await act(async () => {
+      await settle()
+    })
+    // A rebuild that cannot get a device re-throws through the same setSetupError
+    // path the WebGL restore uses, so the boundary shows a fallback for THIS tile.
+    // Asserting the boundary latched (not merely "no frames drew") keeps this from
+    // passing vacuously — an unfixed host never rebuilds, so it never throws either.
+    expect(container.querySelector('canvas')).toBeNull()
+  })
+
+  // Belt and braces, and deliberately so: the cleanup's unsubscribe and the
+  // callback's runRef staleness check each cover this alone, so removing EITHER
+  // leaves it green — it goes red only with both gone (verified). The notification
+  // is page-level and its promise can resolve a tick late, which is exactly the
+  // window where a rebuild would write state into a torn-down run.
+  it('ignores a loss that lands after the host unmounted', async () => {
+    const calls: string[] = []
+    const { unmount } = render(<AnimationHost diversion={webgpuDiv(calls)} config={{ v: 0 }} />)
+    await getSharedDevice()
+    unmount()
+    const after = [...calls]
+    loseNow()
+    await act(async () => {
+      await settle()
+    })
+    expect(calls).toEqual(after) // no setup() writing state into a dead run
   })
 })
 

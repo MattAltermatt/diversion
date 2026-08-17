@@ -13,6 +13,34 @@
 
 let devicePromise: Promise<GPUDevice> | null = null
 
+type DeviceLostListener = (device: GPUDevice) => void
+const lostListeners = new Set<DeviceLostListener>()
+
+/** Subscribe to loss of the shared device. Returns an unsubscribe function.
+ *
+ *  This is the WebGPU counterpart of the `webglcontextlost` DOM event, and it has
+ *  to be invented here because WebGPU has none: loss arrives as the device's own
+ *  one-shot `lost` promise, which only whoever awaited `getSharedDevice()` can see —
+ *  i.e. the diversion, deep inside `setup()`, not the host that owns the loop.
+ *
+ *  Without it, a GPU-process restart / driver reset / sleep-wake froze all three
+ *  webgpu pieces at once (they share this device) on their last frame while the
+ *  chrome went on claiming they animated: fps counting up, ⏸ showing, no pause
+ *  source set, no error boundary. Per spec, operations on a lost device are silent
+ *  no-ops, so there was nothing to see but a frozen canvas — and nothing recovered
+ *  it in place, because `forceNew` had zero production callers (#300).
+ *
+ *  Fires once per lost device, AFTER the cache has been dropped, so a listener that
+ *  rebuilds by calling `getSharedDevice()` gets a fresh one. A listener that throws
+ *  cannot stop its siblings from being notified — one wedged tile must not strand
+ *  the other two. */
+export function onSharedDeviceLost(cb: DeviceLostListener): () => void {
+  lostListeners.add(cb)
+  return () => {
+    lostListeners.delete(cb)
+  }
+}
+
 /** Cheap synchronous capability probe. `navigator.gpu` being present does NOT
  *  guarantee an adapter/device can actually be acquired (that's async and can
  *  still fail on a blocklisted GPU / software renderer) — it only gates whether
@@ -38,6 +66,17 @@ export function getSharedDevice(opts: { forceNew?: boolean } = {}): Promise<GPUD
       // device someone already requested via forceNew.
       void device.lost.then(() => {
         if (devicePromise === pending) devicePromise = null
+        // Notify AFTER the cache drop, so a listener rebuilding via getSharedDevice()
+        // requests a fresh device rather than being handed back the dead handle.
+        // Snapshot the set: a listener commonly unsubscribes from inside its own
+        // callback (a host tearing down as it rebuilds).
+        for (const cb of [...lostListeners]) {
+          try {
+            cb(device)
+          } catch {
+            // A listener's own failure is its problem; the rest still get told.
+          }
+        }
       })
       return device
     })()
