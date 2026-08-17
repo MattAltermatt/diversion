@@ -34,3 +34,4 @@ jobs:
       # #288 (1.91 MB / 615 kB gzipped, a 5.2s mobile LCP, one diversion at a time).
       - run: npm run size
       - run: npm run check:pwa
+      - run: npm run check:preload

@@ -32,6 +32,7 @@ jobs:
       # so without it the guard would not cover the one path that actually ships.
       - run: npm run size
       - run: npm run check:pwa
+      - run: npm run check:preload
       # SPA fallback: GitHub Pages serves 404.html for unknown paths, so a
       # deep link like /diversion/d/flow-field/play boots the app and lets the
       # router resolve it.

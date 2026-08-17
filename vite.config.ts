@@ -5,6 +5,49 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Explicit .ts extension: tsconfig.node.json resolves with `module: nodenext`
 // (allowImportingTsExtensions is on), unlike the app project's bundler mode.
 import { resolveBase } from './src/framework/basePath.ts'
+import { buildPreloadMap, preloadScript } from './src/framework/preloadMap.ts'
+
+/** Collapse the deep-link waterfall (#291).
+ *
+ * A cold `/d/<slug>/play` used to be HTML -> entry -> diversion chunk, three serial
+ * round trips. This emits a slug -> [chunk, ...shared deps] map into index.html and a
+ * ~350 byte script that turns the URL's slug into `<link rel=modulepreload>` tags, so
+ * the diversion's bytes download IN PARALLEL with the entry rather than after it.
+ * Measured saving: ~613 ms median on Slow 4G, ~961 ms worst (boxcar2d).
+ *
+ * The map has to be built here because chunk filenames are content-hashed and only
+ * known at `generateBundle` time — which is exactly when `transformIndexHtml` runs in
+ * a build, with the finished bundle on `ctx`. All of the reasoning, and the pure
+ * function this is a shell around, live in src/framework/preloadMap.ts (unit-tested;
+ * this wrapper is deliberately too thin to hold a bug of its own).
+ *
+ * ⚠️ `injectTo: 'head-prepend'` is LOAD-BEARING, and the whole point of the plugin is
+ * lost without it. An inline `<script>` does not execute while a stylesheet declared
+ * BEFORE it is still loading — so injected at the end of head, after Vite's
+ * `<link rel=stylesheet>`, our links were created only once the CSS had arrived.
+ * Measured on Slow 4G at the tail of the entry's own download, which is precisely the
+ * moment `__vitePreload` would have asked for them anyway: a 0 ms saving, with the
+ * map still shipped. Prepended, it runs on the first parse tick.
+ *
+ * `enforce: 'post'` is only about seeing the finished bundle; it does not affect
+ * where the tag lands. Guarded after the build by `npm run check:preload`. */
+function preloadDeepLink(base: string) {
+  return {
+    name: 'diversion-preload-deep-link',
+    enforce: 'post' as const,
+    transformIndexHtml: {
+      order: 'post' as const,
+      handler(_html: string, ctx: { bundle?: Record<string, never> }) {
+        if (!ctx.bundle) return // dev / serve: no bundle, and no waterfall to collapse
+        const map = buildPreloadMap(ctx.bundle)
+        if (!Object.keys(map.slugs).length) return
+        return [
+          { tag: 'script', children: preloadScript(map, base), injectTo: 'head-prepend' as const },
+        ]
+      },
+    },
+  }
+}
 
 // https://vite.dev/config/
 // `base` (and why `isPreview` is load-bearing) lives in basePath.ts, where it is
@@ -43,6 +86,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   plugins: [
     react(),
+    preloadDeepLink(resolveBase({ command, isPreview })),
     // Service worker (#289). Two cache tiers, deliberately:
     //
     //   PRECACHE (~166 kB, 17 files) — the shell and the 9 shared chunks. Downloaded

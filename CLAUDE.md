@@ -6,13 +6,14 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~28s, 6586 tests)
+npm test         # vitest run (full suite; ~30s, 6793 tests)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint
 npm run build    # tsc -b && vite build
 npx tsc -b --noEmit                    # typecheck only
 npm run size     # entry-chunk + precache budgets (needs a fresh `npm run build`)
 npm run check:pwa                      # service worker + manifest contracts
+npm run check:preload                  # deep-link modulepreload map (needs a fresh build)
 ```
 
 Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5180/d/<slug>/play`. A brand-new diversion folder 404s until the dev server is restarted — Vite's `import.meta.glob` registry doesn't pick it up live.
@@ -116,6 +117,16 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
   it with `node:fs` and assert the read was non-empty. Same trap for `index.html`
   if you forget to strip comments — a comment quoting the thing you're asserting
   will satisfy a file-wide match.
+
+### Deep-link preload (#291) — the one piece of bespoke build code
+
+`vite.config.ts`'s `preloadDeepLink` plugin emits a `slug -> [chunk, ...shared deps]` map plus a ~350 B script into `index.html`, turning the URL's slug into `<link rel=modulepreload>` tags. The pure half is `src/framework/preloadMap.ts` (unit-tested against a hand-built bundle, including the emitted script itself, run through `new Function`); the plugin is a shell too thin to hold a bug. `npm run check:preload` re-checks the built `dist/` in CI.
+
+- **The map must carry DEPS, not just the diversion chunk.** `__vitePreload` already asks for a dynamic import's static deps at import time, so the third hop is ONE round trip carrying chunk + deps together; removing one file from that batch leaves the batch. Subtract the entry's own static closure (Vite preloads that already) or every deep link fetches `metas`/`runtime` twice.
+- **⚠️ `injectTo: 'head-prepend'` is the whole thing.** An inline `<script>` does not execute while a stylesheet declared *before* it is still loading. Injected at the end of `<head>` — after Vite's `<link rel=stylesheet>` — the links were created exactly when `__vitePreload` would have asked anyway: measured on Slow 4G as a **0 ms saving with the map still shipped**. `check-preload.mjs` asserts the script is the first element in `<head>` precisely because nothing else can see this.
+- **`fetchPriority = 'low'`, and `crossorigin` to match Vite's.** Without the priority, these links took slots ahead of the shell's own deps on an HTTP/1.1 server (6 connections) and pushed first paint out by ~500 ms — "fetch early, never ahead of the shell". Without `crossorigin`, the credentials mode differs from the eventual `import()` and the browser fetches every file **twice**.
+- **Validate on the DEPLOYED site, not `vite preview`** — preview is HTTP/1.1, Pages is HTTP/2, and the connection-limit artefacts above are preview-only.
+- **Strip the base before matching the slug.** A free-floating `/d/` match reads the base's own segments (under a base of `/d/`, `/d/d/ablation/play` yields the slug `d`).
 
 ### Service worker (#289) — two cache tiers, and an escape hatch with a sharp edge
 
