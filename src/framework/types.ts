@@ -122,6 +122,22 @@ export interface Diversion<
    *  box: it never touches the canvas or React, just reads the sample and mutates its
    *  own state (which `frame()` then renders). Omit → no pointer input. */
   onPointer?(state: State, sample: PointerSample): void
+  /** ESCAPE HATCH (#290) — this diversion attaches its OWN listeners to `ctx.canvas`
+   *  in `setup()` because its gesture is a viewport camera (wheel-zoom, drag-pan with
+   *  pointer capture, a persistent view transform) and `onPointer`'s sample cannot
+   *  express any of that. The three WebGPU cameras are the whole population.
+   *
+   *  Declaring it buys exactly one thing: the `.anim-canvas--interactive` class, i.e.
+   *  the same `touch-action: none` an `onPointer` diversion gets, still gated on
+   *  `interactive`. Without it the browser keeps the touch gesture and a finger drag
+   *  both pans and scrolls; the `.config-preview` media override still hands the
+   *  gesture back below 820px, which is why such a diversion must ALSO gate its own
+   *  touch handling on `gesturesYielded()` (see `framework/canvasGestures.ts`).
+   *
+   *  Mutually exclusive with `onPointer` in practice — if the sample is enough for
+   *  you, use `onPointer` and let the framework own the DOM. Guarded by
+   *  `canvasGestures.test.ts`. */
+  ownsCanvasGestures?: true
 }
 
 /** A pointer event normalized into a diversion's draw space (#9). `x`/`y` are in the

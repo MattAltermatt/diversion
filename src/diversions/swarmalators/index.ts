@@ -7,10 +7,12 @@
 // Interactive (like particle-life-gpu): wheel = zoom toward the cursor, drag = pan,
 // double-click = reset. The world is FREE SPACE and origin-centred, so the camera is
 // simpler than Particle Life's — no toroidal arena to clamp against; pan is just bounded so
-// the swarm can't be lost. Interaction is gated to a large view so gallery tiles don't
-// hijack page scroll.
+// the swarm can't be lost. Interaction is gated on the host's `data-interactive` (#290)
+// so gallery tiles don't hijack page scroll — NOT on canvas width, which called a
+// one-column tile interactive and did exactly that.
 import { defineDiversion, type Size } from '../../framework/types'
 import { getSharedDevice } from '../../framework/webgpu'
+import { drivenByViewer, gesturesYielded } from '../../framework/canvasGestures'
 import { swarmalatorsSchema, type SwarmalatorsConfig } from './schema'
 import { swarmalatorsPresets } from './presets'
 import { VIEW_RADIUS, type Camera } from './pack'
@@ -35,20 +37,36 @@ interface State {
 
 const dprOf = (): number => Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
 
-const MIN_INTERACTIVE_CSS_W = 480
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
 /** Wheel-zoom (toward the cursor) + drag-pan + double-click-reset on the diversion's own
  *  canvas. Free-space: the fit scale maps VIEW_RADIUS into 90% of the min half-dimension;
- *  pan is bounded to ±(VIEW_RADIUS+0.5) world units so the swarm stays reachable. */
-function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
+ *  pan is bounded to ±(VIEW_RADIUS+0.5) world units so the swarm stays reachable.
+ *
+ *  Exported only so `camera.test.ts` can drive it: this code had NO coverage, which
+ *  is how the gallery wheel-hijack and the movementX touch hazard both shipped (#290). */
+export function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
   const fit = () => (Math.min(cv.width, cv.height) / 2) * 0.9 / VIEW_RADIUS
   const scaleOf = () => fit() * state.cam.zoom
   const cursorDev = (e: { clientX: number; clientY: number }) => {
     const r = cv.getBoundingClientRect()
     return { x: (e.clientX - r.left) * (cv.width / r.width), y: (e.clientY - r.top) * (cv.height / r.height) }
   }
-  const interactive = () => cv.clientWidth >= MIN_INTERACTIVE_CSS_W
+const interactive = () => drivenByViewer(cv)
+  /** May this pointerdown start a camera drag?
+   *   - `interactive()` — not a gallery thumbnail.
+   *   - `isPrimary` — a second finger must not start a rival drag against the first.
+   *   - `button === 0` — pointerdown fires for the right and middle buttons too, and
+   *     `isPrimary` is true for a mouse whichever one is down, so a reflexive
+   *     right-click-drag panned the view and then popped the context menu over it.
+   *   - touch only where the framework has actually taken the browser's gesture:
+   *     below 820px the Config preview deliberately hands it back, and panning there
+   *     would fight the page scroll the viewer was asking for. */
+  const canDrag = (e: PointerEvent) =>
+    interactive() &&
+    e.isPrimary &&
+    e.button === 0 &&
+    (e.pointerType !== 'touch' || gesturesYielded(cv))
   const panLimit = VIEW_RADIUS + 0.5
   const clampPan = () => {
     state.cam.panX = clamp(state.cam.panX, -panLimit, panLimit)
@@ -72,26 +90,41 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
     state.camDirty = true
   }
 
-  let dragging = false
+  // The pointer that owns the drag, not a boolean: onUp used to accept ANY pointerId,
+  // so on a full-bleed Play canvas a second finger lifting ended the primary finger's
+  // drag, which then stayed dead until it lifted and re-pressed.
+  let activeId: number | null = null
+  // Previous CLIENT position of the dragging pointer. NOT `e.movementX/Y`: that is
+  // absent or zero for touch pointers on some engines, and `panX -= undefined * n`
+  // is NaN — which `clamp`'s Math.min/max propagates rather than corrects, so one
+  // touch drag would destroy the view until reload.
+  let last = { x: 0, y: 0 }
   const onDown = (e: PointerEvent) => {
-    if (!interactive()) return
-    dragging = true
+    if (!canDrag(e)) return
+    activeId = e.pointerId
+    last = { x: e.clientX, y: e.clientY }
     cv.setPointerCapture?.(e.pointerId)
   }
   const onMove = (e: PointerEvent) => {
-    if (!dragging) return
+    if (e.pointerId !== activeId) return
     const r = cv.getBoundingClientRect()
     const sc = scaleOf()
-    state.cam.panX -= (e.movementX * (cv.width / r.width)) / sc
-    state.cam.panY += (e.movementY * (cv.height / r.height)) / sc
+    state.cam.panX -= ((e.clientX - last.x) * (cv.width / r.width)) / sc
+    state.cam.panY += ((e.clientY - last.y) * (cv.height / r.height)) / sc
+    last = { x: e.clientX, y: e.clientY }
     clampPan()
     state.camDirty = true
   }
   const onUp = (e: PointerEvent) => {
-    dragging = false
-    cv.releasePointerCapture?.(e.pointerId)
+    if (e.pointerId !== activeId) return
+    activeId = null
+    // Guarded: releasePointerCapture throws NotFoundError for a pointer that is no
+    // longer active, which is reachable via pointercancel.
+    if (cv.hasPointerCapture?.(e.pointerId)) cv.releasePointerCapture?.(e.pointerId)
   }
   const onDbl = () => {
+    // Was ungated, so a double-click reset the camera on a gallery thumbnail too.
+    if (!interactive()) return
     state.cam = { zoom: 1, panX: 0, panY: 0 }
     state.camDirty = true
   }
@@ -114,6 +147,9 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
 
 const swarmalators = defineDiversion<typeof swarmalatorsSchema, State, 'webgpu'>({
   ...meta,
+  // Attaches its own canvas listeners (attachCamera) rather than using onPointer,
+  // so the host must still hand it touch-action: none. See types.ts (#290).
+  ownsCanvasGestures: true,
   schema: swarmalatorsSchema,
   presets: swarmalatorsPresets,
 

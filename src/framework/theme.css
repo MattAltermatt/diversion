@@ -917,6 +917,71 @@ input[type='color'] {
     align-items: center;
     padding: 10px 13px;
   }
+
+  /* The switch is the most-tapped control in the form — 86 boolean fields across
+     the gallery — and at 38x20 it is 4px under the 24px square of WCAG 2.2
+     SC 2.5.8 (AA).
+
+     Be precise about what that does and does not mean, because the obvious
+     reading is wrong: SC 2.5.8 carries a Spacing exception, which exempts an
+     undersized target whose 24px-diameter circle does not reach another target's.
+     The tightest toggle pitch in this app is 35px (two help-less booleans in a
+     .group; every shipped one is ~57px, since all 86 carry help), so the 38x20
+     switch ALREADY CONFORMS at AA and this rule is not a conformance fix. It is
+     a usability one: 44px is SC 2.5.5 (AAA) and the Apple/Material practical
+     figure, and a finger is not a 24px circle.
+
+     Grow the button's LAYOUT box to 44x44 and paint the 38x20 pill inside it with
+     ::before, so the proportions that carry the form's visual rhythm are unchanged.
+
+     A layout box, deliberately, and not an absolutely-positioned overlay: the
+     rows are 15px apart in the tightest case (two help-less booleans inside a
+     .group), so an overlay reaching 12px past each edge would have stacked
+     toggles claiming 9px of each other's hit area — a mis-tap flipping the wrong
+     field, which is worse than the small target it set out to fix. A real box
+     cannot do that; it separates its neighbours instead.
+
+     ::after is already the knob, so the track takes ::before, and the two rules
+     below that repaint .sw.on must be restated here — .sw.on outranks a bare .sw
+     on specificity no matter which one a media query holds. */
+  .sw {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border-color: transparent;
+  }
+  .sw.on {
+    background: transparent;
+    border-color: transparent;
+  }
+  .sw::before {
+    content: '';
+    position: absolute;
+    /* The `*` selector does not match pseudo-elements, so this does NOT inherit
+       the sheet's global border-box and its 1px border would otherwise make the
+       pill 22px tall — 2px off the desktop proportion, and 1px off centre. */
+    box-sizing: border-box;
+    left: 2px;
+    right: 2px;
+    top: 50%;
+    height: 20px;
+    margin-top: -10px;
+    border-radius: 10px;
+    background: #1e1e24;
+    border: 1px solid var(--line-2);
+  }
+  .sw.on::before {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .sw::after {
+    top: 50%;
+    margin-top: -7px;
+    left: 5px;
+  }
+  .sw.on::after {
+    left: 23px;
+  }
 }
 
 /* A tap on a touch device leaves :hover stuck on, so the lifted/highlighted tile

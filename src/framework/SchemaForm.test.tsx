@@ -41,6 +41,16 @@ describe('SchemaForm', () => {
     expect(screen.getByLabelText('Hue start value')).toHaveValue(200)
   })
 
+  it('gives the switch an accessible name (WCAG 4.1.2, Level A)', () => {
+    // The switch renders a pill and no text, and .ctl-name is a sibling <span>, not
+    // a <label for> — so without an explicit name a screen reader announces a bare
+    // "switch, on" and nothing about WHICH boolean it is. `getByRole(name)` matches
+    // on the computed accessible name, so deleting aria-label turns this red while
+    // the `getByRole('switch')` assertion above stays green.
+    render(<SchemaForm schema={schema} value={schema.parse({})} onChange={() => {}} />)
+    expect(screen.getByRole('switch', { name: 'Fade trails' })).toBeInTheDocument()
+  })
+
   it('honors showWhen: renders a field only when its sibling holds the named value', () => {
     const swSchema = z.object({
       mode: z.enum(['a', 'b']).default('a').meta({ ui: 'segmented', options: ['a', 'b'], label: 'Mode' }),

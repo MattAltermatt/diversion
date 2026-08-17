@@ -121,6 +121,79 @@ describe('touch-action seam (#284)', () => {
     }
   })
 
+  it('publishes `interactive` on the canvas for diversions that own their listeners', () => {
+    // #290. A diversion that attaches its own canvas listeners (the three GPU
+    // cameras) is outside React and cannot see the prop, so the host states it.
+    // Both directions matter: "true" missing kills the camera on Play, and "false"
+    // missing gives a gallery tile back the wheel-hijack this fixed.
+    const base: Diversion = {
+      id: 'probe',
+      title: 'Probe',
+      description: '',
+      kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({}),
+      frame: () => {},
+    }
+    const play = render(createElement(AnimationHost, { diversion: base, config: { v: 0 } }))
+    expect(play.container.querySelector('canvas')!.dataset.interactive).toBe('true')
+    play.unmount()
+
+    const tile = render(
+      createElement(AnimationHost, { diversion: base, config: { v: 0 }, interactive: false }),
+    )
+    expect(tile.container.querySelector('canvas')!.dataset.interactive).toBe('false')
+    tile.unmount()
+  })
+
+  it('applies the modifier for ownsCanvasGestures, but wires NO framework listeners', () => {
+    // #290. The three GPU cameras attach their own listeners, so they need the CSS
+    // opt-out without the framework's pointer plumbing. Both halves matter: no class
+    // and a finger drag pans AND scrolls; framework listeners and `onPointer` would
+    // be called on a diversion that never declared it.
+    const base: Diversion = {
+      id: 'probe',
+      title: 'Probe',
+      description: '',
+      kind: '2d',
+      schema: z.object({ v: z.number().default(0) }),
+      setup: () => ({}),
+      frame: () => {},
+    }
+    const seen: string[] = []
+    const spy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'addEventListener')
+      .mockImplementation(function (this: HTMLCanvasElement, type: string) {
+        seen.push(type)
+      } as never)
+    try {
+      const play = render(
+        createElement(AnimationHost, {
+          diversion: { ...base, ownsCanvasGestures: true } as Diversion,
+          config: { v: 0 },
+        }),
+      )
+      expect(play.container.querySelector('canvas')!.className).toContain(
+        'anim-canvas--interactive',
+      )
+      expect(seen.filter((t) => t.startsWith('pointer'))).toEqual([])
+      play.unmount()
+    } finally {
+      spy.mockRestore()
+    }
+
+    // A gallery tile stays inert even for a gesture-owning diversion.
+    const tile = render(
+      createElement(AnimationHost, {
+        diversion: { ...base, ownsCanvasGestures: true } as Diversion,
+        config: { v: 0 },
+        interactive: false,
+      }),
+    )
+    expect(tile.container.querySelector('canvas')!.className).toBe('anim-canvas')
+    tile.unmount()
+  })
+
   it('AnimationHost applies the modifier only when the diversion declares onPointer', () => {
     const base: Diversion = {
       id: 'probe',
@@ -229,5 +302,98 @@ describe('mobile viewport contract (#284)', () => {
     const chrome = rules().find((r) => r.sel === '.play-chrome')!
     const z = (body: string) => Number(/z-index:\s*(\d+)/.exec(body)?.[1] ?? 0)
     expect(z(bar.body)).toBeGreaterThan(z(chrome.body))
+  })
+})
+
+describe('switch touch target (#290)', () => {
+  /** Rules inside `@media (pointer: coarse)`. `rules()` cannot be used directly here:
+   *  it reports nested rules with the media wrapper stripped, so a `.find(sel === '.sw')`
+   *  returns the BASE 38x20 rule and every assertion below would read the thing it is
+   *  supposed to be checking the override of. */
+  function coarseRules(): { sel: string; body: string }[] {
+    const start = code.indexOf('@media (pointer: coarse)')
+    expect(start, 'no (pointer: coarse) block').toBeGreaterThan(-1)
+    const open = code.indexOf('{', start)
+    let depth = 0
+    let end = open
+    for (let i = open; i < code.length; i++) {
+      if (code[i] === '{') depth++
+      else if (code[i] === '}' && --depth === 0) {
+        end = i
+        break
+      }
+    }
+    const block = code.slice(open + 1, end)
+    const out: { sel: string; body: string }[] = []
+    const re = /([^{}]+)\{([^{}]*)\}/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(block))) out.push({ sel: m[1].trim(), body: m[2] })
+    return out
+  }
+  const coarse = (sel: string) => coarseRules().find((r) => r.sel === sel)
+  const px = (body: string, prop: string) =>
+    Number(new RegExp(`(^|[\\s;])${prop}:\\s*(-?[\\d.]+)px`).exec(body)?.[2] ?? NaN)
+
+  it('reads the coarse block, and the base switch is still the 38x20 one', () => {
+    // Non-vacuity. Every test here is a search; a broken slicer would return [] and
+    // pass the lot. Also pins the premise: the DESKTOP switch is unchanged by #290.
+    expect(coarseRules().length).toBeGreaterThan(2)
+    const base = rules().find((r) => r.sel === '.sw')!
+    expect(px(base.body, 'width')).toBe(38)
+    expect(px(base.body, 'height')).toBe(20)
+  })
+
+  it('grows the switch to a 44px target on coarse pointers', () => {
+    // Not a conformance fix — 38x20 already passes SC 2.5.8 (AA) via its Spacing
+    // exception at this app's 35px worst-case pitch. 44px is SC 2.5.5 (AAA) and the
+    // practical touch figure, on the most-tapped control in the form.
+    const sw = coarse('.sw')
+    expect(sw, 'no .sw rule under (pointer: coarse)').toBeDefined()
+    expect(px(sw!.body, 'width')).toBeGreaterThanOrEqual(44)
+    expect(px(sw!.body, 'height')).toBeGreaterThanOrEqual(44)
+  })
+
+  it('grows a LAYOUT box, never an absolute overlay', () => {
+    // The whole reason the pill moved to ::before. Two help-less booleans inside a
+    // .group sit 15px apart, so an overlay reaching 12px past each edge would have
+    // stacked toggles claiming 9px of each other's hit area — a tap flipping the
+    // WRONG field. A real box separates its neighbours instead of overlapping them.
+    const sw = coarse('.sw')!
+    expect(sw.body).not.toMatch(/position:\s*absolute/)
+    expect(sw.body).not.toMatch(/(^|[\s;])(inset|margin):\s*-/)
+  })
+
+  it('keeps the pill at 38x20 by painting it with ::before', () => {
+    const track = coarse('.sw::before')
+    expect(track, 'no .sw::before track').toBeDefined()
+    expect(px(track!.body, 'height')).toBe(20)
+    // Width is implied by left/right against the 42px padding box (44 less the 1px
+    // borders), so assert the arithmetic rather than trusting the comment: an
+    // asymmetric left/right would slide the pill off-centre with height still 20.
+    const boxW = px(coarse('.sw')!.body, 'width') - 2
+    const left = px(track!.body, 'left')
+    const right = px(track!.body, 'right')
+    expect(left).toBe(right)
+    expect(boxW - left - right).toBe(38)
+    // And the knob must sit inside the pill, not beyond its right edge.
+    const knobOn = px(coarse('.sw.on::after')!.body, 'left')
+    expect(knobOn + 14).toBeLessThanOrEqual(left + 38)
+    // `*` does not match pseudo-elements, so without this the 1px border makes the
+    // pill 22px tall and 1px off centre — a silent 2px drift in the form's rhythm.
+    expect(track!.body).toMatch(/box-sizing:\s*border-box/)
+  })
+
+  it('restates the ON colours, which .sw.on would otherwise win back', () => {
+    // Specificity, not source order, decides this: base `.sw.on` (0,2,0) outranks a
+    // bare `.sw` (0,1,0) even from inside a media query. Without these two rules the
+    // accent paints the whole 44x44 box — a green slab where a pill should be — and
+    // the knob sits at the pill's old offset. Nothing else in the suite would notice.
+    expect(coarse('.sw.on')?.body, 'the 44px box would paint accent').toMatch(
+      /background:\s*transparent/,
+    )
+    expect(coarse('.sw.on::before')?.body, 'the pill would never light up').toMatch(
+      /background:\s*var\(--accent\)/,
+    )
+    expect(coarse('.sw.on::after'), 'the ON knob would sit at its 38px offset').toBeDefined()
   })
 })

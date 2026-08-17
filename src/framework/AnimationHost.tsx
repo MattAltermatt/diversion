@@ -3,6 +3,7 @@ import type { Diversion, RenderContext, Size, PointerSample } from './types'
 import { createLoop, type Loop } from './useAnimationLoop'
 import { shouldPause, type PauseSources } from './pauseModel'
 import { applyFreshLoadRandomization } from './urlCodec'
+import { INTERACTIVE_ATTR } from './canvasGestures'
 
 // A reseed rolls fresh randomizeOnFreshLoad values against an EMPTY query — the same
 // path a bare page load takes — so every restart gets a brand-new world.
@@ -497,11 +498,27 @@ export function AnimationHost({
           whether or not a listener exists — a blanket rule would kill scrolling
           over every tile. `pan-y` is not the answer either; a paint-style hook
           drags in both axes. */}
+      {/* `data-interactive` publishes the SAME `interactive` prop to a diversion that
+          attaches its own canvas listeners instead of using `onPointer` (the three
+          GPU cameras — see the pointer bullet in CLAUDE.md). Those listeners live
+          outside React and never see a prop, so before #290 they each guessed at this
+          with `clientWidth >= 480` — which is true of a GALLERY TILE at viewports
+          around 530-628px, where the grid is one column. A wheel over such a tile hit
+          `preventDefault()` under `{passive:false}` and blocked page scroll, on a
+          plain mouse, with no touch device involved. The host already knows the
+          answer; this just says it out loud. */}
       <canvas
         key={diversion.kind}
         ref={canvasRef}
+        {...{ [INTERACTIVE_ATTR]: interactive ? 'true' : 'false' }}
         className={
-          interactive && diversion.onPointer
+          // `ownsCanvasGestures` is the second way to mean "this mount consumes
+          // gestures" (#290): the three GPU cameras wire their own listeners, so
+          // gating on `onPointer` alone left their canvas at `touch-action: auto`
+          // and a finger drag both panned and scrolled. The listener effect below
+          // still keys on `onPointer` ONLY — this flag must never wire framework
+          // listeners, just the CSS opt-out.
+          interactive && (diversion.onPointer || diversion.ownsCanvasGestures)
             ? 'anim-canvas anim-canvas--interactive'
             : 'anim-canvas'
         }

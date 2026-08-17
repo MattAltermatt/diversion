@@ -7,10 +7,12 @@
 // This is the gallery's first INTERACTIVE piece: the diversion attaches wheel (zoom)
 // and drag (pan) listeners to its OWN canvas (ctx.canvas) and tears them down in
 // teardown — no framework contract change, and the hands-off screensaver behaviour is
-// untouched. Interaction is gated to a large view (play / fullscreen), so gallery
-// tiles never hijack page scroll.
+// untouched. Interaction is gated on the host's `data-interactive` (#290), so gallery
+// tiles never hijack page scroll — NOT on canvas width, which called a one-column
+// tile interactive and did exactly that.
 import { defineDiversion, type Size } from '../../framework/types'
 import { getSharedDevice } from '../../framework/webgpu'
+import { drivenByViewer, gesturesYielded } from '../../framework/canvasGestures'
 import { particleLifeGpuSchema, type ParticleLifeGpuConfig } from './schema'
 import { particleLifeGpuPresets } from './presets'
 import { reconcileMatrix } from './reconcile'
@@ -38,13 +40,12 @@ interface State {
 
 const dprOf = (): number => Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
 
-// Only drive zoom/pan when the canvas is large (play / config-preview / fullscreen),
-// so wheeling over a small gallery tile doesn't hijack page scroll.
-const MIN_INTERACTIVE_CSS_W = 480
-
 /** Attach wheel-zoom (toward the cursor) + drag-pan + double-click-reset to the
- *  diversion's own canvas. Returns a detach function. Mutates state.cam / camDirty. */
-function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
+ *  diversion's own canvas. Returns a detach function. Mutates state.cam / camDirty.
+ *
+ *  Exported only so `camera.test.ts` can drive it: this code had NO coverage, which
+ *  is how the gallery wheel-hijack and the movementX touch hazard both shipped (#290). */
+export function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
   const dims = () => worldDims(state.cfg.worldSize)
   const coverScale = () => {
     const { w, h } = dims()
@@ -55,7 +56,21 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
     const r = cv.getBoundingClientRect()
     return { x: (e.clientX - r.left) * (cv.width / r.width), y: (e.clientY - r.top) * (cv.height / r.height) }
   }
-  const interactive = () => cv.clientWidth >= MIN_INTERACTIVE_CSS_W
+const interactive = () => drivenByViewer(cv)
+  /** May this pointerdown start a camera drag?
+   *   - `interactive()` — not a gallery thumbnail.
+   *   - `isPrimary` — a second finger must not start a rival drag against the first.
+   *   - `button === 0` — pointerdown fires for the right and middle buttons too, and
+   *     `isPrimary` is true for a mouse whichever one is down, so a reflexive
+   *     right-click-drag panned the view and then popped the context menu over it.
+   *   - touch only where the framework has actually taken the browser's gesture:
+   *     below 820px the Config preview deliberately hands it back, and panning there
+   *     would fight the page scroll the viewer was asking for. */
+  const canDrag = (e: PointerEvent) =>
+    interactive() &&
+    e.isPrimary &&
+    e.button === 0 &&
+    (e.pointerType !== 'touch' || gesturesYielded(cv))
   // Keep the view INSIDE the arena — never reveal buffer outside the world. The view
   // half-extent in world units is (canvas/2)/scale; the centre can travel to within
   // that of each edge (or is pinned centred when the world is smaller than the view).
@@ -88,26 +103,42 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
     state.camDirty = true
   }
 
-  let dragging = false
+  // The pointer that owns the drag, not a boolean: onUp used to accept ANY pointerId,
+  // so on a full-bleed Play canvas a second finger lifting ended the primary finger's
+  // drag, which then stayed dead until it lifted and re-pressed.
+  let activeId: number | null = null
+  // Previous CLIENT position of the dragging pointer. NOT `e.movementX/Y`: that is
+  // absent or zero for touch pointers on some engines, and `panX -= undefined * n`
+  // is NaN — which `clampPan`'s Math.min/max propagates rather than corrects, so a
+  // single touch drag would destroy the view until reload. Deltas we compute
+  // ourselves are defined for every pointer type.
+  let last = { x: 0, y: 0 }
   const onDown = (e: PointerEvent) => {
-    if (!interactive()) return
-    dragging = true
+    if (!canDrag(e)) return
+    activeId = e.pointerId
+    last = { x: e.clientX, y: e.clientY }
     cv.setPointerCapture?.(e.pointerId)
   }
   const onMove = (e: PointerEvent) => {
-    if (!dragging) return
+    if (e.pointerId !== activeId) return
     const r = cv.getBoundingClientRect()
     const sc = scaleOf()
-    state.cam.panX -= (e.movementX * (cv.width / r.width)) / sc
-    state.cam.panY -= (e.movementY * (cv.height / r.height)) / sc
+    state.cam.panX -= ((e.clientX - last.x) * (cv.width / r.width)) / sc
+    state.cam.panY -= ((e.clientY - last.y) * (cv.height / r.height)) / sc
+    last = { x: e.clientX, y: e.clientY }
     clampPan()
     state.camDirty = true
   }
   const onUp = (e: PointerEvent) => {
-    dragging = false
-    cv.releasePointerCapture?.(e.pointerId)
+    if (e.pointerId !== activeId) return
+    activeId = null
+    // Guarded: releasePointerCapture throws NotFoundError for a pointer that is no
+    // longer active, which is reachable via pointercancel.
+    if (cv.hasPointerCapture?.(e.pointerId)) cv.releasePointerCapture?.(e.pointerId)
   }
   const onDbl = () => {
+    // Was ungated, so a double-click reset the camera on a gallery thumbnail too.
+    if (!interactive()) return
     state.cam = { zoom: 1, panX: 0, panY: 0 }
     state.camDirty = true
   }
@@ -130,6 +161,9 @@ function attachCamera(cv: HTMLCanvasElement, state: State): () => void {
 
 const particleLifeGpu = defineDiversion<typeof particleLifeGpuSchema, State, 'webgpu'>({
   ...meta,
+  // Attaches its own canvas listeners (attachCamera) rather than using onPointer,
+  // so the host must still hand it touch-action: none. See types.ts (#290).
+  ownsCanvasGestures: true,
   schema: particleLifeGpuSchema,
   presets: particleLifeGpuPresets,
   reconcile: reconcileMatrix,

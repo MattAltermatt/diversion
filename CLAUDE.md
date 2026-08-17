@@ -6,7 +6,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~28s, 6137 tests)
+npm test         # vitest run (full suite; ~28s, 6586 tests)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint
 npm run build    # tsc -b && vite build
@@ -20,6 +20,9 @@ Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5
 ## Architecture (load-bearing)
 
 - **The framework owns the chrome; a diversion is a black box that draws.** A diversion implements `{ id, title, description, kind, schema, setup, frame, resize?, update?, teardown? }` (`src/framework/types.ts`). The framework owns the `requestAnimationFrame` loop and calls `frame(state, ctx, t, dt)` each tick. Diversions never touch React. **Pointer input (#9)** rides the same black-box rule: a diversion opts in with an optional `onPointer?(state, sample)` hook, and `AnimationHost` owns the canvas listeners — it normalizes each event into the diversion's own draw space (CSS px for `2d`, device px for GPU kinds, plus 0..1 `nx/ny`) and tears them down on switch/unmount. The diversion never reaches the canvas or re-derives DPR. Listeners are wired only when the hook exists.
+  - **The seam has exactly one consumer** (`falling-sand`) and three diversions that go *around* it: `particle-life-gpu`, `swarmalators` and `swarm-chemistry` attach their own `ctx.canvas` listeners in `setup()` for a drag-pan / wheel-zoom camera, because `onPointer(state, sample)` cannot express wheel, pointer capture, or a persistent view transform. That divergence is known and accepted; what it costs is that those listeners live outside React and **cannot see the `interactive` prop**. So `AnimationHost` publishes it as **`data-interactive`** on the canvas and `framework/canvasGestures.ts` reads it back (`drivenByViewer`). Use that, never a width heuristic (#290): each of the three used to infer it from `clientWidth >= 480`, which is TRUE of a gallery **tile** at viewports around 530-628px where the grid is one column — so a tile called itself interactive and its `{passive:false}` wheel handler blocked page scroll over it, on a plain mouse, with a green suite. A missing attribute reads as *not* interactive on purpose: an inert camera is visible and recoverable, an eaten scroll is neither.
+  - **`interactive` alone is NOT enough for touch — you need both halves.** Such a diversion also declares **`ownsCanvasGestures: true`**, which buys it exactly one thing: the `.anim-canvas--interactive` class (`touch-action: none`), still gated on `interactive`. Without it the class is gated on `onPointer`, which these don't declare, so the canvas kept `touch-action: auto` and a finger drag panned the camera *and* scrolled the page. The flag must never wire framework listeners — `AnimationHost`'s listener effect still keys on `onPointer` only. And the flag isn't sufficient either: below 820px `.config-preview` deliberately hands `touch-action` back (that page scrolls, its preview is sticky), while the mount is still `interactive` — so the diversion gates touch on **`gesturesYielded(cv)`** (computed `touch-action === 'none'`). `drivenByViewer` answers "is this mount viewer-driven"; `gesturesYielded` answers "may a *finger* here mean something other than scrolling". They come apart on exactly that one surface. Gate the drag on `isPrimary`, `button === 0` (pointerdown fires for the right button, and `isPrimary` is true for a mouse whichever is down), and track the owning `pointerId` — a boolean `dragging` let a *second* finger's `pointerup` kill the first finger's drag.
+  - **A camera that owns its own listeners must not read `e.movementX`.** It is absent for touch pointers on some engines, and `panX -= undefined * n` is `NaN` — which a `Math.min/max` clamp *propagates* rather than corrects, so a single touch drag destroys the view until reload. Track the previous `clientX/Y` yourself. Gate on `e.isPrimary` too, or a second finger starts a rival drag, and guard `releasePointerCapture` (it throws `NotFoundError` on the `pointercancel` path). `camera.test.ts` in each of the three covers all of it — that code shipped with **zero** tests, which is exactly how these defects survived a Chrome verify.
 - **One Zod schema per diversion is the single source of truth** — it drives the config form, the URL codec, AND the `Config` type. Each field carries `.meta({ ui, label, help, min, max, step, options })`.
 - **`kind: '2d' | 'webgl' | 'webgpu'`** selects which context the host acquires. 2D contexts are DPR-scaled so sims draw in CSS pixels; the GPU kinds (`webgl`/`webgpu`) get device pixels.
 - **Registry auto-discovers** diversions via `import.meta.glob` — a new folder is picked up with no registration. Since **#288 it is TWO globs over the same folders**: `*/meta.ts` **eager** (identity — `{id,title,description,kind}`, four strings, no imports) and `*/index.ts` **lazy** (the implementation, one emitted chunk each, fetched on demand). So a diversion folder needs **both files**, and `index.ts` spreads `...meta` rather than restating the fields — single source of truth, with `contract.test.ts` asserting the two agree and that the two globs' slug sets match. A folder with `index.ts` but no `meta.ts` silently vanishes from the gallery and 404s its route: no type error, nothing thrown. That test is the only thing that catches it.
@@ -77,6 +80,19 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
   axes. `AnimationHost`'s `interactive` prop (false for Gallery tiles) gates the
   class *and* the listeners; `.config-preview` additionally takes the gesture back
   below 820px, because that page scrolls and its preview is sticky.
+- **Touch targets: grow the LAYOUT box, not an absolute overlay (#290).** The `.sw`
+  switch reaches 44x44 under `@media (pointer: coarse)` by moving its painted pill to
+  `::before` (`::after` was already the knob) — an overlay reaching ±12px would give
+  stacked toggles *overlapping* hit areas, since two help-less booleans in a `.group`
+  sit only 15px apart, and a mis-tap flipping the wrong field is worse than a small
+  target. Two traps: `*` does not match pseudo-elements, so `::before` must state its
+  own `box-sizing` or the 1px border makes the pill 2px too tall; and base `.sw.on`
+  (0,2,0) outranks a bare `.sw` (0,1,0) **even from inside a media query**, so the
+  on-state rules must be restated there or the accent paints the whole 44px box.
+  Note this is a *usability* fix, not a conformance one — 38x20 already passes
+  WCAG 2.2 SC 2.5.8 (AA) via its **Spacing exception** at this app's 35px worst-case
+  pitch. The conformance bug in that control was the missing accessible name (4.1.2,
+  Level A): the label is a sibling `<span>`, not a `<label for>`.
 - **Safe-area padding does not belong inside a width query.** `viewport-fit=cover`
   is set, so `env(safe-area-inset-*)` is live — and a Pro-Max phone in *landscape*
   is 932px, keeping the desktop layout while carrying a ~59px inset. Overlay
