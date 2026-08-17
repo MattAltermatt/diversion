@@ -212,8 +212,11 @@ describe('createPinchTracker (#295)', () => {
     const step = p.move(pt(2, 350, 140)) // both moved +50/+40; span unchanged
     expect(step?.scale).toBeCloseTo(1, 6)
     expect(step?.cx).toBeCloseTo(250, 6)
-    // dx/dy are per-step, so the second move reports only ITS share of the travel.
-    expect((step?.dx ?? 0) + (step?.dy ?? 0)).not.toBe(0)
+    // dx/dy are the TRAVEL, not the midpoint: reporting the absolute midpoint here
+    // would still be non-zero, so assert the values.
+    // Finger 2's move takes the midpoint from (225,120) to (250,140).
+    expect(step?.dx).toBeCloseTo(25, 6)
+    expect(step?.dy).toBeCloseTo(20, 6)
   })
 
   it('never returns a non-finite scale when a pair first forms', () => {
@@ -225,6 +228,14 @@ describe('createPinchTracker (#295)', () => {
     const step = p.move(pt(2, 50, 0))
     expect(Number.isFinite(step?.scale ?? NaN)).toBe(true)
     expect(step?.scale).toBe(1)
+  })
+
+  it('is active at TWO fingers — that is the threshold the caller disarms its pan on', () => {
+    const p = createPinchTracker()
+    p.down(pt(1, 0, 0))
+    expect(p.active()).toBe(false)
+    p.down(pt(2, 100, 0))
+    expect(p.active()).toBe(true)
   })
 
   it('idles with three fingers rather than jumping between pairs', () => {

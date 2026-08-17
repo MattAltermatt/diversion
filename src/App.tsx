@@ -10,6 +10,7 @@ import { Gallery } from './routes/Gallery'
 import { ConfigScreen } from './routes/ConfigScreen'
 import { PlayScreen } from './routes/PlayScreen'
 import { DiversionErrorBoundary } from './framework/DiversionErrorBoundary'
+import { DIVERSION_SEGMENT } from './framework/routes'
 import { RouteLoadError } from './framework/RouteLoadError'
 
 // import.meta.env.BASE_URL is '/diversion/' in the Pages build, '/' in dev.
@@ -81,7 +82,7 @@ const router = createBrowserRouter(
       children: [
         { path: '/', element: <Gallery /> },
         {
-          path: '/d/:slug',
+          path: `/${DIVERSION_SEGMENT}/:slug`,
           element: (
             <DiversionRoute>
               <ConfigRoute />
@@ -89,7 +90,7 @@ const router = createBrowserRouter(
           ),
         },
         {
-          path: '/d/:slug/play',
+          path: `/${DIVERSION_SEGMENT}/:slug/play`,
           element: (
             <DiversionRoute>
               <PlayScreen />

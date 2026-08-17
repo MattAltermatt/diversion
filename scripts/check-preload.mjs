@@ -7,11 +7,13 @@
  * throttled network trace shows that the ~613 ms it exists to remove came back. The
  * four failures this catches, in the order they are most likely:
  *
- *  1. The script stops being FIRST in <head>. An inline script does not execute while
- *     a stylesheet declared before it is loading, so injected after Vite's
- *     <link rel=stylesheet> the links were created only once the CSS had arrived —
- *     the exact moment __vitePreload would have asked for them anyway. Measured on
- *     Slow 4G as a 0 ms saving with the map still shipped. This one already happened.
+ *  1. The script drifts BEHIND a stylesheet or the entry script. An inline script does
+ *     not execute while a stylesheet declared before it is loading, so appended at the
+ *     end of <head> the links were created only once the CSS had arrived — the exact
+ *     moment __vitePreload would have asked for them anyway. Measured on Slow 4G as a
+ *     0 ms saving with the map still shipped. This one already happened. The mirror
+ *     constraint is checked too: <meta charset> must stay inside the spec's 1024-byte
+ *     window, which is why the script sits immediately AFTER it rather than first.
  *  2. A slug goes missing (a chunkFileNames or facadeModuleId change), so that
  *     diversion's deep link quietly keeps the third round trip.
  *  3. A referenced file is not in dist — a stale map preloading 404s.
@@ -43,22 +45,37 @@ if (!existsSync(HTML)) {
 
 const html = readFileSync(HTML, 'utf8')
 
-// ── 1. present, and first in <head> ──────────────────────────────────────────
-const headOpen = html.indexOf('<head>')
-const afterHead = html.slice(headOpen + '<head>'.length)
-const firstTag = afterHead.indexOf('<')
-const isFirst = /^<script>\(function\(\)\{var B=/.test(afterHead.slice(firstTag))
-
-const mapMatch = /<script>\(function\(\)\{var B="([^"]*)",X=(\[.*?\]),D=X\[0\]/s.exec(html)
+// ── 1. present, and ahead of everything that would block it ──────────────────
+const mapMatch = /<script>\(function\(\)\{try\{var B="([^"]*)",X=(\[.*?\]),D=X\[0\]/s.exec(html)
 if (!mapMatch) {
   fail('no preload map in dist/index.html — the plugin did not run (#291)')
   process.exit(1)
 }
-if (!isFirst) {
+
+const scriptAt = mapMatch.index
+const blockers = [
+  ['a stylesheet', html.indexOf('<link rel="stylesheet"')],
+  ['the entry module script', html.indexOf('<script type="module"')],
+]
+for (const [what, at] of blockers) {
+  if (at >= 0 && at < scriptAt) {
+    fail(
+      `the preload script comes after ${what}. An inline script does not execute ` +
+        'while a stylesheet declared before it is loading, so the links would be ' +
+        'created at exactly the moment __vitePreload would have asked anyway — a ' +
+        '0 ms saving with the map still shipped.',
+    )
+  }
+}
+
+// ...and the charset meta must still be inside the spec's 1024-byte prescan window,
+// which is why the script is placed AFTER it rather than first in <head>. This tag is
+// ~8 kB; prepending it pushed charset to byte 8147.
+const charsetAt = html.search(/<meta[^>]+charset=/i)
+if (charsetAt < 0 || charsetAt > 1024) {
   fail(
-    'the preload script is not the FIRST element in <head>. A preceding stylesheet ' +
-      'blocks its execution, which silently reduces the saving to zero — use ' +
-      "injectTo: 'head-prepend'.",
+    `<meta charset> is at byte ${charsetAt} — it must be serialized within the first ` +
+      '1024 bytes. Place the preload script immediately AFTER it.',
   )
 }
 
@@ -84,9 +101,27 @@ if (Object.keys(slugs).length !== emitted.length) {
   )
 }
 
+// ── 2b. the map carries DEPS, not just the chunks ────────────────────────────
+// Preloading a diversion chunk without its shared deps saves nothing measurable:
+// __vitePreload asks for the deps in the same round trip, so removing one file from
+// that batch leaves the batch. A map that degrades to chunk-only still passes every
+// other check here — it is the right count, the right files, no duplicates — while
+// being worth zero.
+if (deps.length === 0) {
+  fail('preload map has NO shared deps — chunk-only preloading saves nothing (#291)')
+}
+const depless = Object.entries(slugs).filter(([, entry]) => entry.length < 2)
+if (depless.length > Object.keys(slugs).length / 2) {
+  fail(
+    `${depless.length} of ${Object.keys(slugs).length} diversions have no deps listed ` +
+      '— the dep traversal has probably broken',
+  )
+}
+
 // ── 3. every referenced file exists ──────────────────────────────────────────
 const referenced = new Set(deps)
 for (const entry of Object.values(slugs)) referenced.add(entry[0])
+const referencedFor = (slug) => slugs[slug].length
 for (const file of referenced) {
   if (!existsSync(join(DIST, file))) fail(`preload map references a missing file: ${file}`)
 }
@@ -97,8 +132,36 @@ const already = new Set(
     m[1].startsWith(base) ? m[1].slice(base.length) : m[1],
   ),
 )
+if (already.size === 0) {
+  // The duplicate check below is only meaningful if this found something. Vite emits
+  // at least the runtime and metas links; zero means the attribute order changed and
+  // the regex now matches nothing, which would let duplicates through forever.
+  fail('found no <link rel=modulepreload> in index.html to compare against — regex drift')
+}
 for (const file of referenced) {
   if (already.has(file)) fail(`preload map duplicates a link index.html already has: ${file}`)
+}
+
+// ── 4b. the shipped script actually turns a real URL into links ──────────────
+// Everything above checks the DATA. This checks the code path: the script's slug regex
+// is a copy of the router's path segment, and a route rename would leave the map
+// shipping while no link is ever created, with every other gate green.
+{
+  const script = /<script>(\(function\(\)\{try\{.*?\}\)\(\))<\/script>/s.exec(html)?.[1]
+  const slug = Object.keys(slugs)[0]
+  const appended = []
+  const doc = { createElement: () => ({}), head: { appendChild: (el) => appended.push(el) } }
+  try {
+    new Function('location', 'document', script)({ pathname: `${base}d/${slug}/play` }, doc)
+  } catch (err) {
+    fail(`the shipped preload script threw: ${err}`)
+  }
+  if (appended.length !== referencedFor(slug)) {
+    fail(
+      `the shipped script produced ${appended.length} links for /d/${slug}/play, ` +
+        `expected ${referencedFor(slug)} — the URL parsing does not match the router`,
+    )
+  }
 }
 
 // ── 5. size ──────────────────────────────────────────────────────────────────
@@ -112,6 +175,6 @@ if (process.exitCode) {
 } else {
   console.log(
     `✓ preload map: ${Object.keys(slugs).length} diversions, ${deps.length} shared deps, ` +
-      `first in <head>, index.html ${(gz / 1024).toFixed(1)} kB gz`,
+      `ahead of the stylesheet, index.html ${(gz / 1024).toFixed(1)} kB gz`,
   )
 }

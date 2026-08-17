@@ -228,10 +228,10 @@ describe('swarm-chemistry camera — wheel policy and pinch (#294, #295)', () =>
     expect(Number.isFinite(state.cam.panX)).toBe(true)
   })
 
-  it('treats TWO fingers as a pinch, not three', () => {
-    // Pins the threshold in `active()`: raising it to 3 leaves every other test in
-    // this file green, because a second finger is separately blocked from arming a
-    // drag by `isPrimary`.
+  it('switches from panning to pinching the moment a second finger lands', () => {
+    // The threshold itself lives in `active()` and is pinned in canvasGestures.test.ts;
+    // what this pins is the CONSUMER behaviour — an in-flight one-finger pan becomes a
+    // zoom rather than continuing as a pan.
     attach()
     cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
     cv.dispatchEvent(touch('pointermove', 320, 300, 1))
@@ -242,6 +242,66 @@ describe('swarm-chemistry camera — wheel policy and pinch (#294, #295)', () =>
     cv.dispatchEvent(touch('pointermove', 200, 300, 1))
     expect(state.cam.zoom).not.toBe(1)
     expect(state.cam.panX).not.toBe(panned)
+  })
+
+  it('does NOT ratchet the zoom when two fingers pan at the minimum', () => {
+    // The reason PinchStep.scale is absolute. Fingers travelling together do not move
+    // in lockstep — pointermove fires per pointer — so the span wobbles down and back
+    // up. Folding an INCREMENTAL ratio into an already-clamped zoom lets the clamp eat
+    // the shrink halves while the grow halves apply, and a pure pan creeps inward.
+    attach()
+    expect(state.cam.zoom).toBe(1) // at the clamp, which is where it ratchets
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2)) // span 200
+    let worst = 1
+    for (let i = 0; i < 30; i++) {
+      // wobble 200 -> 190 -> 200 -> ... while both fingers drift right
+      cv.dispatchEvent(touch('pointermove', 300 + i * 4, 300, 1))
+      cv.dispatchEvent(touch('pointermove', 500 + i * 4 + (i % 2 ? -10 : 0), 300, 2))
+      worst = Math.max(worst, state.cam.zoom)
+    }
+    expect(worst).toBeCloseTo(1, 6)
+    expect(state.cam.zoom).toBeCloseTo(1, 6)
+  })
+
+  it('still zooms for a REAL span change — the anti-ratchet test is not vacuous', () => {
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 900, 300, 2)) // span 200 -> 600
+    expect(state.cam.zoom).toBeCloseTo(3, 6)
+  })
+
+  it('tracks the span ABSOLUTELY across a gesture — it does not compound', () => {
+    // `step.scale` is measured against the span the pair started with, so the caller
+    // must convert it to a target (pinchZoom0 * scale) rather than multiplying the
+    // running zoom by it. Multiplying compounds: 2x then 3x would land on 6x.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2)) // span 200
+    cv.dispatchEvent(touch('pointermove', 700, 300, 2)) // span 400 -> 2x
+    expect(state.cam.zoom).toBeCloseTo(2, 6)
+    cv.dispatchEvent(touch('pointermove', 900, 300, 2)) // span 600 -> 3x, NOT 6x
+    expect(state.cam.zoom).toBeCloseTo(3, 6)
+  })
+
+  it('anchors each new pinch at the zoom it starts from', () => {
+    // Latching pinchZoom0 on step.anchor is what makes a SECOND gesture relative to
+    // where the first one left off. Without it every pinch restarts from 1x and the
+    // view snaps back the instant two fingers touch down.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 700, 300, 2)) // -> 2x
+    cv.dispatchEvent(touch('pointerup', 700, 300, 2))
+    cv.dispatchEvent(touch('pointerup', 300, 300, 1))
+    expect(state.cam.zoom).toBeCloseTo(2, 6)
+
+    // A fresh pinch, doubled again: 2x -> 4x, not back to 2x.
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 3))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 4))
+    cv.dispatchEvent(touch('pointermove', 700, 300, 4))
+    expect(state.cam.zoom).toBeCloseTo(4, 6)
   })
 
   it('hands the pan back to the finger still down, re-seeded from where it IS', () => {

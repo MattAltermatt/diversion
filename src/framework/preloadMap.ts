@@ -1,6 +1,10 @@
 /** Build-time only (#291). Imported by `vite.config.ts`, never by the app — nothing
- *  here reaches a browser as a module; the only thing that ships is the ~2 kB inline
- *  script `preloadScript()` returns.
+ *  here reaches a browser as a module. What ships is the single inline script
+ *  `preloadScript()` returns: ~350 B of code wrapped around the map, which for 137
+ *  diversions measures **8.1 kB raw / 3.0 kB gzipped**, taking index.html from 1.3 kB
+ *  to 4.2 kB gzipped. That is the number the design turns on — it is paid on every
+ *  visit, gallery included, and it is only free because it stays inside the first
+ *  congestion window (~14 kB).
  *
  *  ## The problem
  *
@@ -26,7 +30,7 @@
  *  ## Shape
  *
  *  Deps are shared across the 137 pieces, so they live in one table and each slug
- *  carries indices into it. That is what keeps the payload at ~2 kB gzipped instead
+ *  carries indices into it. That is what keeps the payload at ~3 kB gzipped instead
  *  of ~12 kB of repeated filenames — and it is paid on every visit, gallery included,
  *  so the compactness is the point. */
 
@@ -104,27 +108,36 @@ export function buildPreloadMap(bundle: Record<string, PreloadChunk>): PreloadMa
  *  Written as ES5-flavoured, single-statement JS on purpose: it runs before anything
  *  else on the page, on whatever browser opened the link, and a syntax error here
  *  would take the whole document down rather than degrade. It also does nothing at
- *  all on the gallery — `/d/` is the only route with a diversion to preload.
+ *  all on the gallery — the diversion route is the only one with anything to preload.
+ *
+ *  `segment` is the route's path segment, passed in rather than spelled here: it is
+ *  duplicated from React Router's route definitions, and a rename that missed this
+ *  regex would leave the map shipping while no link is ever created, with every gate
+ *  green. `framework/routes.ts` is the single spelling both sides read.
  *
  *  `crossOrigin = ''` is load-bearing: Vite's own modulepreload links carry
  *  `crossorigin`, and a link whose credentials mode differs from the eventual
  *  `import()` does not satisfy it — the browser fetches the file a SECOND time, so
  *  the "optimisation" would cost bytes on every deep link. */
-export function preloadScript(map: PreloadMap, base: string): string {
+export function preloadScript(map: PreloadMap, base: string, segment: string): string {
   const json = JSON.stringify([map.deps, map.slugs])
   return (
-    '(function(){' +
+    '(function(){try{' +
     `var B=${JSON.stringify(base)},X=${json},D=X[0],M=X[1];` +
     // Strip the base FIRST, then anchor at the start. A free-floating /d/ match reads
     // the base's own segments: under base "/d/" the path "/d/d/ablation/play" matches
     // at index 0 and yields the slug "d". Caught by a unit test, not by inspection.
     'var p=location.pathname;p=p.slice(p.indexOf(B)===0?B.length:1);' +
-    'var m=/^d\\/([^/?#]+)/.exec(p);if(!m)return;' +
+    `var m=/^${segment}\\/([^/?#]+)/.exec(p);if(!m)return;` +
     'var e=M[decodeURIComponent(m[1])];if(!e)return;' +
     'for(var i=0;i<e.length;i++){' +
     'var l=document.createElement("link");' +
     'l.rel="modulepreload";l.crossOrigin="";l.fetchPriority="low";l.href=B+(i?D[e[i]]:e[0]);' +
     'document.head.appendChild(l)}' +
-    '})()'
+    // A throw here would be the FIRST script in the document. decodeURIComponent
+    // rejects a malformed escape ('%zz'), which a crawler or a hand-typed URL can
+    // produce, and the file claims this degrades rather than failing loudly — so make
+    // that true rather than merely intended.
+    '}catch(e){}})()'
   )
 }

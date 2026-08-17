@@ -5,7 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Explicit .ts extension: tsconfig.node.json resolves with `module: nodenext`
 // (allowImportingTsExtensions is on), unlike the app project's bundler mode.
 import { resolveBase } from './src/framework/basePath.ts'
-import { buildPreloadMap, preloadScript } from './src/framework/preloadMap.ts'
+import { buildPreloadMap, preloadScript, type PreloadChunk } from './src/framework/preloadMap.ts'
+import { DIVERSION_SEGMENT } from './src/framework/routes.ts'
 
 /** Collapse the deep-link waterfall (#291).
  *
@@ -21,13 +22,20 @@ import { buildPreloadMap, preloadScript } from './src/framework/preloadMap.ts'
  * function this is a shell around, live in src/framework/preloadMap.ts (unit-tested;
  * this wrapper is deliberately too thin to hold a bug of its own).
  *
- * ⚠️ `injectTo: 'head-prepend'` is LOAD-BEARING, and the whole point of the plugin is
- * lost without it. An inline `<script>` does not execute while a stylesheet declared
- * BEFORE it is still loading — so injected at the end of head, after Vite's
- * `<link rel=stylesheet>`, our links were created only once the CSS had arrived.
- * Measured on Slow 4G at the tail of the entry's own download, which is precisely the
- * moment `__vitePreload` would have asked for them anyway: a 0 ms saving, with the
- * map still shipped. Prepended, it runs on the first parse tick.
+ * ⚠️ WHERE the tag goes is the whole plugin. An inline `<script>` does not execute
+ * while a stylesheet declared BEFORE it is still loading — so appended at the end of
+ * head, after Vite's `<link rel=stylesheet>`, the links were created only once the CSS
+ * had arrived. Measured on Slow 4G at the tail of the entry's own download, which is
+ * precisely the moment `__vitePreload` would have asked for them anyway: a 0 ms
+ * saving, with the map still shipped.
+ *
+ * But NOT first in head either: this tag is ~8 kB, and `<meta charset>` must be
+ * serialized within the first 1024 bytes to conform (Chrome's prescan reads no
+ * further). Pages sends a charset header that outranks the meta, so prepending was not
+ * a live bug — it was a non-conforming document that breaks under `file://` or any
+ * host that omits the header. So it goes IMMEDIATELY AFTER the charset meta: before
+ * every stylesheet and every script, and inside the 1024-byte window. Both halves are
+ * asserted by `npm run check:preload`.
  *
  * `enforce: 'post'` is only about seeing the finished bundle; it does not affect
  * where the tag lands. Guarded after the build by `npm run check:preload`. */
@@ -37,13 +45,19 @@ function preloadDeepLink(base: string) {
     enforce: 'post' as const,
     transformIndexHtml: {
       order: 'post' as const,
-      handler(_html: string, ctx: { bundle?: Record<string, never> }) {
+      handler(html: string, ctx: { bundle?: Record<string, PreloadChunk> }) {
         if (!ctx.bundle) return // dev / serve: no bundle, and no waterfall to collapse
         const map = buildPreloadMap(ctx.bundle)
         if (!Object.keys(map.slugs).length) return
-        return [
-          { tag: 'script', children: preloadScript(map, base), injectTo: 'head-prepend' as const },
-        ]
+        const tag = `<script>${preloadScript(map, base, DIVERSION_SEGMENT)}</script>`
+        const charset = /<meta[^>]+charset=[^>]*>/i.exec(html)
+        // No charset meta to anchor to: fall back to first-in-head, which is the
+        // performance-correct placement and is what the guard would then measure.
+        if (!charset) {
+          return [{ tag: 'script', children: preloadScript(map, base, DIVERSION_SEGMENT), injectTo: 'head-prepend' as const }]
+        }
+        const at = charset.index + charset[0].length
+        return `${html.slice(0, at)}\n    ${tag}${html.slice(at)}`
       },
     },
   }

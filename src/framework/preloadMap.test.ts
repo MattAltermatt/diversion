@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildPreloadMap, preloadScript, type PreloadChunk } from './preloadMap'
+import { DIVERSION_SEGMENT, diversionPath } from './routes'
 
 /** A bundle shaped like the real one: an entry with two static deps, three diversion
  *  chunks with overlapping shared deps, and one asset that is not a chunk at all. */
@@ -73,8 +74,23 @@ describe('buildPreloadMap (#291)', () => {
     expect(map.deps.filter((d) => d === 'assets/schemas-DDD.js')).toHaveLength(1)
   })
 
-  it('is deterministic — the same bundle produces the same map', () => {
-    expect(buildPreloadMap(bundle)).toEqual(buildPreloadMap(bundle))
+  it('is ordered by NAME, so a hash-only change cannot reorder the map', () => {
+    // Comparing a pure function to itself is true for any implementation, sorted or
+    // not. The property that matters is that re-hashing the same modules — which is
+    // what a deploy does — produces the same order.
+    const rehashed: Record<string, PreloadChunk> = {}
+    const rename = (f: string) => f.replace(/-(\w+)\.js$/, '-ZZZ9.js')
+    for (const [k, c] of Object.entries(bundle)) {
+      rehashed[rename(k)] = {
+        ...c,
+        fileName: rename(c.fileName),
+        imports: c.imports?.map(rename),
+      }
+    }
+    const a = buildPreloadMap(bundle)
+    const b = buildPreloadMap(rehashed)
+    expect(b.deps.map(rename)).toEqual(a.deps.map(rename))
+    expect(b.slugs.ablation.slice(1)).toEqual(a.slugs.ablation.slice(1))
   })
 
   it('returns an empty map rather than throwing when there are no diversion chunks', () => {
@@ -111,12 +127,17 @@ describe('preloadScript (#291) — the code that actually ships', () => {
       createElement: () => ({}) as Record<string, string>,
       head: { appendChild: (el: Record<string, string>) => appended.push(el) },
     }
-    new Function('location', 'document', preloadScript(map, base))({ pathname }, doc)
+    new Function('location', 'document', preloadScript(map, base, DIVERSION_SEGMENT))(
+      { pathname },
+      doc,
+    )
     return appended
   }
 
   it('preloads the deep link’s diversion and its deps, base-prefixed', () => {
-    const links = run('/diversion/d/ablation/play')
+    // Path built from the ROUTER's segment, not a literal: renaming the route without
+    // the script's regex would leave the map shipping and no link ever created.
+    const links = run(`/diversion${diversionPath('ablation')}/play`)
     expect(links.map((l) => l.href).sort()).toEqual([
       '/diversion/assets/color-EEE.js',
       '/diversion/assets/d/ablation-111.js',
@@ -126,7 +147,7 @@ describe('preloadScript (#291) — the code that actually ships', () => {
   })
 
   it('matches the config route as well as /play', () => {
-    expect(run('/diversion/d/plasma')).toHaveLength(2)
+    expect(run(`/diversion${diversionPath('plasma')}`)).toHaveLength(2)
   })
 
   it('does nothing on the gallery', () => {

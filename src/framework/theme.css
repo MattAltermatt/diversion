@@ -167,6 +167,14 @@ button {
 .route-error-actions button {
   padding: 8px 16px;
 }
+/* The retry button disables itself while the reload is in flight. Signal it with the
+   cursor rather than opacity — dimming would cut contrast (invariant 5) on the one
+   control a stranded viewer has. */
+.route-error-actions button:disabled {
+  cursor: progress;
+  border-color: var(--line);
+  color: var(--muted);
+}
 
 /* ── Config screen ────────────────────────────────────────────────────────── */
 .config-screen {
