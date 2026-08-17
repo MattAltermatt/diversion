@@ -12,7 +12,12 @@
 // tile interactive and did exactly that.
 import { defineDiversion, type Size } from '../../framework/types'
 import { getSharedDevice } from '../../framework/webgpu'
-import { drivenByViewer, gesturesYielded } from '../../framework/canvasGestures'
+import {
+  createPinchTracker,
+  drivenByViewer,
+  gesturesYielded,
+  wheelOwned,
+} from '../../framework/canvasGestures'
 import { particleLifeGpuSchema, type ParticleLifeGpuConfig } from './schema'
 import { particleLifeGpuPresets } from './presets'
 import { reconcileMatrix } from './reconcile'
@@ -83,25 +88,42 @@ const interactive = () => drivenByViewer(cv)
     state.cam.panY = Math.min(maxPanY, Math.max(-maxPanY, state.cam.panY))
   }
 
-  const onWheel = (e: WheelEvent) => {
-    if (!interactive()) return
-    e.preventDefault()
+  /** Scale the view by `factor` about a point in DEVICE pixels, keeping the world
+   *  under that point pinned to it. The wheel drives it with the cursor; a pinch
+   *  drives it with the midpoint between two fingers (#295). */
+  const zoomAbout = (px: number, py: number, factor: number) => {
     const cx = cv.width / 2, cy = cv.height / 2
     const { w, h } = dims()
-    const cur = cursorDev(e)
     const sBefore = scaleOf()
-    // world point currently under the cursor
-    const wx = w / 2 + state.cam.panX + (cur.x - cx) / sBefore
-    const wy = h / 2 + state.cam.panY + (cur.y - cy) / sBefore
+    // world point currently under that point
+    const wx = w / 2 + state.cam.panX + (px - cx) / sBefore
+    const wy = h / 2 + state.cam.panY + (py - cy) / sBefore
     // min zoom = 1 (cover-fit): never zoom out past the world filling the viewport.
-    state.cam.zoom = Math.min(16, Math.max(1, state.cam.zoom * Math.exp(-e.deltaY * 0.0015)))
+    state.cam.zoom = Math.min(16, Math.max(1, state.cam.zoom * factor))
     const sAfter = coverScale() * state.cam.zoom
-    // keep that world point pinned under the cursor, then clamp inside the arena
-    state.cam.panX = wx - (cur.x - cx) / sAfter - w / 2
-    state.cam.panY = wy - (cur.y - cy) / sAfter - h / 2
+    // keep that world point pinned, then clamp inside the arena
+    state.cam.panX = wx - (px - cx) / sAfter - w / 2
+    state.cam.panY = wy - (py - cy) / sAfter - h / 2
     clampPan()
     state.camDirty = true
   }
+
+  const onWheel = (e: WheelEvent) => {
+    // NOT `interactive()` alone (#294): on the Config preview below 820px this canvas
+    // is sticky over a form the viewer came to scroll, and consuming the wheel there
+    // ate the scroll. `wheelOwned` declines when something behind the canvas can
+    // scroll — unless the viewer asked for zoom with ctrl, which is also how a
+    // trackpad pinch arrives.
+    if (!wheelOwned(cv, e)) return
+    e.preventDefault()
+    const cur = cursorDev(e)
+    zoomAbout(cur.x, cur.y, Math.exp(-e.deltaY * 0.0015))
+  }
+
+  // Two-finger pinch (#295). Only the decoding is shared; the transform it feeds is
+  // this world's — toroidal, cover-fit, y-down — and stays here.
+  const pinch = createPinchTracker()
+  const canPinch = () => interactive() && gesturesYielded(cv)
 
   // The pointer that owns the drag, not a boolean: onUp used to accept ANY pointerId,
   // so on a full-bleed Play canvas a second finger lifting ended the primary finger's
@@ -114,12 +136,31 @@ const interactive = () => drivenByViewer(cv)
   // ourselves are defined for every pointer type.
   let last = { x: 0, y: 0 }
   const onDown = (e: PointerEvent) => {
+    if (canPinch()) pinch.down(e)
+    if (pinch.active()) {
+      // A second finger turns an in-flight pan into a pinch. Drop the drag rather
+      // than running both: `last` would keep chasing one finger while the view
+      // scales under it, and the world would slide away as you zoomed.
+      activeId = null
+      return
+    }
     if (!canDrag(e)) return
     activeId = e.pointerId
     last = { x: e.clientX, y: e.clientY }
     cv.setPointerCapture?.(e.pointerId)
   }
   const onMove = (e: PointerEvent) => {
+    const step = canPinch() ? pinch.move(e) : null
+    if (step) {
+      const mid = cursorDev({ clientX: step.cx, clientY: step.cy })
+      zoomAbout(mid.x, mid.y, step.scale)
+      return
+    }
+    // No guard on `pinch.active()` here: the drag is already disarmed at pointerdown
+    // the moment a second finger lands, and there is no path that re-arms it while a
+    // multi-finger gesture is in flight. A defensive check here measured as dead code
+    // — deleting it fails no test, which is exactly why it should not sit here
+    // looking load-bearing.
     if (e.pointerId !== activeId) return
     const r = cv.getBoundingClientRect()
     const sc = scaleOf()
@@ -130,6 +171,15 @@ const interactive = () => drivenByViewer(cv)
     state.camDirty = true
   }
   const onUp = (e: PointerEvent) => {
+    const remaining = pinch.up(e)
+    if (remaining) {
+      // Pinch -> pan handover. Adopt the finger still down and re-seed `last` from
+      // its CURRENT position: keeping the stale one would apply every pixel it
+      // travelled during the pinch as a single pan step.
+      activeId = remaining.pointerId
+      last = { x: remaining.x, y: remaining.y }
+      return
+    }
     if (e.pointerId !== activeId) return
     activeId = null
     // Guarded: releasePointerCapture throws NotFoundError for a pointer that is no

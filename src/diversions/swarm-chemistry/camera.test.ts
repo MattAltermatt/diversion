@@ -115,3 +115,119 @@ describe('swarm-chemistry camera (#290)', () => {
     expect(() => cv.dispatchEvent(ptr('pointercancel', 400, 300))).not.toThrow()
   })
 })
+
+// ── #294 wheel policy + #295 pinch ───────────────────────────────────────────
+describe('swarm-chemistry camera — wheel policy and pinch (#294, #295)', () => {
+  let cv: HTMLCanvasElement
+  let state: CamState
+  const attach = (yieldTouch = true) => {
+    cv = makeCanvas(true)
+    // The framework grants `touch-action: none` on Play; the Config preview below
+    // 820px deliberately does not, and that is what canPinch reads back.
+    if (yieldTouch) cv.style.touchAction = 'none'
+    state = makeState()
+    attachCamera(cv, state as never)
+  }
+
+  const wheelAt = (deltaY: number, ctrlKey = false, x = 400, y = 300) =>
+    new WheelEvent('wheel', { deltaY, clientX: x, clientY: y, ctrlKey, cancelable: true, bubbles: true })
+  const touch = (type: string, x: number, y: number, pointerId: number) =>
+    new PointerEvent(type, {
+      clientX: x, clientY: y, pointerId, pointerType: 'touch',
+      isPrimary: pointerId === 1, bubbles: true,
+    })
+
+  /** jsdom reports 0 for every layout box, so a scrollable page has to be stated. */
+  const withPageScroll = (run: () => void) => {
+    const el = document.documentElement
+    const sh = Object.getOwnPropertyDescriptor(el, 'scrollHeight')
+    const ch = Object.getOwnPropertyDescriptor(el, 'clientHeight')
+    Object.defineProperty(el, 'scrollHeight', { value: 3612, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { value: 800, configurable: true })
+    try { run() } finally {
+      if (sh) Object.defineProperty(el, 'scrollHeight', sh)
+      else delete (el as unknown as Record<string, unknown>).scrollHeight
+      if (ch) Object.defineProperty(el, 'clientHeight', ch)
+      else delete (el as unknown as Record<string, unknown>).clientHeight
+    }
+  }
+
+  it('consumes the wheel where nothing behind the canvas scrolls (Play)', () => {
+    attach()
+    const e = wheelAt(-600)
+    cv.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(true)
+    expect(state.cam.zoom).toBeGreaterThan(1)
+  })
+
+  it('DECLINES a plain wheel over a scrolling page — the #294 bug', () => {
+    attach()
+    withPageScroll(() => {
+      const e = wheelAt(-600)
+      cv.dispatchEvent(e)
+      expect(e.defaultPrevented, 'ate the page scroll').toBe(false)
+      expect(state.cam.zoom).toBe(1)
+    })
+  })
+
+  it('still zooms there when the wheel carries ctrl — i.e. a trackpad pinch', () => {
+    attach()
+    withPageScroll(() => {
+      const e = wheelAt(-600, true)
+      cv.dispatchEvent(e)
+      expect(e.defaultPrevented).toBe(true)
+      expect(state.cam.zoom).toBeGreaterThan(1)
+    })
+  })
+
+  it('zooms on a two-finger pinch where the framework took the gesture', () => {
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 600, 300, 2)) // span 200 -> 300
+    expect(state.cam.zoom).toBeCloseTo(1.5, 6)
+    expect(Number.isFinite(state.cam.panX)).toBe(true)
+    expect(Number.isFinite(state.cam.panY)).toBe(true)
+  })
+
+  it('does not pinch where the browser still owns touch (Config preview <820px)', () => {
+    attach(false)
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointermove', 600, 300, 2))
+    expect(state.cam.zoom).toBe(1)
+  })
+
+  it('does not pan while a multi-finger gesture is in flight', () => {
+    // Three fingers: no stable pair to measure, so the pinch idles — and the drag
+    // must stay disarmed rather than quietly resuming. A pan here would chase one
+    // finger while the other two moved.
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 320, 300, 1)) // a real one-finger pan
+    const panned = state.cam.panX
+    expect(panned, 'a zero pan would make the assertion below vacuous').not.toBe(0)
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    cv.dispatchEvent(touch('pointerdown', 700, 300, 3))
+    cv.dispatchEvent(touch('pointermove', 100, 500, 1)) // finger 1 travels a long way
+    expect(state.cam.panX).toBe(panned)
+    expect(state.cam.zoom).toBe(1)
+  })
+
+  it('hands the pan back to the finger still down, re-seeded from where it IS', () => {
+    attach()
+    cv.dispatchEvent(touch('pointerdown', 300, 300, 1))
+    cv.dispatchEvent(touch('pointerdown', 500, 300, 2))
+    // BOTH fingers move during the pinch — finger 1 ends up 40px from where it was
+    // pressed. That is what makes this test able to fail: keeping the `last` captured
+    // at pointerdown would leave the handover reading 300 instead of 260, and the
+    // move below would compute a zero delta.
+    cv.dispatchEvent(touch('pointermove', 260, 300, 1))
+    cv.dispatchEvent(touch('pointermove', 600, 300, 2))
+    cv.dispatchEvent(touch('pointerup', 600, 300, 2))
+    const before = state.cam.panX
+    cv.dispatchEvent(touch('pointermove', 300, 300, 1))
+    expect(state.cam.panX, 'the surviving finger did not resume the pan').not.toBe(before)
+    expect(Number.isFinite(state.cam.panX)).toBe(true)
+  })
+})
