@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { OfflineToggle } from '../framework/OfflineToggle'
 import { listDiversions, loadDiversion, peekDiversion } from '../framework/registry'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
@@ -153,6 +154,7 @@ export function Gallery() {
       <header className="gallery-head">
         <h1 className="gallery-title">Diversions</h1>
         <p className="gallery-sub">A collection of small animated things.</p>
+        <OfflineToggle />
       </header>
       <div className="gallery-grid">
         {items.map((m) => (

@@ -151,10 +151,22 @@ for (const file of referenced) {
   const slug = Object.keys(slugs)[0]
   const appended = []
   const doc = { createElement: () => ({}), head: { appendChild: (el) => appended.push(el) } }
+  // `window` is shadowed too: the script republishes the map on it for #293, and the
+  // script's own try/catch would otherwise swallow the ReferenceError and report zero
+  // links — which is exactly what this check would then blame on the router.
+  const win = {}
   try {
-    new Function('location', 'document', script)({ pathname: `${base}d/${slug}/play` }, doc)
+    new Function(
+      'location',
+      'document',
+      'window',
+      script,
+    )({ pathname: `${base}d/${slug}/play` }, doc, win)
   } catch (err) {
     fail(`the shipped preload script threw: ${err}`)
+  }
+  if (!win.__diversionAssets) {
+    fail('the script did not republish the asset map — "keep the gallery offline" (#293) reads it')
   }
   if (appended.length !== referencedFor(slug)) {
     fail(

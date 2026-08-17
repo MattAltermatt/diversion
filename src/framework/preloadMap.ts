@@ -51,6 +51,14 @@ export interface PreloadMap {
   deps: string[]
   /** slug -> [its own chunk fileName, ...indices into `deps`]. */
   slugs: Record<string, (string | number)[]>
+  /** Emitted assets that are RUNTIME-cached rather than precached, and that no
+   *  diversion chunk statically imports — today just neural-ca's 1.17 MB weight file,
+   *  which it fetches by `?url` at run time. Nothing preloads these (they belong to
+   *  one piece, and only once it starts); they are here because this map is the only
+   *  place in the app that knows the emitted, content-hashed filename of every
+   *  runtime asset, which is exactly what "keep the whole gallery offline" (#293)
+   *  needs to enumerate. */
+  extras: string[]
 }
 
 const SLUG_OF_FACADE = /\/src\/diversions\/([^/]+)\/index\.ts$/
@@ -90,6 +98,13 @@ export function buildPreloadMap(bundle: Record<string, PreloadChunk>): PreloadMa
     return deps.length - 1
   }
 
+  // JSON emitted under assets/ is data a diversion fetches at run time, never
+  // precached (globPatterns takes `assets/*.{js,css}` only). Sorted for a stable map.
+  const extras = Object.values(bundle)
+    .filter((c) => c.type === 'asset' && /^assets\/[^/]+\.json$/.test(c.fileName))
+    .map((c) => c.fileName)
+    .sort()
+
   const slugs: Record<string, (string | number)[]> = {}
   for (const chunk of chunks) {
     const slug = chunk.facadeModuleId?.match(SLUG_OF_FACADE)?.[1]
@@ -99,7 +114,7 @@ export function buildPreloadMap(bundle: Record<string, PreloadChunk>): PreloadMa
       .sort() // stable output: a hash-only change must not reorder the map
     slugs[slug] = [chunk.fileName, ...needed.map(indexOfDep)]
   }
-  return { deps, slugs }
+  return { deps, slugs, extras }
 }
 
 /** The inline script injected into index.html. Reads the slug out of the URL and
@@ -120,10 +135,15 @@ export function buildPreloadMap(bundle: Record<string, PreloadChunk>): PreloadMa
  *  `import()` does not satisfy it — the browser fetches the file a SECOND time, so
  *  the "optimisation" would cost bytes on every deep link. */
 export function preloadScript(map: PreloadMap, base: string, segment: string): string {
-  const json = JSON.stringify([map.deps, map.slugs])
+  const json = JSON.stringify([map.deps, map.slugs, map.extras])
   return (
     '(function(){try{' +
     `var B=${JSON.stringify(base)},X=${json},D=X[0],M=X[1];` +
+    // Republish the map BEFORE the early returns: the gallery takes the first of them,
+    // and the gallery is exactly where "keep the whole gallery offline" (#293) reads
+    // it. The alternative is a second enumeration of 137 content-hashed filenames —
+    // duplicated bytes, and a second thing that has to stay true.
+    'window.__diversionAssets=X;' +
     // Strip the base FIRST, then anchor at the start. A free-floating /d/ match reads
     // the base's own segments: under base "/d/" the path "/d/d/ablation/play" matches
     // at index 0 and yields the slug "d". Caught by a unit test, not by inspection.

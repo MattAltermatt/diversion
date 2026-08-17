@@ -97,8 +97,20 @@ describe('buildPreloadMap (#291)', () => {
     // A test build or a future single-page harness must not become a broken build.
     // `npm run check:preload` is what fails if the real build stops emitting them.
     expect(buildPreloadMap({ 'a.js': { type: 'chunk', fileName: 'a.js', isEntry: true } })).toEqual(
-      { deps: [], slugs: {} },
+      { deps: [], slugs: {}, extras: [] },
     )
+  })
+
+  it('lists runtime-cached JSON assets as extras (#293 enumerates them)', () => {
+    // neural-ca's weights are fetched by `?url` at run time and never precached, so
+    // this map is the only place in the app that knows their hashed filename.
+    const withWeights: Record<string, PreloadChunk> = {
+      ...bundle,
+      'assets/models-HHH.json': { type: 'asset', fileName: 'assets/models-HHH.json' },
+    }
+    expect(buildPreloadMap(withWeights).extras).toEqual(['assets/models-HHH.json'])
+    // Not the CSS, and not anything under assets/d/.
+    expect(buildPreloadMap(bundle).extras).toEqual([])
   })
 
   it('does not follow DYNAMIC imports', () => {

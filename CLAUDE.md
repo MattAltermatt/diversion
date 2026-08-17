@@ -118,6 +118,15 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
   if you forget to strip comments — a comment quoting the thing you're asserting
   will satisfy a file-wide match.
 
+### Opt-in whole-gallery offline (#293)
+
+`OfflineToggle` in the gallery header; the engine (`framework/offlineWarm.ts`) is **dynamically imported on first press**, so neither it nor the sprite-manifest fetch touches the entry chunk. Warming is just `fetch()` of each URL — the service worker's existing `CacheFirst` / `StaleWhileRevalidate` routes store the responses, so there is no new caching machinery. Live-validated: 165 targets (137 chunks + the 1.17 MB weights + `credits.json` + 26 sprites), then a piece never opened runs with the network genuinely dead.
+
+- **The URL list comes from #291's map, republished on `window.__diversionAssets`.** Nothing else in the app knows every emitted content-hashed filename: `import.meta.glob` yields *loaders*, not URLs, and `?url` on a JS module makes Vite emit a **second copy** of the file as an asset. The publish must happen **before** the script's early returns — the gallery takes the first one, and the gallery is where the control lives. `PreloadMap.extras` exists for the same reason: neural-ca's weights are fetched by `?url` at run time and never precached, so the build map is the only place their hashed name is known.
+- **Shared deps are excluded from the warm list** — they are precached already, so warming them re-downloads ~170 kB for nothing. Sprites come from `public/pictures/credits.json` (an array of `{slug,…}`, image at `${slug}.png` — the same derivation `pictureStore.pictureUrl` uses) fetched at run time, because `public/` is copied verbatim and never appears in the bundle.
+- **A failed fetch is COUNTED, not thrown** — one chunk that moved mid-deploy must not abandon the other 137 — and concurrency is capped at 6.
+- **Deploys are handled by asking, not by re-downloading.** Content hashes all move on a deploy, so a warmed copy goes stale and LRU evicts it. A fingerprint of the asset set is stored; a mismatch turns the control back into an offer ("Update offline copy") rather than silently repeating ~2.1 MB on someone's cellular data.
+
 ### Deep-link preload (#291) — the one piece of bespoke build code
 
 `vite.config.ts`'s `preloadDeepLink` plugin emits a `slug -> [chunk, ...shared deps]` map plus ~350 B of code into `index.html` (one tag, **8.1 kB raw / 3.0 kB gz** for 137 diversions — index.html goes 1.3 → 4.2 kB gz, paid on every visit and free only because it stays inside the ~14 kB first congestion window), turning the URL's slug into `<link rel=modulepreload>` tags. The pure half is `src/framework/preloadMap.ts` (unit-tested against a hand-built bundle, including the emitted script itself, run through `new Function`); the plugin is a shell too thin to hold a bug. `npm run check:preload` re-checks the built `dist/` in CI.
