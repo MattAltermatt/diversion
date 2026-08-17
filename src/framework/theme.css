@@ -130,6 +130,44 @@ button {
   background: var(--bg);
 }
 
+/* ── Route load failure ───────────────────────────────────────────────────────
+   Shown when a diversion's chunk fails to fetch (#292) — in practice, a deploy
+   replaced its hashed filename under a tab still on the old index.html. Full
+   height and centred rather than an inline note: unlike a failed gallery tile,
+   this failure IS the screen. */
+.route-error {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+.route-error-body {
+  max-width: 32rem;
+  text-align: center;
+}
+.route-error-title {
+  margin: 0 0 8px;
+  color: var(--fg);
+}
+.route-error-hint {
+  margin: 0 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.route-error-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.route-error-actions button {
+  padding: 8px 16px;
+}
+
 /* ── Config screen ────────────────────────────────────────────────────────── */
 .config-screen {
   display: grid;

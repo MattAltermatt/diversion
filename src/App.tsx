@@ -10,6 +10,7 @@ import { Gallery } from './routes/Gallery'
 import { ConfigScreen } from './routes/ConfigScreen'
 import { PlayScreen } from './routes/PlayScreen'
 import { DiversionErrorBoundary } from './framework/DiversionErrorBoundary'
+import { RouteLoadError } from './framework/RouteLoadError'
 
 // import.meta.env.BASE_URL is '/diversion/' in the Pages build, '/' in dev.
 const baseUrl = import.meta.env.BASE_URL
@@ -31,8 +32,9 @@ function ConfigRoute() {
 // case rather than resolving undefined, so the route reports an error instead of
 // claiming the diversion doesn't exist. No `maxRetries` here on purpose — an auto
 // remount would replay the same cached rejection immediately and burn every attempt
-// without a pause (see loadDiversion). Recovering from a stale hashed filename after
-// a deploy wants a user-driven retry, which is its own piece of work.
+// without a pause (see loadDiversion), and no re-`import()` can succeed anyway: the
+// browser's module map caches the FAILURE against the URL. So the fallback is
+// `RouteLoadError`, whose way out is a reload (#292).
 //
 // The fallback is a bare themed panel, not a spinner: the median diversion chunk is
 // 3.4 kB gzipped, so on anything but a cold slow connection it is a sub-frame flash,
@@ -40,7 +42,7 @@ function ConfigRoute() {
 function DiversionRoute({ children }: { children: React.ReactNode }) {
   const { slug } = useParams()
   return (
-    <DiversionErrorBoundary key={slug}>
+    <DiversionErrorBoundary key={slug} fallback={<RouteLoadError />}>
       <Suspense fallback={<div className="route-loading" />}>{children}</Suspense>
     </DiversionErrorBoundary>
   )

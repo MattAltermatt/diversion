@@ -68,11 +68,12 @@ export function peekDiversion(id: string): Diversion | undefined {
  *  imports before the boundary catches, and inside `act()` it does not terminate at
  *  all (57k warnings in 30s). Keeping the rejection surfaces the error in one pass.
  *
- *  The consequence is that a failed chunk is terminal for that id until a reload.
- *  Recovering from it (the long-lived-SPA case where a deploy replaced the hashed
- *  filename under an open tab) needs a remount to get a fresh fiber, i.e. a retry
- *  affordance on the route's boundary — worth doing, but it is a feature, not this
- *  cache's job. */
+ *  The consequence is that a failed chunk is terminal for that id until a reload —
+ *  and a reload is genuinely the only cure, not merely the easy one. The browser's
+ *  module map caches the FAILURE against the URL, measured in Chrome as three
+ *  `import()` calls of a 404ing specifier producing exactly ONE network request. So
+ *  even a perfect cache-eviction-plus-remount would replay the same rejection with
+ *  no fetch. `RouteLoadError` (#292) is the affordance; it reloads. */
 export function loadDiversion(id: string): Promise<Diversion | undefined> {
   const hit = pending.get(id)
   if (hit) return hit
