@@ -1,39 +1,28 @@
+import { fingerprintOf, publishedAssets } from './offlineState'
+
 /** "Keep the whole gallery offline" (#293) — the case the shell-only precache loses.
  *
  *  #289 ships a **shell-only** precache: the app boots offline, but a piece you have
  *  never opened has never been runtime-cached and will not run. That is the right
- *  default — precaching everything costs every first visit 1.7 MB, half of it one
- *  piece's neural-net weights — but "installed it to browse on a flight" is a real
- *  case, and the honest answer is to offer it rather than to spend it on everyone.
+ *  default — precaching everything costs every first visit ~1.6 MB, more than half of
+ *  it one piece's neural-net weights — but "installed it to browse on a flight" is a
+ *  real case, and the honest answer is to offer it rather than to spend it on everyone.
  *
- *  This module is deliberately **lazy** (the Gallery imports it on first press), so
- *  none of it, and none of the sprite manifest fetch, is in the entry chunk.
+ *  This module is the ENGINE, and it must stay reachable only through `await import()`
+ *  — see `offlineState.ts` for why that is a mechanical constraint rather than a
+ *  preference, and for the guard that keeps it true.
  *
  *  It needs no new caching machinery: warming is `fetch()` of each URL, and the
  *  service worker's existing CacheFirst / StaleWhileRevalidate routes store the
- *  responses. With no service worker at all it degrades to warming the HTTP cache,
- *  which is strictly less durable and still not wrong. */
-
-/** The build-time asset map, republished on `window` by the #291 preload script. It is
- *  the only place in the app that knows every emitted, content-hashed filename. */
-interface PublishedAssets {
-  0: string[] // shared dep chunk filenames (precached already — not warmed)
-  1: Record<string, (string | number)[]> // slug -> [own chunk, ...dep indices]
-  2: string[] // runtime-cached extras (neural-ca's weights)
-}
-
-declare global {
-  interface Window {
-    __diversionAssets?: PublishedAssets
-  }
-}
+ *  responses. `verifyCached` is what turns that from an assumption into a check. */
 
 export interface WarmTargets {
   urls: string[]
-  /** A cheap fingerprint of this build's asset set. Content-hashed filenames change on
-   *  every deploy that changes anything, so a stored fingerprint that no longer matches
-   *  means "the offline copy you took is stale", which the control says out loud rather
-   *  than silently re-downloading 1.7 MB on someone's cellular connection. */
+  /** How many of `urls` are diversion chunks. Zero means the build map was never
+   *  published and only the sprites were found — a state the caller must NOT report
+   *  as success, because not one piece would have been made available offline. */
+  chunkCount: number
+  /** A cheap fingerprint of this build's asset set, for detecting a stale copy. */
   fingerprint: string
 }
 
@@ -47,7 +36,7 @@ const SPRITES = 'pictures/credits.json'
  *  — and it is fail-soft: no manifest just means Ablation's bundled pictures are not
  *  warmed, not that the whole operation fails. */
 export async function collectTargets(base: string, signal?: AbortSignal): Promise<WarmTargets> {
-  const published = typeof window === 'undefined' ? undefined : window.__diversionAssets
+  const published = publishedAssets()
   const slugs = published?.[1] ?? {}
   const extras = published?.[2] ?? []
 
@@ -73,18 +62,7 @@ export async function collectTargets(base: string, signal?: AbortSignal): Promis
     // No manifest, already offline, or a shape we don't recognise. Warm the rest.
   }
 
-  return { urls, fingerprint: fingerprintOf(chunks, extras) }
-}
-
-/** Order-independent, cheap, and changes whenever any content hash does. */
-export function fingerprintOf(chunks: string[], extras: string[]): string {
-  const all = [...chunks, ...extras].sort().join('\n')
-  let h = 2166136261
-  for (let i = 0; i < all.length; i++) {
-    h ^= all.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return `${(h >>> 0).toString(36)}:${chunks.length + extras.length}`
+  return { urls, chunkCount: chunks.length, fingerprint: fingerprintOf(chunks, extras) }
 }
 
 export interface WarmProgress {
@@ -97,10 +75,10 @@ export interface WarmProgress {
  *
  *  A failed fetch is COUNTED, not thrown: one 404 from a chunk that moved mid-deploy
  *  must not abandon the other 137. The caller decides what a partial result means.
- *  Bounded concurrency because 138 simultaneous requests on a phone is how you get a
+ *  Bounded concurrency because 165 simultaneous requests on a phone is how you get a
  *  browser to start dropping them — and because a visible, steady progress bar is the
- *  point (1.7 MB is ~11 s of saturated downlink on a slow connection; a silent spinner
- *  would be worse than not offering this at all). */
+ *  point (~1.6 MB is ~10 s of saturated downlink on a slow connection; a silent
+ *  spinner would be worse than not offering this at all). */
 export async function warmAll(
   urls: string[],
   onProgress: (p: WarmProgress) => void,
@@ -133,34 +111,25 @@ export async function warmAll(
   return { ...progress }
 }
 
-const STORE_KEY = 'diversion.offline.v1'
-
-/** What the viewer last warmed, if anything. Fail-soft in every direction: Safari
- *  private mode throws on `localStorage` access itself. */
-export function readWarmed(): { fingerprint: string } | null {
+/** Did any of this actually land in a durable cache?
+ *
+ *  The whole feature rests on an assumption — that the service worker's runtime routes
+ *  stored what we fetched — and that assumption is false in several reachable states:
+ *  no SW is controlling the document yet, the SW was never installed (dev), or the
+ *  quota handler evicted mid-warm. In every one of those the fetches succeed and the
+ *  UI would print a green tick over an offline copy that does not exist. So check a
+ *  sample rather than infer it: `caches.match` searches every cache on the origin.
+ *
+ *  Sampled, not exhaustive — 165 `caches.match` calls to confirm what one can tell us
+ *  is not worth the latency. */
+export async function verifyCached(urls: string[], sample = 5): Promise<boolean> {
+  if (typeof caches === 'undefined' || urls.length === 0) return false
+  const step = Math.max(1, Math.floor(urls.length / sample))
+  const picks = urls.filter((_, i) => i % step === 0).slice(0, sample)
   try {
-    const raw = localStorage.getItem(STORE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { fingerprint?: unknown }
-    return typeof parsed?.fingerprint === 'string' ? { fingerprint: parsed.fingerprint } : null
+    const hits = await Promise.all(picks.map((u) => caches.match(u)))
+    return hits.some(Boolean)
   } catch {
-    return null
-  }
-}
-
-export function writeWarmed(fingerprint: string): void {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ fingerprint }))
-  } catch {
-    // Quota or a blocked store: the download still happened and is still cached. The
-    // only loss is that the control will offer it again.
-  }
-}
-
-export function clearWarmed(): void {
-  try {
-    localStorage.removeItem(STORE_KEY)
-  } catch {
-    // As above.
+    return false
   }
 }

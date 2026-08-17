@@ -168,6 +168,23 @@ for (const file of referenced) {
   if (!win.__diversionAssets) {
     fail('the script did not republish the asset map — "keep the gallery offline" (#293) reads it')
   }
+  // ...and the GALLERY path must still publish the map, even though it creates no
+  // links. That ordering is what "keep the whole gallery offline" (#293) depends on:
+  // move the publish one statement later and the deep-link check above still passes,
+  // while the control silently warms zero diversion chunks.
+  const galleryWin = {}
+  try {
+    new Function('location', 'document', 'window', script)({ pathname: base }, doc, galleryWin)
+  } catch (err) {
+    fail(`the shipped preload script threw on the gallery path: ${err}`)
+  }
+  if (!galleryWin.__diversionAssets) {
+    fail(
+      'the preload script does not publish the asset map on the GALLERY path — it must ' +
+        'come before the early returns, because that is where #293 reads it',
+    )
+  }
+
   if (appended.length !== referencedFor(slug)) {
     fail(
       `the shipped script produced ${appended.length} links for /d/${slug}/play, ` +

@@ -139,12 +139,16 @@ describe('preloadScript (#291) — the code that actually ships', () => {
       createElement: () => ({}) as Record<string, string>,
       head: { appendChild: (el: Record<string, string>) => appended.push(el) },
     }
-    new Function('location', 'document', preloadScript(map, base, DIVERSION_SEGMENT))(
+    const win: Record<string, unknown> = {}
+    new Function('location', 'document', 'window', preloadScript(map, base, DIVERSION_SEGMENT))(
       { pathname },
       doc,
+      win,
     )
+    lastWindow = win
     return appended
   }
+  let lastWindow: Record<string, unknown> = {}
 
   it('preloads the deep link’s diversion and its deps, base-prefixed', () => {
     // Path built from the ROUTER's segment, not a literal: renaming the route without
@@ -160,6 +164,17 @@ describe('preloadScript (#291) — the code that actually ships', () => {
 
   it('matches the config route as well as /play', () => {
     expect(run(`/diversion${diversionPath('plasma')}`)).toHaveLength(2)
+  })
+
+  it('publishes the asset map on EVERY path, including the gallery', () => {
+    // #293's "keep the whole gallery offline" reads `window.__diversionAssets`, and it
+    // lives in the gallery header — which is the one route that takes the script's
+    // first early return. Publishing after that return leaves the control enumerating
+    // zero diversion chunks, with the deep-link path still working perfectly.
+    run(`/diversion${diversionPath('ablation')}/play`)
+    expect(lastWindow.__diversionAssets).toBeTruthy()
+    run('/diversion/')
+    expect(lastWindow.__diversionAssets, 'not published on the gallery path').toBeTruthy()
   })
 
   it('does nothing on the gallery', () => {

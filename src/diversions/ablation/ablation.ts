@@ -458,8 +458,15 @@ function resizeCrew(s: AblationState): void {
  *  `resizeCrew` can trim the queue and the retired row but must not delete a turret
  *  where it rides (spec §4: nothing appears or disappears mid-track). At steady state
  *  the count equals the target and the test below is false, so a fresh load never
- *  sheds. It is visible at `capacity: 1`, where the track holds one turret and every
- *  rotation is the whole show. */
+ *  sheds.
+ *
+ *  And it is the FALLBACK, not the usual path. `resizeCrew` takes the cut out of the
+ *  queue synchronously, so at the shipped defaults dropping "Turrets on track" from 12
+ *  to 4 sheds nothing here at all — the fleet goes 20 -> 12 in the same frame and the
+ *  track thins over the following shifts. This only runs when the queue and retired row
+ *  together cannot cover the cut (12 -> 1, 40 -> 2, or any cut with `queued` at 0),
+ *  which is also where it is most visible: at `capacity: 1` the track holds one turret
+ *  and every rotation is the whole show. */
 function rotate(s: AblationState, t: Turret): void {
   // …unless the fleet has been shrunk under it. A live "Turrets on track" / "In
   // queue" edit sheds its surplus HERE rather than deleting turrets where they ride:

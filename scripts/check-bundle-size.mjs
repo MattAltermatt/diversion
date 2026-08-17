@@ -183,5 +183,28 @@ if (existsSync(swPath)) {
   }
 }
 
+// ── The warming engine must stay OUT of the entry chunk (#293) ───────────────
+// `OfflineToggle` imports it with `await import()`, but a single static import of the
+// same module from the same file defeats that completely — Rollup emits
+// INEFFECTIVE_DYNAMIC_IMPORT and inlines the whole thing into the entry, which is
+// exactly what shipped once while four comments claimed the opposite. The warning
+// scrolls past in a green build and `MAX_ENTRY_GZIP` is far too coarse to notice a few
+// kB, so assert on a string only that module contains.
+{
+  const entry = readdirSync(join('dist', 'assets')).find((f) => /^index-.*\.js$/.test(f))
+  if (entry) {
+    const src = readFileSync(join('dist', 'assets', entry), 'utf8')
+    for (const needle of ['pictures/credits.json']) {
+      if (src.includes(needle)) {
+        console.error(
+          `\u2717 the entry chunk contains "${needle}" \u2014 framework/offlineWarm.ts has ` +
+            'leaked out of its dynamic import (#293). Check for a static import of it.',
+        )
+        failed = true
+      }
+    }
+  }
+}
+
 if (failed) process.exit(1)
 console.log('\n✓ bundle within budget')

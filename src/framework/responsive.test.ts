@@ -311,23 +311,31 @@ describe('switch touch target (#290)', () => {
    *  returns the BASE 38x20 rule and every assertion below would read the thing it is
    *  supposed to be checking the override of. */
   function coarseRules(): { sel: string; body: string }[] {
-    const start = code.indexOf('@media (pointer: coarse)')
-    expect(start, 'no (pointer: coarse) block').toBeGreaterThan(-1)
-    const open = code.indexOf('{', start)
-    let depth = 0
-    let end = open
-    for (let i = open; i < code.length; i++) {
-      if (code[i] === '{') depth++
-      else if (code[i] === '}' && --depth === 0) {
-        end = i
-        break
-      }
-    }
-    const block = code.slice(open + 1, end)
+    // EVERY such block, not the first: there is now more than one (#293 grows its own
+    // buttons the same way), and taking only the first silently pointed all of the
+    // assertions below at the wrong rules.
     const out: { sel: string; body: string }[] = []
-    const re = /([^{}]+)\{([^{}]*)\}/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(block))) out.push({ sel: m[1].trim(), body: m[2] })
+    let from = 0
+    for (;;) {
+      const start = code.indexOf('@media (pointer: coarse)', from)
+      if (start < 0) break
+      const open = code.indexOf('{', start)
+      let depth = 0
+      let end = open
+      for (let i = open; i < code.length; i++) {
+        if (code[i] === '{') depth++
+        else if (code[i] === '}' && --depth === 0) {
+          end = i
+          break
+        }
+      }
+      const block = code.slice(open + 1, end)
+      const re = /([^{}]+)\{([^{}]*)\}/g
+      let m: RegExpExecArray | null
+      while ((m = re.exec(block))) out.push({ sel: m[1].trim(), body: m[2] })
+      from = end + 1
+    }
+    expect(out.length, 'no (pointer: coarse) rules').toBeGreaterThan(0)
     return out
   }
   const coarse = (sel: string) => coarseRules().find((r) => r.sel === sel)

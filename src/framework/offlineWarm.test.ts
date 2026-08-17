@@ -1,12 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import {
-  clearWarmed,
-  collectTargets,
-  fingerprintOf,
-  readWarmed,
-  warmAll,
-  writeWarmed,
-} from './offlineWarm'
+import { collectTargets, verifyCached, warmAll } from './offlineWarm'
 
 const publishedMap = {
   0: ['assets/schemas-DDD.js', 'assets/rng-EEE.js'],
@@ -90,18 +83,6 @@ describe('collectTargets (#293)', () => {
   })
 })
 
-describe('fingerprintOf (#293)', () => {
-  it('changes when any content hash changes — that is what makes a copy stale', () => {
-    const a = fingerprintOf(['assets/d/ablation-111.js'], ['assets/models-FFF.json'])
-    const b = fingerprintOf(['assets/d/ablation-999.js'], ['assets/models-FFF.json'])
-    expect(a).not.toBe(b)
-  })
-
-  it('is order-independent, so a map reordering is not mistaken for a deploy', () => {
-    expect(fingerprintOf(['a.js', 'b.js'], [])).toBe(fingerprintOf(['b.js', 'a.js'], []))
-  })
-})
-
 describe('warmAll (#293)', () => {
   it('fetches every URL and reports progress as it goes', async () => {
     const seen: string[] = []
@@ -138,7 +119,7 @@ describe('warmAll (#293)', () => {
   })
 
   it('stops early when cancelled', async () => {
-    // 2.1 MB is ~11 s of saturated downlink; cancelling has to actually stop.
+    // ~1.6 MB is ~10 s of saturated downlink; cancelling has to actually stop.
     const controller = new AbortController()
     let calls = 0
     stubFetch(() => {
@@ -152,9 +133,13 @@ describe('warmAll (#293)', () => {
 
     expect(result.done).toBeLessThan(50)
     expect(calls).toBeLessThan(50)
+    // ...and the signal must actually reach fetch, or an in-flight multi-megabyte
+    // request keeps running after the viewer pressed Cancel.
+    const fetchMock = vi.mocked(globalThis.fetch)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ signal: controller.signal })
   })
 
-  it('runs several fetches at once, but not all 138', async () => {
+  it('runs several fetches at once, but not all 165', async () => {
     let inFlight = 0
     let peak = 0
     vi.stubGlobal(
@@ -175,32 +160,53 @@ describe('warmAll (#293)', () => {
   })
 })
 
-describe('warmed-state store (#293)', () => {
-  it('round-trips a fingerprint', () => {
-    writeWarmed('abc:138')
-    expect(readWarmed()).toEqual({ fingerprint: 'abc:138' })
-    clearWarmed()
-    expect(readWarmed()).toBeNull()
+describe('collectTargets chunkCount (#293)', () => {
+  it('reports how many diversion chunks it found, so the caller can refuse to lie', async () => {
+    vi.stubGlobal('window', { __diversionAssets: publishedMap })
+    stubFetch(() => ok([{ slug: 'axe' }]))
+
+    const { chunkCount } = await collectTargets('/diversion/')
+
+    expect(chunkCount).toBe(2)
   })
 
-  it('returns null rather than throwing on corrupt or hostile storage', () => {
-    vi.stubGlobal('localStorage', {
-      getItem: () => '{not json',
-      setItem: () => {
-        throw new Error('quota')
-      },
-      removeItem: () => {
-        throw new Error('blocked')
-      },
-    })
-    expect(readWarmed()).toBeNull()
-    // The download still happened and is still cached; only the memory of it is lost.
-    expect(() => writeWarmed('x')).not.toThrow()
-    expect(() => clearWarmed()).not.toThrow()
+  it('reports ZERO chunks when the map was never published, even though sprites were found', async () => {
+    // The reachable trap: an old cached index.html has no #291 script, so only
+    // credits.json + the sprites are enumerated. Warming those succeeds and reports
+    // no failures — the control would print a green tick over an offline copy that
+    // contains not one diversion.
+    vi.stubGlobal('window', {})
+    stubFetch(() => ok([{ slug: 'axe' }]))
+
+    const { chunkCount, urls } = await collectTargets('/diversion/')
+
+    expect(chunkCount).toBe(0)
+    expect(urls.length).toBeGreaterThan(0) // sprites were still found
+  })
+})
+
+describe('verifyCached (#293)', () => {
+  it('confirms the fetches actually landed in a cache', async () => {
+    vi.stubGlobal('caches', { match: vi.fn().mockResolvedValue(new Response('')) })
+    expect(await verifyCached(['a', 'b', 'c'])).toBe(true)
   })
 
-  it('ignores a stored value of the wrong shape', () => {
-    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ fingerprint: 42 }) })
-    expect(readWarmed()).toBeNull()
+  it('reports FALSE when nothing was stored — no SW controlling, or a quota eviction', async () => {
+    // Everything about this feature rests on the service worker having stored what we
+    // fetched. In dev, before clientsClaim, or after an eviction, it did not.
+    vi.stubGlobal('caches', { match: vi.fn().mockResolvedValue(undefined) })
+    expect(await verifyCached(['a', 'b', 'c'])).toBe(false)
+  })
+
+  it('reports FALSE rather than throwing where Cache Storage does not exist', async () => {
+    vi.stubGlobal('caches', undefined)
+    expect(await verifyCached(['a'])).toBe(false)
+  })
+
+  it('samples rather than checking all 165', async () => {
+    const match = vi.fn().mockResolvedValue(new Response(''))
+    vi.stubGlobal('caches', { match })
+    await verifyCached(Array.from({ length: 165 }, (_, i) => `u${i}`), 5)
+    expect(match.mock.calls.length).toBeLessThanOrEqual(5)
   })
 })

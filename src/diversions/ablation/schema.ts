@@ -77,10 +77,12 @@ export const ablationSchema = z.object({
             help: 'How many turrets ride the track at the same time. This plus "In queue" is '
                 + 'the whole fleet — a turret is never used up, it rides a shift, rotates out '
                 + 'at the gate, recharges and queues for another. Set it to 2 with Spacing at '
-                + '1 for a pair working exactly opposite each other. Turning this DOWN takes '
-                + 'effect one shift at a time: nothing is removed from the track where it '
-                + 'rides, so each surplus turret finishes its lap and then leaves the fleet '
-                + 'at the gate instead of requeueing.' }),
+                + '1 for a pair working exactly opposite each other. Turning this DOWN shrinks '
+                + 'the fleet straight away, off the queue; the track itself thins one shift at '
+                + 'a time, because nothing is ever removed where it rides. If the queue is too '
+                + 'short to cover the cut, the rest comes off at the gate as each surplus '
+                + 'turret finishes its lap — those leave the fleet rather than joining the '
+                + 'retired row.' }),
   queued: z.number().int().min(0).max(64).default(8)
     .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 64, step: 1, label: 'In queue',
             help: 'How many turrets wait outside the gate for a slot to free. 0 means no '
@@ -88,8 +90,10 @@ export const ablationSchema = z.object({
                 + 'Mixed this is raised automatically if the fleet would otherwise be smaller '
                 + 'than the number of colours, since a colour with no turret hunting it can '
                 + 'never be cleared. It is a starting count, not a promise: as colours run out '
-                + 'the queue also drains into the retired row, and shrinking the fleet retires '
-                + 'surplus turrets at the gate as each one finishes its shift.' }),
+                + 'the queue also drains into the retired row. Shrinking the fleet is taken '
+                + 'from here first, in the same instant — and only if this cannot cover the '
+                + 'cut do surplus turrets leave at the gate, which drops them from the fleet '
+                + 'entirely rather than adding them to the retired row.' }),
   spacing: z.number().min(0).max(1).default(1)
     .meta({ section: 'Turrets', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Spacing',
             help: 'How turrets are distributed around the track. 0 sends every one in at the '
