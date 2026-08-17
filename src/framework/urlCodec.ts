@@ -143,9 +143,33 @@ function decodeBool(raw: string): boolean {
   return /^(true|1)$/i.test(raw)
 }
 
+// decodeURIComponent THROWS a URIError on a malformed escape ('%', '%2', '%zz'),
+// which a truncated share link (a mail client wrapping a line mid-escape) or a
+// hand-edited one produces easily. decodeConfig runs during RENDER, so an unguarded
+// throw reaches the route's error boundary — whose only affordance is "reload", and
+// reloading provably cannot help: same URL, same throw. That is a one-button dead
+// end, and it breaks the codec's central contract that decode degrades PER FIELD and
+// never throws at all.
+//
+// So fall back to the RAW part rather than throwing or dropping it. Raw, because the
+// element then flows into the field's own safeParse and degrades exactly like any
+// other invalid value — one field back to its default, every sibling intact. Dropping
+// the element instead would silently SHORTEN the array, and a 7-of-8-color palette
+// still passes its schema: a quietly different picture, which is worse than a visible
+// revert-to-default. A field with no per-element validation (bare z.array(z.string()))
+// legitimately keeps the literal '%2' — best-effort preservation of what was typed.
+// Same hazard, same treatment as preloadMap.ts's inline script. #299
+function decodeElement(part: string): string {
+  try {
+    return decodeURIComponent(part)
+  } catch {
+    return part
+  }
+}
+
 function decodeLeaf(raw: string, leaf: Leaf): unknown {
   if (leaf.kind === 'array') {
-    const parts = raw === '' ? [] : raw.split(',').map(decodeURIComponent)
+    const parts = raw === '' ? [] : raw.split(',').map(decodeElement)
     // An empty element ('a,,b') must NOT coerce to 0 — map it to NaN so the
     // array's safeParse rejects and the field reverts to default, not [1,0,3]. #123
     if (leaf.elem === 'number') return parts.map((p) => (p === '' ? NaN : Number(p)))

@@ -37,17 +37,36 @@ export function deepEqual(a: unknown, b: unknown): boolean {
  *  Assumes the options within a group share one key-set (Flow Field's do). If a
  *  future diversion mixes patch widths in one group, a config matching a wider
  *  patch could also match a narrower earlier one (subset) — switch to a
- *  longest-key-set / equal-key-set match then. */
+ *  longest-key-set / equal-key-set match then.
+ *
+ *  `ignoreKeys` names config keys that must be excluded from the comparison —
+ *  in practice the schema's `randomizeOnFreshLoad` (pin-only) fields, supplied by
+ *  PresetPicker via `freshLoadKeys`. Without it, ANY preset whose patch includes a
+ *  seed reads "Custom" on every single load and is unreachable: `encodeConfig`
+ *  never emits a pin-only field, so `applyFreshLoadRandomization` re-rolls it on
+ *  load and `deepEqual(config.seed, 7)` can never hold. Both halves are individually
+ *  right — a seedless link showing a new world every visit is the codec keystone,
+ *  and flipping to Custom on manual drift is what the picker is for — they were just
+ *  never considered together. Ignoring the seed is also what the preset MEANS: an
+ *  option named "Clifford" claims something about the attractor parameters, not
+ *  about which particular Clifford world this visit rolled. #305 */
 export function matchPresets<C extends object>(
   groups: PresetGroup<C>[],
   config: C,
+  ignoreKeys: ReadonlySet<string> = new Set<string>(),
 ): (string | null)[] {
   return groups.map((group) => {
-    const hit = group.options.find((opt) =>
-      (Object.keys(opt.patch) as (keyof C)[]).every((key) =>
-        deepEqual(config[key], (opt.patch as Partial<C>)[key]),
-      ),
-    )
+    const hit = group.options.find((opt) => {
+      const keys = (Object.keys(opt.patch) as (keyof C)[]).filter(
+        (key) => !ignoreKeys.has(key as string),
+      )
+      // Every key ignored ⇒ the option asserts nothing comparable, and `.every()`
+      // over an empty list would vacuously match — making the FIRST option of a
+      // seed-only group display as selected on any config at all. Custom is the
+      // honest answer there. (Equal key-sets per group ⇒ this is all-or-nothing.)
+      if (keys.length === 0) return false
+      return keys.every((key) => deepEqual(config[key], (opt.patch as Partial<C>)[key]))
+    })
     return hit ? hit.name : null
   })
 }

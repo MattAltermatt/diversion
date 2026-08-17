@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
 import { encodeConfig, decodeConfig, nonScalarArrayLeaves, leafNameCollisions, applyFreshLoadRandomization, localKeys } from './urlCodec'
+import { allDiversions } from './testRegistry'
 
 const schema = z.object({
   particles: z.number().int().min(100).max(20000).default(4000),
@@ -288,6 +289,96 @@ describe('decodeConfig — per-field graceful degradation', () => {
     const out = decodeConfig(pSchema, new URLSearchParams('label=ember&colors=bad,#00ff00ff'))
     expect(out.label).toBe('ember') // good field kept
     expect(out.palette.colors).toEqual(['#11223344']) // bad array → default
+  })
+})
+
+describe('#299 — a malformed percent-escape must not throw out of decodeConfig', () => {
+  // The distinction the old test at "falls back to defaults when an element is
+  // malformed" never made: it fed a bad VALUE ('not-a-hex'), which safeParse rejects
+  // cleanly. These are bad ESCAPES, which made decodeURIComponent throw a URIError
+  // straight through decodeConfig — during render, into the route error boundary,
+  // whose "reload" affordance cannot fix a bad URL.
+  const MALFORMED = ['%', '%2', '%zz', 'a%', '%e0%a4%a']
+
+  const arrSchema = z.object({
+    label: z.string().default('aurora'),
+    colors: z
+      .array(z.string().regex(/^#[0-9a-fA-F]{8}$/))
+      .min(1)
+      .default(['#11223344', '#55667788']),
+    weights: z.array(z.number()).default([1, 2, 3]),
+  })
+  const arrDefaults = arrSchema.parse({})
+
+  for (const bad of MALFORMED) {
+    it(`does not throw for "${bad}" in an array param, and degrades that field only`, () => {
+      const params = new URLSearchParams()
+      params.set('label', 'ember')
+      params.set('colors', `${bad},%2300ff00ff`)
+      params.set('weights', '4,5,6')
+      let out!: typeof arrDefaults
+      expect(() => {
+        out = decodeConfig(arrSchema, params)
+      }).not.toThrow()
+      expect(out.colors).toEqual(arrDefaults.colors) // bad field → its OWN default
+      expect(out.label).toBe('ember') // every sibling survives with its URL value
+      expect(out.weights).toEqual([4, 5, 6])
+    })
+  }
+
+  it('reaches decode the same way a real URL does (query-string parsing never throws)', () => {
+    // URLSearchParams' own percent-decode is lenient by spec, so a malformed escape
+    // survives parsing intact and lands in decodeConfig — which is why this is
+    // reachable from a truncated share link at all.
+    const params = new URLSearchParams('label=ember&colors=%2&weights=1,2,3')
+    expect(params.get('colors')).toBe('%2')
+    expect(() => decodeConfig(arrSchema, params)).not.toThrow()
+    expect(decodeConfig(arrSchema, params).label).toBe('ember')
+  })
+
+  it('keeps the RAW part rather than dropping it (a shortened array would pass silently)', () => {
+    // Dropping the undecodable element would leave a 2-element array that still
+    // satisfies z.array(z.string()) — a quietly different picture. Raw preserves the
+    // length and lets per-element validation reject it where there is any.
+    const tagSchema = z.object({ tags: z.array(z.string()).default(['a', 'b']) })
+    expect(decodeConfig(tagSchema, new URLSearchParams('tags=x,%2,z')).tags).toEqual([
+      'x',
+      '%2',
+      'z',
+    ])
+  })
+
+  it('a well-formed escape still decodes (the guard did not disable decoding)', () => {
+    const cfg = { ...arrDefaults, label: 'a,b%c' }
+    const tagSchema = z.object({ tags: z.array(z.string()).default([]) })
+    // set() (not a query string) so the escapes survive URLSearchParams' own decode
+    // and reach the codec's per-element one, which is the layer under test.
+    const params = new URLSearchParams()
+    params.set('tags', 'a%2Cb,c%25d')
+    expect(decodeConfig(tagSchema, params).tags).toEqual(['a,b', 'c%d'])
+    expect(decodeConfig(arrSchema, encodeConfig(arrSchema, cfg)).label).toBe('a,b%c')
+  })
+
+  // Sweep (the corruption vocabulary the existing sweeps lack). Every real schema,
+  // every emitted param corrupted at once: if ANY leaf kind could still throw, one of
+  // these 137 x 5 decodes finds it. Whole-config corruption rather than per-param so
+  // the sweep stays cheap; per-field degradation is asserted above.
+  describe('every real schema decodes a fully-malformed URL without throwing', () => {
+    for (const bad of MALFORMED) {
+      it(`corruption "${bad}" in every param of all ${allDiversions.length} diversions`, () => {
+        for (const d of allDiversions) {
+          const corrupt = new URLSearchParams()
+          for (const key of encodeConfig(d.schema, d.schema.parse({}) as never).keys()) {
+            corrupt.set(key, `${bad},${bad}`)
+          }
+          expect(() => decodeConfig(d.schema, corrupt), `${d.id} / "${bad}"`).not.toThrow()
+          expect(
+            d.schema.safeParse(decodeConfig(d.schema, corrupt)).success,
+            `${d.id} / "${bad}" decoded to something the schema rejects`,
+          ).toBe(true)
+        }
+      })
+    }
   })
 })
 
