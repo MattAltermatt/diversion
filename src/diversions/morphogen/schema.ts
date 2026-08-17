@@ -25,7 +25,17 @@ export const morphogenSchema = z.object({
 
   // ── Morphogen (the gradient) ──
   sourceLayout: z.enum(['scatter', 'poles', 'point', 'edge', 'triad']).default('scatter')
+    // Select renders FROM meta.options — with none declared the dropdown was empty
+    // and the controlled value unreachable (#304). Values mirror the enum exactly;
+    // only the visible labels are title-cased, matching how the help text names them.
     .meta({ section: 'Morphogen', ui: 'select', label: 'Sources',
+      options: [
+        { value: 'scatter', label: 'Scatter' },
+        { value: 'poles', label: 'Poles' },
+        { value: 'point', label: 'Point' },
+        { value: 'edge', label: 'Edge' },
+        { value: 'triad', label: 'Triad' },
+      ],
       help: 'Where chemical is emitted. Scatter = organic territory map · Poles = two '
           + 'opposing sources (a scale-invariant French flag) · Point = concentric rings · '
           + 'Edge = stripes down a gradient · Triad = three merged sources.' }),
@@ -45,6 +55,10 @@ export const morphogenSchema = z.object({
   // ── Fate ──
   fateMode: z.enum(['territories', 'bands']).default('territories')
     .meta({ section: 'Fate', ui: 'select', label: 'Fate rule',
+      options: [
+        { value: 'territories', label: 'Territories' },
+        { value: 'bands', label: 'Bands' },
+      ],
       help: 'Territories = each pixel takes the fate of its strongest local chemical '
           + '(a cell-fate map with negotiating borders). Bands = threshold one gradient '
           + 'into stacked territories (the classic French flag / rings / stripes).' }),

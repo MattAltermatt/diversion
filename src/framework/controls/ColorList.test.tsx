@@ -102,4 +102,25 @@ describe('ColorList', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '#ff0000' } })
     expect(onChange).toHaveBeenCalledWith(['#ff0000']) // no alpha byte appended
   })
+
+  // ── Accessible names (WCAG 4.1.2, Level A) ──
+  it('names every input in a row, distinctly, and per row (#304)', () => {
+    // .ctl-name is a sibling <span>, not a <label for>, so without these the picker,
+    // the hex box and the alpha slider all announce as unlabelled — the same failure
+    // Toggle fixed in #290. A palette renders N identical rows, so the names must
+    // also distinguish row 1 from row 2 or the list is unnavigable by name alone.
+    render(<ColorList value={['#1e63ff1f', '#16d6ff1a']} onChange={vi.fn()} meta={meta} />)
+    for (const name of [
+      'Colors color 1', 'Colors hex 1', 'Colors opacity 1', 'Remove color 1',
+      'Colors color 2', 'Colors hex 2', 'Colors opacity 2', 'Remove color 2',
+    ]) {
+      expect(screen.getByLabelText(name), `no control named "${name}"`).toBeInTheDocument()
+    }
+  })
+
+  it('drops the alpha name along with the alpha row on a 6-hex field', () => {
+    render(<ColorList value={['#020814']} onChange={vi.fn()} meta={meta} />)
+    expect(screen.getByLabelText('Colors color 1')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Colors opacity 1')).toBeNull()
+  })
 })

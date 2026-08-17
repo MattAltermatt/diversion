@@ -60,7 +60,11 @@ export const ablationSchema = z.object({
   palette: z.array(z.string()).min(2).max(24)
     // Deliberately stops short of the ground — see the note in presets.ts.
     .default(['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'])
-    .meta({ section: 'Color', ui: 'colorList', label: 'Palette',
+    // min/max are the Zod bounds above, surfaced so ColorList stops falling back to
+    // its own 1..8 defaults (#304): ✕ used to stay live at two colours (a config the
+    // schema rejects, reverted wholesale on reload) and "+ Add color" vanished at 8,
+    // while the help below promises twenty.
+    .meta({ section: 'Color', ui: 'colorList', min: 2, max: 24, label: 'Palette',
             showWhen: { field: 'source', equals: 'Contours' },
             help: 'The contour bands, outermost value first. The LENGTH of this list is the '
                 + 'number of bands — two colours gives a stark black-and-white map, twenty a '

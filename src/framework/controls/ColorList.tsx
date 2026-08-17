@@ -26,11 +26,19 @@ export function joinColor(rgb: string, alphaPct: number): string {
 
 function ColorRow({
   hex,
+  label,
+  index,
   canRemove,
   onChange,
   onRemove,
 }: {
   hex: string
+  /** Field label, e.g. "Palette" — every input below borrows it for its accessible
+   *  name. .ctl-name is a sibling <span>, not a <label for>, so without these the
+   *  accessible name is EMPTY (WCAG 4.1.2, Level A — the failure Toggle fixed in
+   *  #290). The 1-based row number keeps sibling rows distinguishable. */
+  label: string
+  index: number
   canRemove: boolean
   onChange: (next: string) => void
   onRemove: () => void
@@ -51,12 +59,22 @@ function ColorRow({
 
   return (
     <div className="crow">
-      <input type="color" value={rgb} onChange={(e) => emit(e.target.value)} />
-      <input className="hex" value={text} onChange={(e) => commitText(e.target.value)} />
+      <input
+        type="color"
+        aria-label={`${label} color ${index}`}
+        value={rgb}
+        onChange={(e) => emit(e.target.value)}
+      />
+      <input
+        className="hex"
+        aria-label={`${label} hex ${index}`}
+        value={text}
+        onChange={(e) => commitText(e.target.value)}
+      />
       <button
         className="rm"
-        aria-label="Remove color"
-        title="Remove color"
+        aria-label={`Remove color ${index}`}
+        title={`Remove color ${index}`}
         disabled={!canRemove}
         onClick={onRemove}
       >
@@ -69,6 +87,7 @@ function ColorRow({
             type="range"
             min={0}
             max={100}
+            aria-label={`${label} opacity ${index}`}
             value={alpha}
             onChange={(e) => onChange(joinColor(rgb, Number(e.target.value)))}
           />
@@ -128,6 +147,8 @@ export function ColorList({
           <ColorRow
             key={idsRef.current[i]}
             hex={hex}
+            label={meta.label}
+            index={i + 1}
             canRemove={value.length > min}
             onChange={(next) => onChange(value.map((c, j) => (j === i ? next : c)))}
             onRemove={() => removeAt(i)}
