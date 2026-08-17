@@ -158,6 +158,7 @@ npm run lint     # oxlint
 npm run build    # tsc -b + vite build
 npm run size     # entry-chunk + precache budgets (after a build)
 npm run check:pwa # service worker + manifest contracts
+npm run check:cache # every emitted file has exactly one caching lane (after a build)
 ```
 
 Routes:

@@ -35,3 +35,7 @@ jobs:
       - run: npm run size
       - run: npm run check:pwa
       - run: npm run check:preload
+      # Every emitted file must be claimed by exactly one caching lane, and the
+      # offline warm must reach all of them (#296). A second `?url` asset would
+      # otherwise be cached by nothing, with every gate above still green.
+      - run: npm run check:cache

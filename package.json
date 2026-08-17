@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "size": "node scripts/check-bundle-size.mjs",
     "check:pwa": "node scripts/check-pwa.mjs",
-    "check:preload": "node scripts/check-preload.mjs"
+    "check:preload": "node scripts/check-preload.mjs",
+    "check:cache": "node scripts/check-cache-lanes.mjs"
   },
   "dependencies": {
     "@types/d3-delaunay": "^6.0.4",

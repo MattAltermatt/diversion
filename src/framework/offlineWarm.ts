@@ -34,7 +34,12 @@ const SPRITES = 'pictures/credits.json'
  *  them would re-download ~170 kB to no effect. The sprite manifest is fetched rather
  *  than built in, because `public/` is copied verbatim and never appears in the bundle
  *  — and it is fail-soft: no manifest just means Ablation's bundled pictures are not
- *  warmed, not that the whole operation fails. */
+ *  warmed, not that the whole operation fails.
+ *
+ *  ⚠️ `scripts/cacheLanes.mjs` RE-DERIVES this list to check, at build time, that every
+ *  runtime-cached file is actually warmed (#296) — it cannot import this module, since
+ *  CI runs Node 20 and this is TypeScript. A fourth source of URLs here has to land
+ *  there too, or the check goes quietly incomplete rather than red. */
 export async function collectTargets(base: string, signal?: AbortSignal): Promise<WarmTargets> {
   const published = publishedAssets()
   const slugs = published?.[1] ?? {}

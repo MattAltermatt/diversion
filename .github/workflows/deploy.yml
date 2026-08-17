@@ -33,6 +33,10 @@ jobs:
       - run: npm run size
       - run: npm run check:pwa
       - run: npm run check:preload
+      # Runs BEFORE the 404.html copy below, which is why that file is declared as
+      # UNCACHED rather than simply never seen — the ordering should not be what
+      # makes this pass (#296).
+      - run: npm run check:cache
       # SPA fallback: GitHub Pages serves 404.html for unknown paths, so a
       # deep link like /diversion/d/flow-field/play boots the app and lets the
       # router resolve it.
