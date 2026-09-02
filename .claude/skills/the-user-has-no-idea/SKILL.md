@@ -1,13 +1,15 @@
 ---
 name: the-user-has-no-idea
-description: Use when building a new diversion, or any generative/visual piece the user can't fully specify before seeing it run — especially matching a reference the user has watched but you haven't. Symptoms you're about to violate this: you're lining up "Q1 / Q2 / Q3" asking the user to choose between visual or design options in the abstract, before anything is on screen. The user has said things like "you drive, I tweak", "I don't know until I see it", "make it match the video". Replaces the upfront-interview gate of brainstorming for this class of work.
+description: Use when PORTING or IMPORTING an existing piece into a Diversion — an xscreensaver hack, a Tarbell/complexification piece, a video or site the user has watched, a game mechanic from another app the user names ("make it like <X>") — i.e. when a reference already exists and the user cannot usefully pick between renderings of it before seeing one run. Symptoms: you're lining up "Q1 / Q2 / Q3" asking the user to choose visual options in the abstract for something they have already seen elsewhere. The user has said "you drive, I tweak", "match the video", "port <hack>". NOT for brand-new ideas with no reference — those are a real brainstorm (superpowers:brainstorming), and the user wants to figure the concept out together before anything is built.
 ---
 
 # The user has no idea (drive, then tweak)
 
-**Core principle:** For a new diversion, the user cannot usefully pick between design options they've never seen. Asking them to choose colors, motion models, or dot styles in the abstract wastes turns and gets worse answers than just *building it well*. So: **you are the SME. You drive every design call, resolving the non-obvious ones with dueling agents instead of questions. You get the real thing running in Chrome. Then the user tweaks the live artifact.** The Q&A moves from *before the build* to *after it's on screen, against something real.*
+**Scope (narrowed 2026-09-01):** this skill is for **ports and imports** — a reference exists (a hack, a video, a site, another app's mechanic) and the job is to reproduce and upgrade it. For a **new idea with no reference**, do NOT use it: the user wants to brainstorm the concept together, and the concept is the thing there is no reference for. Use `superpowers:brainstorming` there.
 
-This **replaces the upfront-question gate of `superpowers:brainstorming`** for new diversions. You still produce a short spec and still get user sign-off — but sign-off happens on the *running deliverable*, not a pre-build interview.
+**Core principle:** For a ported piece, the user cannot usefully pick between design options they've never seen. Asking them to choose colors, motion models, or dot styles in the abstract wastes turns and gets worse answers than just *building it well*. So: **you are the SME. You drive every design call, resolving the non-obvious ones with dueling agents instead of questions. You get the real thing running in Chrome. Then the user tweaks the live artifact.** The Q&A moves from *before the build* to *after it's on screen, against something real.*
+
+This **replaces the upfront-question gate of `superpowers:brainstorming`** for ported/imported diversions only. You still produce a short spec and still get user sign-off — but sign-off happens on the *running deliverable*, not a pre-build interview.
 
 ## The failure this prevents
 
