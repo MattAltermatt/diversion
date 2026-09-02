@@ -210,9 +210,10 @@ for (const lane of lanes) {
 // silently loses the overflow — during a warm, the earliest-written ones. Nothing else
 // in the repo compares a lane's population to its cap.
 //
-// This is not hypothetical: the pictures lane is 28 entries against maxEntries 40, and
-// #287 ("grow the bundled sprite roster") is open. Adding 13 sprites would make the
-// offline control report a green tick over a copy that is missing some of them.
+// This is not hypothetical: the pictures lane sat at 28 entries against maxEntries 40
+// when #287 ("grow the bundled sprite roster") was open — 13 more sprites would have
+// made the offline control report a green tick over a copy missing some of them. #287
+// landed 93 entries and raised the cap to 120; this check is what forced that.
 const HEADROOM = 1.25
 for (const lane of lanes) {
   if (!lane.matches || lane.maxEntries === null) continue

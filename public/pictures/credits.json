@@ -2,126 +2,126 @@
   {
     "slug": "silver-sword",
     "title": "Silver Sword",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "golden-sword",
     "title": "Golden Sword",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "blue-potion",
     "title": "Blue Potion",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "red-flask",
     "title": "Red Flask",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "green-potion",
     "title": "Green Potion",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "jewelled-crown",
     "title": "Jewelled Crown",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "purple-crown",
     "title": "Purple Crown",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "crystal-wand",
     "title": "Crystal Wand",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "scroll",
     "title": "Scroll",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "wooden-staff",
     "title": "Wooden Staff",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "scimitar",
     "title": "Scimitar",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "cauldron",
     "title": "Cauldron",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "axe",
     "title": "Axe",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "helm",
     "title": "Helm",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "treasure-chest",
     "title": "Treasure Chest",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "red-gem",
     "title": "Red Gem",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "purple-gem",
     "title": "Purple Gem",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
   {
     "slug": "green-gem",
     "title": "Green Gem",
-    "author": "jetrel",
+    "author": "Jetrel",
     "sourceUrl": "https://opengameart.org/content/16x16-rpg-items",
     "license": "CC0 1.0"
   },
@@ -179,6 +179,468 @@
     "title": "Purple Dress",
     "author": "fleurman",
     "sourceUrl": "https://opengameart.org/content/tiny-characters-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "toadstool",
+    "title": "Toadstool",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-dragon",
+    "title": "Blue Dragon",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "red-dragon",
+    "title": "Red Dragon",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "flame",
+    "title": "Flame",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "purple-wizard",
+    "title": "Purple Wizard",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "owl",
+    "title": "Owl",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "zebra",
+    "title": "Zebra",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "lion",
+    "title": "Lion",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "tiger",
+    "title": "Tiger",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "elephant",
+    "title": "Elephant",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "giraffe",
+    "title": "Giraffe",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "fox",
+    "title": "Fox",
+    "author": "Clint Bellanger",
+    "sourceUrl": "https://opengameart.org/content/tiny-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "red-mushroom",
+    "title": "Red Mushroom",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "purple-blob",
+    "title": "Purple Blob",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "orb-walker",
+    "title": "Orb Walker",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "green-frog",
+    "title": "Green Frog",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-beetle",
+    "title": "Blue Beetle",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "green-cube",
+    "title": "Green Cube",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "red-imp",
+    "title": "Red Imp",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-ghost",
+    "title": "Blue Ghost",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pink-squid",
+    "title": "Pink Squid",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-slime",
+    "title": "Blue Slime",
+    "author": "AndHeGames",
+    "sourceUrl": "https://opengameart.org/content/assorted-32x32-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pink-blob",
+    "title": "Pink Blob",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "orange-snail",
+    "title": "Orange Snail",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "balloon",
+    "title": "Balloon",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "green-robot",
+    "title": "Green Robot",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-drop",
+    "title": "Blue Drop",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pink-cat",
+    "title": "Pink Cat",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "ladybird",
+    "title": "Ladybird",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "tv-robot",
+    "title": "TV Robot",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "ghost",
+    "title": "Ghost",
+    "author": "GrafxKid",
+    "sourceUrl": "https://opengameart.org/content/various-creatures",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "red-apple",
+    "title": "Red Apple",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pineapple",
+    "title": "Pineapple",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "beer-mug",
+    "title": "Beer Mug",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "aubergine",
+    "title": "Aubergine",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "strawberry",
+    "title": "Strawberry",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pretzel",
+    "title": "Pretzel",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "watermelon",
+    "title": "Watermelon",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "drumstick",
+    "title": "Drumstick",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "shrimp",
+    "title": "Shrimp",
+    "author": "Sanglorian",
+    "sourceUrl": "https://opengameart.org/content/64-16x16-food-sprites",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "ramen-bowl",
+    "title": "Ramen Bowl",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "fried-egg",
+    "title": "Fried Egg",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "pizza-slice",
+    "title": "Pizza Slice",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "maki-roll",
+    "title": "Maki Roll",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "onigiri",
+    "title": "Onigiri",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "donut",
+    "title": "Donut",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "popsicle",
+    "title": "Popsicle",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "hot-dog",
+    "title": "Hot Dog",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "burger",
+    "title": "Burger",
+    "author": "maruki",
+    "sourceUrl": "https://opengameart.org/content/16x16px-food-items",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "clay-vase",
+    "title": "Clay Vase",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "candelabra",
+    "title": "Candelabra",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "kite-shield",
+    "title": "Kite Shield",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "open-book",
+    "title": "Open Book",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "flowering-plant",
+    "title": "Flowering Plant",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "bread-loaf",
+    "title": "Bread Loaf",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "mace",
+    "title": "Mace",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "cabbage",
+    "title": "Cabbage",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "salami",
+    "title": "Salami",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "cucumber",
+    "title": "Cucumber",
+    "author": "Jetrel",
+    "sourceUrl": "https://opengameart.org/content/rpg-item-set",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "red-armchair",
+    "title": "Red Armchair",
+    "author": "NaRNeRZz",
+    "sourceUrl": "https://opengameart.org/content/misc-household-items-and-more",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "mantel-clock",
+    "title": "Mantel Clock",
+    "author": "NaRNeRZz",
+    "sourceUrl": "https://opengameart.org/content/misc-household-items-and-more",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "tulip-vase",
+    "title": "Tulip Vase",
+    "author": "NaRNeRZz",
+    "sourceUrl": "https://opengameart.org/content/misc-household-items-and-more",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "white-bed",
+    "title": "White Bed",
+    "author": "Jannax",
+    "sourceUrl": "https://opengameart.org/content/home-objects",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "blue-bed",
+    "title": "Blue Bed",
+    "author": "Jannax",
+    "sourceUrl": "https://opengameart.org/content/home-objects",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "table-lamp",
+    "title": "Table Lamp",
+    "author": "Reactorcore",
+    "sourceUrl": "https://opengameart.org/content/lamps-lights-n-torches",
+    "license": "CC0 1.0"
+  },
+  {
+    "slug": "oil-lamp",
+    "title": "Oil Lamp",
+    "author": "Reactorcore",
+    "sourceUrl": "https://opengameart.org/content/lamps-lights-n-torches",
     "license": "CC0 1.0"
   }
 ]

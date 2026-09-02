@@ -218,7 +218,7 @@ export default defineConfig(({ command, isPreview }) => ({
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'diversion-pictures-v1',
-              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [200] }, // 0 = opaque cross-origin; unreachable behind sameOrigin
             },
           },
