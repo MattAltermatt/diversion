@@ -8,8 +8,8 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Config screen** — controls beside a live preview on a wide screen; on a narrow one the preview pins to the top and the controls flow beneath it.
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
 - **Usable on a phone, and installable** — the gallery, config and animation screens all reflow for a small touch screen, a **Keep the screen awake** toggle stops a propped-up phone going dark mid-piece, and a web app manifest means "Add to Home Screen" runs a diversion chromeless, with no browser bar. (On iPhone that is the *only* chromeless route, since Safari implements fullscreen on iPad only.)
-- **Works without a network, for what you've watched — or for everything, if you ask** — a service worker keeps the app shell offline, so the gallery and all 137 cards load with no connection, and any piece you've opened keeps running. Pieces you've never opened aren't downloaded ahead of time: the whole gallery is ~1.6 MB to download, and spending that on 134 pieces you may never look at isn't a fair trade for a first visit. When it *is* the trade you want — a flight, a shelf device, a bad connection — **⤓ Keep the gallery offline** in the gallery header downloads the lot, with live progress and a cancel, and every piece then runs with the network off.
-- **137 diversions**, from cellular automata and reaction-diffusion to
+- **Works without a network, for what you've watched — or for everything, if you ask** — a service worker keeps the app shell offline, so the gallery and all 138 cards load with no connection, and any piece you've opened keeps running. Pieces you've never opened aren't downloaded ahead of time: the whole gallery is ~1.6 MB to download, and spending that on 135 pieces you may never look at isn't a fair trade for a first visit. When it *is* the trade you want — a flight, a shelf device, a bad connection — **⤓ Keep the gallery offline** in the gallery header downloads the lot, with live progress and a cancel, and every piece then runs with the network off.
+- **138 diversions**, from cellular automata and reaction-diffusion to
   strange attractors, flocking, fractal tilings and GPU particle life — each with its own
   controls, presets and shareable link. **[Browse the live gallery →](https://mattaltermatt.github.io/diversion/)**,
   or read what every piece does in **[`docs/gallery.md`](docs/gallery.md)**.
@@ -40,7 +40,7 @@ Routes:
 
 Create `src/diversions/<slug>/` with two files — no registration step; the registry discovers both by Vite glob.
 
-- **`meta.ts`** — the identity (`id`, `title`, `description`, `kind`). Eagerly loaded, so the gallery can lay out all 137 tiles on the first paint.
+- **`meta.ts`** — the identity (`id`, `title`, `description`, `kind`). Eagerly loaded, so the gallery can lay out all 138 tiles on the first paint.
 - **`index.ts`** — the implementation, default-exporting a `Diversion` that spreads `...meta`. Lazily loaded: it becomes its own chunk, fetched when a tile scrolls into view or its route opens.
 
 Both are required. A folder with only `index.ts` silently vanishes from the gallery and 404s its route — `contract.test.ts` catches that.

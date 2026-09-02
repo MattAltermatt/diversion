@@ -30,7 +30,8 @@ export const ablationSchema = z.object({
             showWhen: { field: 'source', equals: 'Yours' },
             help: 'Stays on this machine — a picture is far too big to ride in a link. Your own '
                 + 'reloads keep it; someone opening a link you share sees the generated contour '
-                + 'map instead, or their own picture if they have one here.' }),
+                + 'map instead, or their own picture if they have one here. Shared with Salvage: '
+                + 'the last picture chosen in either piece is the one both use.' }),
   colors: z.number().int().min(2).max(24).default(6)
     .meta({ section: 'Picture', ui: 'slider', min: 2, max: 24, step: 1, label: 'Colors',
             showWhen: { field: 'source', equals: ['Pictures', 'Yours'] },
