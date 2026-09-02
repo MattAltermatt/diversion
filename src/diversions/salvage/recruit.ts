@@ -1,6 +1,7 @@
 import { walkable, cellIndex, inBounds, neighbors4 } from './grid'
+import { smoothPath } from './nav'
 import { isExposed } from './chunks'
-import { recruitColor, deposit } from './trails'
+import { recruitColor, depositAt } from './trails'
 import {
   type SalvageState, type Drone, type Chunk, type TintField,
   BLANK, DRONE_SPEED, WANDER_TURN, TRAIL_DEPOSIT, CREW_PULL, HOME_PULL, HOME_NEAR,
@@ -46,8 +47,8 @@ function immune(s: SalvageState, d: Drone, k: number): boolean {
   return k < d.immuneUntil.length && d.immuneUntil[k] > s.time
 }
 
-/** A drone left standing on a blocked cell (a site reserved under it, a piece it was
- *  inside when the picture changed) is nudged to the nearest walkable cell. */
+/** A drone left standing on a blocked cell (a piece it was inside when the picture
+ *  changed) is nudged to the nearest walkable cell. */
 export function snapToFree(s: SalvageState, d: Drone): void {
   const here = cellOf(s, d)
   if (walkable(s.grid.occ[here])) return
@@ -185,7 +186,10 @@ export function pickTarget(s: SalvageState, d: Drone, canFlood: () => boolean): 
   let cur = f.prev[start]
   while (cur !== -1) { path.push(cur); cur = f.prev[cur] }
   d.target = f.owner[start]
-  d.path = path
+  // String-pulled (#317): a 4-connected walk down the field is a Manhattan staircase —
+  // with a fixed neighbour order, the SAME one for every drone — so on open ground it
+  // read as tron light-cycles. The waypoints below keep the field's goal and go straight.
+  d.path = smoothPath(s.grid, d.x, d.y, path)
   d.pathPos = 0
   d.seekTime = 0
   return 'picked'
@@ -196,7 +200,7 @@ export function pickTarget(s: SalvageState, d: Drone, canFlood: () => boolean): 
  *  a bias, not a beeline: the jitter stays on top, and the pull switches off within
  *  HOME_NEAR cells of the picture's box so they browse its edge rather than pile on it. */
 export function wander(s: SalvageState, d: Drone, dt: number): void {
-  // A site reserved under a standing drone would wall it in: every step out of a
+  // A drone inside a freshly built picture would be walled in: every step out of a
   // blocked cell fails the walkability check. Step off first.
   if (!walkable(s.grid.occ[cellOf(s, d)])) { snapToFree(s, d); return }
   if (s.hasPicture) {
@@ -234,6 +238,6 @@ export function followPath(s: SalvageState, d: Drone, speed: number, dt: number)
     d.x += (dx / dist) * budget; d.y += (dy / dist) * budget; d.legPhase += budget
     budget = 0
   }
-  if (d.tint !== BLANK) deposit(s.trails, d.tint, cellOf(s, d), TRAIL_DEPOSIT * dt)
+  if (d.tint !== BLANK) depositAt(s.trails, d.tint, d.x, d.y, TRAIL_DEPOSIT * dt)
   return d.pathPos >= d.path.length
 }

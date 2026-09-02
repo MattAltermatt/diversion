@@ -3,7 +3,7 @@ import { mulberry32 } from '../../framework/rng'
 import { salvageSchema, type SalvageConfig } from './schema'
 import { makeGrid, cellIndex, floodReach } from './grid'
 import { partitionBlocks, expandChunks } from './chunks'
-import { makeTrails } from './trails'
+import { makeTrails, fineSub } from './trails'
 import { CELLS_PER_DRONE, type SalvageState } from './state'
 
 export interface TestPicture { bw: number; bh: number; idx: number[]; cov?: number[]; k?: number }
@@ -32,7 +32,7 @@ export function makeArena(
   return {
     cfg, size: { width: cols * cfg.cellSize, height: rows * cfg.cellSize }, cols, rows, grid,
     palette: Array.from({ length: ncol }, (_, i) => `#${(i * 40 + 60).toString(16).padStart(2, '0')}8080`),
-    chunks, drones: [], crews: [], trails: makeTrails(cols, rows),
+    chunks, drones: [], crews: [], trails: makeTrails(cols, rows, fineSub(cfg.cellSize, cols, rows)),
     phase: 'dismantle', phaseTime: 0, time: 0,
     nestSeed: cellIndex(grid, cols - 6, Math.floor(rows / 2)),
     picOriginCol: originCol, picOriginRow: originRow, picCols, picRows,

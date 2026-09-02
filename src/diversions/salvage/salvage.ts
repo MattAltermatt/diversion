@@ -10,7 +10,7 @@ import type { SalvageConfig } from './schema'
 import { type SalvageState, type Phase, REST, FADE, CELLS_PER_DRONE, COLD_RETRY } from './state'
 import { makeGrid, cellIndex, floodReach } from './grid'
 import { partitionBlocks, expandChunks } from './chunks'
-import { makeTrails, decay, clearTrails } from './trails'
+import { makeTrails, decay, clearTrails, fineSub } from './trails'
 import { clearMound } from './mound'
 import { stepColony, reconcileDrones, blankAll, relocateStranded } from './colony'
 
@@ -87,7 +87,7 @@ function emptyState(cfg: SalvageConfig, size: Size): SalvageState {
   const grid = makeGrid(cols, rows)
   return {
     cfg, size, cols, rows, grid, palette: [], chunks: [], drones: [], crews: [],
-    trails: makeTrails(cols, rows), phase: 'dismantle', phaseTime: 0, time: 0,
+    trails: makeTrails(cols, rows, fineSub(cfg.cellSize, cols, rows)), phase: 'dismantle', phaseTime: 0, time: 0,
     nestSeed: cellIndex(grid, Math.round(cols * 0.73), Math.round(rows / 2)),
     picOriginCol: 0, picOriginRow: 0, picCols: 0, picRows: 0, hasPicture: false, generation: 0,
     imageVersion: liveVersion(cfg), arenaKey: '', rand: mulberry32(cfg.seed),
@@ -154,7 +154,7 @@ function buildArena(s: SalvageState): boolean {
   s.siteHint.r = 0; s.siteHint.extent = 0
   s.capacity = arenaCapacity(s)
   s.crews = []
-  s.trails = makeTrails(s.cols, s.rows)
+  s.trails = makeTrails(s.cols, s.rows, fineSub(s.cfg.cellSize, s.cols, s.rows))
   s.hasPicture = true
   s.dirty = [-1]
   blankAll(s)

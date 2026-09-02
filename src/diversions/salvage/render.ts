@@ -1,6 +1,7 @@
 import { hexToRgb } from '../../framework/color'
 import type { SalvageState, Drone, Crew } from './state'
 import { BLANK } from './state'
+import { decayFine } from './trails'
 
 const BLANK_TINT = '#5a5a62'
 
@@ -12,6 +13,8 @@ interface Layers {
   mound: HTMLCanvasElement | null
   trail: HTMLCanvasElement | null
   trailData: ImageData | null
+  /** Wall-clock ms of the last trail raster (display cadence only — the sim never sees it). */
+  trailAt: number
   width: number
   height: number
   cellSize: number
@@ -40,14 +43,16 @@ function getLayers(s: SalvageState): Layers {
   if (!L || L.width !== s.size.width || L.height !== s.size.height || L.cellSize !== s.cfg.cellSize) {
     // Cache a refusal: retrying every frame would allocate a detached canvas per frame.
     const failed = L?.failed ?? false
-    L = { picture: null, mound: null, trail: null, trailData: null, width: s.size.width, height: s.size.height,
-          cellSize: s.cfg.cellSize, failed }
+    L = { picture: null, mound: null, trail: null, trailData: null, trailAt: -Infinity, width: s.size.width,
+          height: s.size.height, cellSize: s.cfg.cellSize, failed }
     if (!failed) {
       L.picture = makeCanvas(s.size.width, s.size.height)
       L.mound = makeCanvas(s.size.width, s.size.height)
-      L.trail = makeCanvas(s.cols, s.rows)
+      // The trail layer is the FINE field's size (#318): ~2.5 px per fine cell, so a
+      // trail draws as a thin line along the path walked, not a cell-wide stripe.
+      L.trail = makeCanvas(s.trails.fcols, s.trails.frows)
       if (!L.picture || !L.mound || !L.trail) { L.failed = true; L.picture = L.mound = L.trail = null }
-      else L.trailData = L.trail.getContext('2d')!.createImageData(s.cols, s.rows)
+      else L.trailData = L.trail.getContext('2d')!.createImageData(s.trails.fcols, s.trails.frows)
     }
     layers.set(s, L)
     s.dirty = [-1]
@@ -72,26 +77,45 @@ export function render(s: SalvageState, ctx: CanvasRenderingContext2D): void {
   ctx.globalAlpha = 1
 }
 
+/** The fine field is re-rasterised at most every TRAIL_RASTER_MS (~30 Hz) and the
+ *  canvas from the last raster is blitted in between. The glow moves on a seconds-scale
+ *  half-life and the tip lags a drone by at most 0.1 cell, so the cadence is invisible —
+ *  while a per-frame raster of a viewport-sized field was 1.6 ms at 1080p and 6.6 ms at
+ *  4K before the upload (measured). Display only: `decayFine` settles exactly the time
+ *  the sim banked, so the drawn strength is what a per-frame decay would have produced. */
+const TRAIL_RASTER_MS = 33
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+
 function drawTrails(s: SalvageState, ctx: CanvasRenderingContext2D, L: Layers): void {
   const glow = s.cfg.trailGlow
   if (glow <= 0 || !L.trail || !L.trailData) return
-  const data = L.trailData.data
   const t = s.trails
-  const pal = s.palette.map(rgb)
-  for (let i = 0, p = 0; i < t.strength.length; i++, p += 4) {
-    const v = t.strength[i]
-    const k = t.color[i]
-    if (v < 0.01 || k < 0 || k >= pal.length) { data[p + 3] = 0; continue }
-    const c = pal[k]
-    data[p] = c[0]; data[p + 1] = c[1]; data[p + 2] = c[2]
-    data[p + 3] = Math.min(255, Math.round(255 * glow * Math.sqrt(v) * 0.7))
+  // A rebuilt arena (Cell size moved) resizes the fine field under a cached layer.
+  if (L.trail.width !== t.fcols || L.trail.height !== t.frows) {
+    L.trail.width = Math.max(1, t.fcols); L.trail.height = Math.max(1, t.frows)
+    L.trailData = L.trail.getContext('2d')!.createImageData(t.fcols, t.frows)
+    L.trailAt = -Infinity
   }
-  const tctx = L.trail.getContext('2d')!
-  tctx.putImageData(L.trailData, 0, 0)
+  const tick = now()
+  if (tick - L.trailAt >= TRAIL_RASTER_MS) {
+    L.trailAt = tick
+    decayFine(t, s.cfg.trailFade)
+    const data = L.trailData.data
+    const pal = s.palette.map(rgb)
+    for (let i = 0, p = 0; i < t.fstrength.length; i++, p += 4) {
+      const v = t.fstrength[i]
+      const k = t.fcolor[i]
+      if (v < 0.01 || k < 0 || k >= pal.length) { data[p + 3] = 0; continue }
+      const c = pal[k]
+      data[p] = c[0]; data[p + 1] = c[1]; data[p + 2] = c[2]
+      data[p + 3] = Math.min(255, Math.round(255 * glow * Math.sqrt(v) * 0.7))
+    }
+    L.trail.getContext('2d')!.putImageData(L.trailData, 0, 0)
+  }
   ctx.globalCompositeOperation = 'lighter'
   ctx.globalAlpha = 1
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(L.trail, 0, 0, s.cols, s.rows, 0, 0, s.cols * s.cfg.cellSize, s.rows * s.cfg.cellSize)
+  ctx.drawImage(L.trail, 0, 0, t.fcols, t.frows, 0, 0, s.cols * s.cfg.cellSize, s.rows * s.cfg.cellSize)
   ctx.globalCompositeOperation = 'source-over'
 }
 

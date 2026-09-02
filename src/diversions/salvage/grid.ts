@@ -6,7 +6,7 @@ export const RESERVED = 3
 export interface Grid {
   cols: number
   rows: number
-  /** FREE / PICTURE / MOUND / RESERVED per cell. Drones walk FREE only. */
+  /** FREE / PICTURE / MOUND / RESERVED per cell. Drones walk everything but PICTURE. */
   occ: Uint8Array
   /** Chunk id occupying the cell, or -1. */
   owner: Int32Array
@@ -32,11 +32,16 @@ export function makeGrid(cols: number, rows: number): Grid {
            heapMinC: Infinity, heapMinR: Infinity, heapMaxC: -Infinity, heapMaxR: -Infinity }
 }
 
-/** Drones walk FREE cells and the MOUND (a dropped piece is a floor, not a wall —
- *  the user watched drones get stuck against the heap). Only the PICTURE and a site a
- *  crew is about to lower a piece onto block the way. */
+/** Drones walk FREE cells, the MOUND (a dropped piece is a floor, not a wall — the user
+ *  watched drones get stuck against the heap) AND a RESERVED site (empty floor until the
+ *  piece is lowered onto it). Only the PICTURE blocks the way. Reserved sites used to
+ *  block too, and with several crews in flight their sites walled off pockets of mound
+ *  cells: a carrier disbanded into one had no reachable target and its wander bounced
+ *  between the reserved cells at full speed until those pieces landed — drones "dancing
+ *  in place" on the heap for up to half a minute (2026-09-02). A drone standing where a
+ *  piece lands is already handled: the cell becomes MOUND, which is floor too. */
 export function walkable(occ: number): boolean {
-  return occ === FREE || occ === MOUND
+  return occ !== PICTURE
 }
 
 export function inBounds(g: Grid, col: number, row: number): boolean {

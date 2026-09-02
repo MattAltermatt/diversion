@@ -1,6 +1,6 @@
-import { cellIndex, inBounds, floodReach, walkable, neighbors4, type Grid } from './grid'
-import { bfs, pathTo, approachCell } from './nav'
-import { deposit } from './trails'
+import { inBounds, floodReach, walkable, neighbors4, type Grid } from './grid'
+import { bfs, pathTo, approachCell, smoothPath } from './nav'
+import { depositAt } from './trails'
 import { findDropSite, reserve, unreserve, place, lift } from './mound'
 import { cellOf, neededFor, goBlank, snapToFree } from './recruit'
 import {
@@ -81,7 +81,9 @@ function liftCrew(s: SalvageState, crew: Crew): void {
   floodReach(g, s.queue)
   s.fieldVersion++
   s.dirty.push(c.id)
-  crew.path = pathTo(s.prev, start, a)
+  // String-pulled (#317): the carried piece heads straight for its site across open
+  // ground and bends only around the picture and the heap.
+  crew.path = smoothPath(g, (start % g.cols) + 0.5, Math.floor(start / g.cols) + 0.5, pathTo(s.prev, start, a))
   crew.pathPos = 0
   crew.dest = dest
   crew.moving = true
@@ -139,8 +141,7 @@ export function stepCrew(s: SalvageState, crew: Crew, dt: number, frame: { lifts
   for (const d of crew.carriers) d.legPhase += speed * dt
   arrangeCarriers(crew)
   for (const d of crew.carriers) {
-    const col = Math.floor(d.x), row = Math.floor(d.y)
-    if (inBounds(s.grid, col, row)) deposit(s.trails, c.color, cellIndex(s.grid, col, row), TRAIL_DEPOSIT * dt)
+    if (inBounds(s.grid, Math.floor(d.x), Math.floor(d.y))) depositAt(s.trails, c.color, d.x, d.y, TRAIL_DEPOSIT * dt)
   }
   if (crew.pathPos >= crew.path.length) { crew.settle = SETTLE; crew.fromX = crew.x; crew.fromY = crew.y }
 }

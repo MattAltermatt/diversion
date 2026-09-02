@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { makeArena } from './testArena'
 import { stepColony, reconcileDrones, blankAll } from './colony'
-import { spawnDrone } from './recruit'
+import { spawnDrone, pickTarget } from './recruit'
 import { deposit } from './trails'
-import { cellIndex, MOUND } from './grid'
+import { cellIndex, floodReach, MOUND } from './grid'
+import { reserve, recountHeap } from './mound'
 import { BLANK, TRAIL_RECRUIT, WAIT_TIMEOUT, STOLEN_LIMIT, PICK_BUDGET } from './state'
 
 const run = (s: ReturnType<typeof makeArena>, seconds: number, dt = 0.05) => {
@@ -176,5 +177,28 @@ describe('reconcileDrones', () => {
     d.retiring = true
     run(s, 40)
     expect(s.drones).not.toContain(d)
+  })
+})
+
+describe('reserved sites are floor until the piece lands', () => {
+  // Live repro (2026-09-02): a carrier disbanded onto a mound cell that other crews'
+  // reserved sites had walled in. Its tint field never reached it, every pick came back
+  // empty, and the wander bounced off the reserved cells at full speed for 8–35 s —
+  // "dancing in place" on the heap — until those pieces landed and the wall became floor.
+  it('a drone walled in by reserved sites still gets a target and a path out', () => {
+    const s = makeArena({}, undefined, 40, 20)
+    const g = s.grid
+    const cc = 30, cr = 10
+    const centre = cellIndex(g, cc, cr)
+    g.occ[centre] = MOUND; g.owner[centre] = 0
+    const ring: number[] = []
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (dr !== 0 || dc !== 0) ring.push(cellIndex(g, cc + dc, cr + dr))
+    reserve(g, Int32Array.from(ring))
+    recountHeap(g)
+    floodReach(g)
+    const d = spawnDrone(s, cc + 0.5, cr + 0.5)
+    d.tint = 0; d.state = 'seeking'
+    expect(pickTarget(s, d, () => true)).toBe('picked')
+    expect(d.path.length).toBeGreaterThan(0)
   })
 })
