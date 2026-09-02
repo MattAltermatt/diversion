@@ -3,6 +3,7 @@ import { mulberry32 } from '../../framework/rng'
 // Shared with Ablation deliberately — see schema.ts and the spec's Reuse section.
 import { quantize, contrastFloor, contrastCeiling } from '../ablation/quantize'
 import { rotationOrder } from '../ablation/pictures'
+import { buildContours, groundPalette } from './contours'
 import { ensurePicture, getPicture, pictureVersion } from '../../framework/pictureStore'
 import { getImage, currentImage, storeVersion } from '../../framework/imageStore'
 import type { SalvageConfig } from './schema'
@@ -29,6 +30,7 @@ export function activeSlug(cfg: SalvageConfig, generation: number): string | nul
 }
 
 function resolveImage(cfg: SalvageConfig, generation: number) {
+  if (cfg.source === 'Contours') return null // generated, never resolved from a store
   if (cfg.source === 'Pictures') {
     const slug = activeSlug(cfg, generation)
     if (!slug) return null
@@ -41,6 +43,7 @@ function resolveImage(cfg: SalvageConfig, generation: number) {
 }
 
 function liveVersion(cfg: SalvageConfig): number {
+  if (cfg.source === 'Contours') return 0 // no store behind it; nothing can land
   return cfg.source === 'Pictures' ? pictureVersion() : storeVersion()
 }
 
@@ -53,7 +56,13 @@ const SPRITE_MAX_PX = 48
 function geometry(cfg: SalvageConfig, cols: number, rows: number, imgW: number, imgH: number) {
   const boxW = Math.floor(cols * 0.40), boxH = Math.floor(rows * 0.70)
   let bw: number, bh: number, k: number
-  if (cfg.source === 'Pictures' || Math.max(imgW, imgH) <= SPRITE_MAX_PX) {
+  if (cfg.source === 'Contours') {
+    // A generated map fills the box as a solid rectangle, its longer side capped at
+    // SPRITE_MAX_PX blocks — a 76-block map is a 5,700-block job, a 48-block one is
+    // about 2,000 and roughly 190 pieces at the default piece size.
+    k = Math.max(1, Math.ceil(Math.max(boxW, boxH) / SPRITE_MAX_PX))
+    bw = Math.max(1, Math.floor(boxW / k)); bh = Math.max(1, Math.floor(boxH / k))
+  } else if (cfg.source === 'Pictures' || Math.max(imgW, imgH) <= SPRITE_MAX_PX) {
     bw = imgW; bh = imgH
     k = Math.max(1, Math.floor(Math.min(boxW / bw, boxH / bh)))
   } else {
@@ -104,12 +113,28 @@ export function arenaCapacity(s: SalvageState): number {
 function buildArena(s: SalvageState): boolean {
   s.imageVersion = liveVersion(s.cfg)
   s.nextResolve = s.time + COLD_RETRY
-  const img = resolveImage(s.cfg, s.generation)
-  if (!img) return false
-  const key = [img.id, s.cols, s.rows, s.cfg.colors, s.cfg.chunkSize, s.cfg.source, s.generation].join('|')
-  if (key === s.arenaKey && s.hasPicture) return true
-  const geo = geometry(s.cfg, s.cols, s.rows, img.width, img.height)
-  const q = quantize(img, geo.bw, geo.bh, s.cfg.colors, hashId(img.id), true, s.cfg.background, false)
+  const cfg = s.cfg
+  let key: string, geo: ReturnType<typeof geometry>, q: ReturnType<typeof quantize>
+  if (cfg.source === 'Contours') {
+    // Generated, so it can never be cold — but the same key discipline applies:
+    // re-building the arena for an identical map would wipe the mound mid-run. The
+    // palette is NOT in the key: the band grid does not depend on it, so a ramp
+    // change repaints in applyConfig instead.
+    key = ['contours', s.cols, s.rows, cfg.colors, cfg.chunkSize, cfg.seed, s.generation,
+           cfg.featureSize, cfg.roughness].join('|')
+    if (key === s.arenaKey && s.hasPicture) return true
+    geo = geometry(cfg, s.cols, s.rows, 0, 0)
+    q = buildContours({ seed: cfg.seed, generation: s.generation, bw: geo.bw, bh: geo.bh, colors: cfg.colors,
+                        palette: cfg.palette, featureSize: cfg.featureSize, roughness: cfg.roughness,
+                        background: cfg.background })
+  } else {
+    const img = resolveImage(cfg, s.generation)
+    if (!img) return false
+    key = [img.id, s.cols, s.rows, cfg.colors, cfg.chunkSize, cfg.source, s.generation].join('|')
+    if (key === s.arenaKey && s.hasPicture) return true
+    geo = geometry(cfg, s.cols, s.rows, img.width, img.height)
+    q = quantize(img, geo.bw, geo.bh, cfg.colors, hashId(img.id), true, cfg.background, false)
+  }
   s.arenaKey = key
   if (!q.coverage.some((c) => c === 1)) return false
   const g = makeGrid(s.cols, s.rows)
@@ -209,15 +234,24 @@ export function step(s: SalvageState, dtSeconds: number): void {
  *  clustering, so cell indices are untouched and only the palette strings move. */
 export function applyConfig(s: SalvageState, cfg: SalvageConfig, size: Size): boolean {
   const prev = s.cfg
-  const structural: Array<keyof SalvageConfig> = ['source', 'picture', 'image', 'colors', 'cellSize', 'chunkSize', 'seed']
+  const structural: Array<keyof SalvageConfig> = ['source', 'picture', 'image', 'colors', 'cellSize', 'chunkSize', 'seed',
+                                                   'featureSize', 'roughness']
   for (const k of structural) if (prev[k] !== cfg[k]) return false
   if (size.width !== s.size.width || size.height !== s.size.height) return false
   s.cfg = cfg
+  // The Contours ramp is live: band indices never depend on it, so a preset pick, a
+  // swatch drag or a ground change only re-reads the palette and repaints. Compared
+  // by value — a re-decoded config carries a fresh array with the same stops.
+  if (cfg.source === 'Contours' && s.hasPicture
+      && (prev.palette.join(',') !== cfg.palette.join(',') || cfg.background !== prev.background)) {
+    s.palette = groundPalette(cfg.palette, cfg.colors, cfg.background)
+    s.dirty = [-1]
+  }
   if (cfg.drones !== prev.drones) { s.capacity = arenaCapacity(s); reconcileDrones(s, s.capacity) }
   if (cfg.background !== prev.background) s.dirty = [-1] // the seams are painted in the ground colour
   // Gated on the floor OR ceiling actually moving: a dark→light ground moves the
   // ceiling (the lightest band must clear it) while the floor may not budge.
-  if (s.hasPicture && cfg.background !== prev.background
+  if (s.hasPicture && cfg.source !== 'Contours' && cfg.background !== prev.background
       && (Math.abs(contrastFloor(cfg.background) - contrastFloor(prev.background)) > 1e-3
           || Math.abs(contrastCeiling(cfg.background) - contrastCeiling(prev.background)) > 1e-3)) {
     const img = resolveImage(cfg, s.generation)

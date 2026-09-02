@@ -99,6 +99,78 @@ describe('the loop', () => {
   }, 60000)
 })
 
+describe('the Contours source', () => {
+  const run = (seed: number) => {
+    const cfg = salvageSchema.parse({ source: 'Contours', cellSize: 10, colors: 4, seed, tempo: 4 })
+    const s = createState(cfg, size)
+    let steps = 0
+    while ((s.generation < 1 || s.phase === 'swap') && steps++ < 60000) step(s, 0.05)
+    return { s, steps }
+  }
+
+  it('builds a solid rectangle of every band with no store at all, sized to the box cap', () => {
+    const cfg = salvageSchema.parse({ source: 'Contours', cellSize: 10, colors: 5, seed: 1 })
+    const s = createState(cfg, size)
+    expect(s.hasPicture).toBe(true)
+    expect(s.palette).toHaveLength(5)
+    expect(new Set(s.chunks.map((c) => c.color)).size).toBe(5)
+    // 100x60 cells → box 40x42 → longer side 42 ≤ 48 → k = 1, the map IS the box.
+    expect(s.picCols).toBe(40)
+    expect(s.picRows).toBe(42)
+    let covered = 0
+    for (const v of s.grid.occ) if (v === PICTURE) covered++
+    expect(covered).toBe(40 * 42)
+  })
+
+  it('caps the longer side at 48 blocks on a big arena by scaling blocks up', () => {
+    const cfg = salvageSchema.parse({ source: 'Contours', cellSize: 6, seed: 1 })
+    const s = createState(cfg, { width: 1920, height: 1080 })
+    // 320x180 cells → box 128x125 (180*0.70 floors to 125 in floating point) → k = 3
+    // → 42x41 blocks drawn 3 cells each.
+    expect(s.picCols).toBe(126)
+    expect(s.picRows).toBe(123)
+    expect(s.chunks.every((c) => c.at!.length % 9 === 0)).toBe(true)
+  })
+
+  it('dismantles a whole map to the mound and a DIFFERENT map fades in next', () => {
+    const before = run(9)
+    expect(before.steps).toBeLessThan(60000)
+    expect(before.s.generation).toBe(1)
+    expect(before.s.hasPicture).toBe(true)
+    const first = createState(salvageSchema.parse({ source: 'Contours', cellSize: 10, colors: 4, seed: 9, tempo: 4 }), size)
+    expect(first.chunks.map((c) => c.color).join()).not.toBe(before.s.chunks.map((c) => c.color).join())
+  }, 60000)
+
+  it('is deterministic for a seed', () => {
+    const a = run(4), b = run(4)
+    expect(a.steps).toBe(b.steps)
+    expect(Array.from(a.s.grid.occ)).toEqual(Array.from(b.s.grid.occ))
+  }, 60000)
+
+  it('repaints live for a palette change — same bands, new colours, mound kept — and rebuilds for the generator knobs', () => {
+    const cfg = salvageSchema.parse({ source: 'Contours', seed: 1, colors: 4 })
+    const s = createState(cfg, size)
+    const idxBefore = s.chunks.map((c) => c.color).join()
+    expect(applyConfig(s, { ...cfg, palette: [...cfg.palette] }, size)).toBe(true)
+    // A ramp that clears the dark ground on its own, so it comes back verbatim.
+    const next = { ...cfg, palette: ['#505070', '#ffffff'] }
+    expect(applyConfig(s, next, size)).toBe(true)
+    expect(s.palette).toHaveLength(4)
+    expect(s.palette[0]).toBe('#505070')
+    expect(s.palette[3]).toBe('#ffffff')
+    expect(s.chunks.map((c) => c.color).join()).toBe(idxBefore)
+    expect(s.dirty).toEqual([-1])
+    // A pale ground is live too, and pulls the ramp under the ceiling rather than
+    // letting the lightest band vanish.
+    s.dirty = []
+    expect(applyConfig(s, { ...next, background: '#f0f0f0' }, size)).toBe(true)
+    expect(s.palette[3]).not.toBe('#ffffff')
+    expect(s.dirty).toEqual([-1])
+    expect(applyConfig(s, { ...next, featureSize: 20 }, size)).toBe(false)
+    expect(applyConfig(s, { ...next, roughness: 0.9 }, size)).toBe(false)
+  })
+})
+
 describe('applyConfig', () => {
   it('applies tempo, strength, drones, glyph and background live; rebuilds for structural keys', () => {
     const base = salvageSchema.parse({ source: 'Yours', image: upload(), seed: 3, colors: 3 })

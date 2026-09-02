@@ -9,10 +9,12 @@ import { PICTURE_OPTIONS, SHUFFLE_ALL } from '../ablation/pictures'
 // the URL codec and the Config type.
 export const salvageSchema = z.object({
   // ─── Picture ──────────────────────────────────────────────────────────────
-  source: z.enum(['Pictures', 'Yours']).default('Pictures')
-    .meta({ section: 'Picture', ui: 'segmented', label: 'Source', options: ['Pictures', 'Yours'],
+  source: z.enum(['Pictures', 'Contours', 'Yours']).default('Pictures')
+    .meta({ section: 'Picture', ui: 'segmented', label: 'Source', options: ['Pictures', 'Contours', 'Yours'],
             help: 'Pictures works through a set of pixel-art sprites bundled with the gallery. '
-                + 'Yours dismantles a picture from your own machine, the same one every time.' }),
+                + 'Contours generates a fresh banded contour map — the picture Ablation eats — '
+                + 'each time one is carried off; the Palette presets above apply to it. Yours '
+                + 'dismantles a picture from your own machine, the same one every time.' }),
   picture: z.string().default(SHUFFLE_ALL)
     .meta({ section: 'Picture', ui: 'select', label: 'Picture', options: PICTURE_OPTIONS,
             showWhen: { field: 'source', equals: 'Pictures' },
@@ -24,6 +26,16 @@ export const salvageSchema = z.object({
             help: 'Stays on this machine — a picture is far too big to ride in a link. Shared '
                 + 'with Ablation: the last picture chosen in either piece is the one both use. '
                 + 'Someone opening a link you share sees the bundled sprites instead.' }),
+  // Same regex as Ablation's: z.string() would accept '%2' as a stop, which is invalid
+  // as a fillStyle and leaves the previous fill silently in place.
+  palette: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(2).max(12)
+    .default(['#1b4f6b', '#247091', '#2f8b9b', '#67b8ab', '#b2d18d', '#f2e2b0'])
+    // min/max restate the Zod bounds so ColorList does not fall back to its own 1..8 (#304).
+    .meta({ section: 'Picture', ui: 'colorList', min: 2, max: 12, label: 'Palette',
+            showWhen: { field: 'source', equals: 'Contours' },
+            help: 'The ramp the contour map is painted in, dark to light. Colors below picks how '
+                + 'many bands it is read at: fewer than the stops drops tones, more spreads the '
+                + 'same ramp over finer steps.' }),
   colors: z.number().int().min(2).max(12).default(6)
     .meta({ section: 'Picture', ui: 'slider', min: 2, max: 12, step: 1, label: 'Colors',
             help: 'How many colours the picture is reduced to. Each is a trail the colony can '
@@ -75,11 +87,21 @@ export const salvageSchema = z.object({
                 + 'can vanish against the floor.' }),
 
   // ─── Advanced ─────────────────────────────────────────────────────────────
+  featureSize: z.number().min(3).max(30).default(8)
+    .meta({ section: 'Advanced', ui: 'slider', min: 3, max: 30, step: 1, label: 'Feature size',
+            showWhen: { field: 'source', equals: 'Contours' },
+            help: 'Blocks per contour feature. Large gives a few broad lazy bands; small gives '
+                + 'crenellated ridges and islands that come apart as many small pieces.' }),
+  roughness: z.number().min(0).max(1).default(0.5)
+    .meta({ section: 'Advanced', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Roughness',
+            showWhen: { field: 'source', equals: 'Contours' },
+            help: 'How much the finer octaves contribute. 0 is smooth rolling contours; 1 is '
+                + 'ragged coastline.' }),
   seed: z.number().int().default(1)
     .meta({ section: 'Advanced', ui: 'number', step: 1, label: 'Seed', randomizeOnFreshLoad: true,
             collapsed: true,
-            help: 'Fixes the drones\' wandering and the sprite order. Omitted from shared links so '
-                + 'every visit is a fresh colony.' }),
+            help: 'Fixes the drones\' wandering, the sprite order and the contour maps. Omitted '
+                + 'from shared links so every visit is a fresh colony.' }),
 })
 
 export type SalvageConfig = z.infer<typeof salvageSchema>
