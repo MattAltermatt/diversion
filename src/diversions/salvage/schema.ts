@@ -53,8 +53,9 @@ export const salvageSchema = z.object({
   chunkSize: z.number().int().min(1).max(48).default(12)
     .meta({ section: 'Colony', ui: 'slider', min: 1, max: 48, step: 1, label: 'Piece size',
             help: 'Largest piece the picture is cut into, in pixels of the picture — this is what '
-                + 'sets how many pieces there are. Pieces follow '
-                + 'the pixel grid. At 1 every pixel is its own piece and no crew ever forms.' }),
+                + 'sets how many pieces there are. Pieces follow the pixel grid, and are capped '
+                + 'at what the mound beside the picture can pack, so a large picture cuts finer '
+                + 'than this asks. At 1 every pixel is its own piece and no crew ever forms.' }),
   immunity: z.number().min(0).max(120).default(20)
     .meta({ section: 'Colony', ui: 'slider', min: 0, max: 120, step: 1, label: 'Immunity',
             help: 'Seconds a drone that gave up on a colour refuses to be recruited back to it. '

@@ -42,6 +42,17 @@ export const CELL_MAX = 24
  *  picture of the point grows — positions, speed and reach stay in cells. Above the
  *  floor the glyph is `cell · droneSize` as before (8 px at the shipped arena). */
 export const GLYPH_MIN_PX = 6
+/** Largest piece the cut may produce, as a fraction of the arena's FREE cells (#320,
+ *  #321). The mound must pack every piece into the free space beside the picture, and
+ *  a headless sweep over the whole roster put the boundary at ≈2% of it in both a
+ *  1440×900 arena and a 300×190 tile: above it the last pieces cycle latch → no drop
+ *  site → disband forever (an exhaustive scan confirmed no site exists — it is
+ *  fragmentation, not the search). Piece size alone is harmless; piece size over free
+ *  space is what stalls. 0.025 is a SAFETY NET: it binds on no roster sprite at the
+ *  shipped arena and fixes the 1-in-700 tile stall. 0.015 would also make the
+ *  picture's fullest whole fit safe (mean box fill 78% → 94%), but at the cost of
+ *  halving the pieces and the crews — the owner chose today's gather (2026-09-02). */
+export const PIECE_FREE_FRACTION = 0.025
 export const BLANK = -1
 
 export type Where = 'picture' | 'lifted' | 'mound'

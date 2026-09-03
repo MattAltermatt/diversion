@@ -7,7 +7,7 @@ import { buildContours, groundPalette } from './contours'
 import { ensurePicture, getPicture, pictureVersion } from '../../framework/pictureStore'
 import { getImage, currentImage, storeVersion } from '../../framework/imageStore'
 import type { SalvageConfig } from './schema'
-import { type SalvageState, type Phase, REST, FADE, CELLS_PER_DRONE, COLD_RETRY, ARENA_COLS, ARENA_ROWS, CELL_MIN, CELL_MAX } from './state'
+import { type SalvageState, type Phase, REST, FADE, CELLS_PER_DRONE, COLD_RETRY, ARENA_COLS, ARENA_ROWS, CELL_MIN, CELL_MAX, PIECE_FREE_FRACTION } from './state'
 import { makeGrid, cellIndex, floodReach } from './grid'
 import { partitionBlocks, expandChunks } from './chunks'
 import { makeTrails, decay, clearTrails, fineSub } from './trails'
@@ -53,19 +53,17 @@ function liveVersion(cfg: SalvageConfig): number {
  *  with k chosen so the picture is ≤ 48 blocks wide. Fractions are the spec's
  *  27% / 73% split.
  *
- *  `k` is the whole-number FLOOR of the box fill. A nearest-fill (round) rule was tried
- *  for #319 and benched: it made the 16 px roster sprite 64×64 cells at the shipped arena,
- *  a 12-block piece became 192 cells, and the last three or four pieces cycled latch →
- *  no drop site → disband forever — 21/24 in the mound at 12,000 sim-seconds. The mound
- *  has to mirror the picture's area in the free space beside it, and at k 4 that was 55%
- *  of it; at k 3 (today's 48×48) it is 25% and finishes in ~870 steps. So the picture
- *  fills its box only as far as the mound can absorb; more fill is a packing problem
- *  (piece size in cells, or a bigger mound region), not a rounding one. The cap below is
- *  what a nearest-fill rule needs (the left edge must clear the 2-cell border at 27%:
- *  width ≤ 0.54·cols − 4) and is never binding under floor. A sprite that cannot fit even
- *  at k = 1 (a 48 px sprite on a 300 px tile) is resampled into the box by ONE scale on
- *  both axes — the old fallback clamped width and height independently and walled off a
- *  15×49-cell box around 15×30 cells of art on a phone. */
+ *  `k` is the whole-number FLOOR of the box fill. A nearest-fill (round) rule was built
+ *  twice for #319/#320: a 16 px sprite becomes 64×64 cells and either its 192-cell pieces
+ *  never find a drop site, or — with the piece cap in `buildArena` tightened to make it
+ *  safe — the pieces and the crews halve (a default-strength crew of 2, not 4). The
+ *  owner chose the gather over the fuller picture; the fill is one constant away
+ *  (`PIECE_FREE_FRACTION` 0.015 + `Math.round` here). The cap below is what a nearest-fill
+ *  rule needs (the left edge must clear the 2-cell border at 27%: width ≤ 0.54·cols − 4)
+ *  and is never binding under floor. A sprite that cannot fit even at k = 1 (a 48 px
+ *  sprite on a 300 px tile) is resampled into the box by ONE scale on both axes — the old
+ *  fallback clamped width and height independently and walled off a 15×49-cell box around
+ *  15×30 cells of art on a phone. */
 const SPRITE_MAX_PX = 48
 export function geometry(cfg: SalvageConfig, cols: number, rows: number, imgW: number, imgH: number) {
   const boxW = Math.floor(cols * 0.40), boxH = Math.floor(rows * 0.70)
@@ -166,15 +164,21 @@ function buildArena(s: SalvageState): boolean {
   const g = makeGrid(s.cols, s.rows)
   s.grid = g
   s.palette = q.palette
-  s.chunks = expandChunks(partitionBlocks(q.idx, q.coverage, geo.bw, geo.bh, s.cfg.chunkSize), q.idx, geo.bw, geo.k, geo.originCol, geo.originRow, g)
-  s.picOriginCol = geo.originCol; s.picOriginRow = geo.originRow
-  s.picCols = geo.picCols; s.picRows = geo.picRows
-  s.nestSeed = cellIndex(g, geo.seedCol, geo.seedRow)
+  // The forbidden mask first: the piece cap below is a fraction of what it leaves free.
+  let free = 0
   for (let r = 0; r < s.rows; r++) for (let c = 0; c < s.cols; c++) {
     const border = c < 2 || r < 2 || c >= s.cols - 2 || r >= s.rows - 2
     const box = c >= geo.originCol - 2 && c < geo.originCol + geo.picCols + 2 && r >= geo.originRow - 2 && r < geo.originRow + geo.picRows + 2
     if (border || box) g.forbid[cellIndex(g, c, r)] = 1
+    else free++
   }
+  // A piece is capped at PIECE_FREE_FRACTION of the free cells (k² cells per picture
+  // pixel), or the mound cannot pack the last ones — see state.ts.
+  const pieceCap = Math.max(1, Math.floor(free * PIECE_FREE_FRACTION / (geo.k * geo.k)))
+  s.chunks = expandChunks(partitionBlocks(q.idx, q.coverage, geo.bw, geo.bh, Math.min(s.cfg.chunkSize, pieceCap)), q.idx, geo.bw, geo.k, geo.originCol, geo.originRow, g)
+  s.picOriginCol = geo.originCol; s.picOriginRow = geo.originRow
+  s.picCols = geo.picCols; s.picRows = geo.picRows
+  s.nestSeed = cellIndex(g, geo.seedCol, geo.seedRow)
   floodReach(g, s.queue)
   s.fields.clear(); s.fieldVersion++
   s.siteHint.r = 0; s.siteHint.extent = 0

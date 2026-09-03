@@ -5,8 +5,7 @@ import { createState, step, applyConfig, resizeState, geometry, cellFor } from '
 import { MOUND, PICTURE } from './grid'
 
 // A 16x16 three-colour upload with a transparent 4x4 hole: realistic for a sprite.
-function upload(id = 'fixture') {
-  const w = 16, h = 16
+function upload(id = 'fixture', w = 16, h = 16) {
   const pixels = new Uint8ClampedArray(w * h * 4)
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = (y * w + x) * 4
@@ -86,16 +85,30 @@ describe('the loop', () => {
     expect(s.phase === 'fadeIn' || s.phase === 'dismantle').toBe(true)
   }, 60000)
 
-  it('finishes a dismantle at the SHIPPED arena with the default piece size (the fill rule is bounded by this)', () => {
+  it('finishes a dismantle at the SHIPPED arena with the default piece size', () => {
     // 1440x900 → cell 10, 144x90; the 16 px fixture is k 3 = 48x48 cells, 12-block pieces
-    // of 108 cells. Nearest-fill (k 4: 64x64, 192-cell pieces) stalled here at 21/24 pieces.
+    // of 108 cells (23% picture pressure). Nearest-fill (k 4, 192-cell pieces) stalled here.
     const cfg = salvageSchema.parse({ source: 'Yours', image: upload(), colors: 3, seed: 11, tempo: 4 })
     const s = createState(cfg, { width: 1440, height: 900 })
     expect(s.cell).toBe(10); expect(s.picCols).toBe(48)
+    expect(Math.max(...s.chunks.map((c) => c.home.length))).toBe(12 * 9) // the cap does not bind here
     let steps = 0
     while (s.generation < 1 && steps++ < 40000) step(s, 0.05)
     expect(s.generation).toBe(1)
   }, 120000)
+
+  it('caps a piece where the picture is large for its arena: a 14x16 sprite on a tile (#321)', () => {
+    // 300x190 → cell 4, 75x47, box 30x32: a 14x16 sprite gets k 2 (28x32 cells, 38% of the
+    // free space) — the one class that stalled at the tile (1/696). Uncapped a 12-block
+    // piece is 48 cells; the cap (free ~1,750 x 0.025 / 4) is 10 blocks = 40 cells.
+    const cfg = salvageSchema.parse({ source: 'Yours', image: upload('tall', 14, 16), colors: 3, seed: 3 })
+    const s = createState(cfg, { width: 300, height: 190 })
+    expect(s.picCols).toBe(28)
+    const largest = Math.max(...s.chunks.map((c) => c.home.length))
+    expect(largest).toBeLessThan(12 * 4)
+    expect(largest % 4).toBe(0)
+    expect(largest).toBeGreaterThanOrEqual(4)
+  })
 
   it('never places a mound cell inside the forbidden mask', () => {
     const cfg = salvageSchema.parse({ source: 'Yours', image: upload(), colors: 3, seed: 2, tempo: 4 })
@@ -290,7 +303,7 @@ describe('geometry', () => {
   })
   it('keeps the shipped fill at the shipped arena: one block per sprite pixel at the largest whole fill', () => {
     // 144x90 cells (1440x900), box 57x62: 48 / 32 / 48 cells (83% / 55% / 84% of the box).
-    // Nearest-fill (64 / 64 / 48) was benched and stalls the mound — see geometry().
+    // Nearest fill (64 / 64 / 48) halves the pieces and the crews — the owner chose this.
     expect(geometry(pictures, 144, 90, 16, 16)).toMatchObject({ bw: 16, bh: 16, k: 3, picCols: 48, picRows: 48 })
     expect(geometry(pictures, 144, 90, 32, 32)).toMatchObject({ k: 1, picCols: 32 })
     expect(geometry(pictures, 144, 90, 48, 48)).toMatchObject({ k: 1, picCols: 48 })
