@@ -7,7 +7,7 @@ import { buildContours, groundPalette } from './contours'
 import { ensurePicture, getPicture, pictureVersion } from '../../framework/pictureStore'
 import { getImage, currentImage, storeVersion } from '../../framework/imageStore'
 import type { SalvageConfig } from './schema'
-import { type SalvageState, type Phase, REST, FADE, CELLS_PER_DRONE, COLD_RETRY } from './state'
+import { type SalvageState, type Phase, REST, FADE, CELLS_PER_DRONE, COLD_RETRY, ARENA_COLS, ARENA_ROWS, CELL_MIN, CELL_MAX } from './state'
 import { makeGrid, cellIndex, floodReach } from './grid'
 import { partitionBlocks, expandChunks } from './chunks'
 import { makeTrails, decay, clearTrails, fineSub } from './trails'
@@ -51,28 +51,47 @@ function liveVersion(cfg: SalvageConfig): number {
  *  is a tiny upload's, since upsampling pixel art into more blocks than it has pixels
  *  invents seams the artist never drew. A larger upload's block is a k×k cell square
  *  with k chosen so the picture is ≤ 48 blocks wide. Fractions are the spec's
- *  27% / 73% split. */
+ *  27% / 73% split.
+ *
+ *  `k` is the whole-number FLOOR of the box fill. A nearest-fill (round) rule was tried
+ *  for #319 and benched: it made the 16 px roster sprite 64×64 cells at the shipped arena,
+ *  a 12-block piece became 192 cells, and the last three or four pieces cycled latch →
+ *  no drop site → disband forever — 21/24 in the mound at 12,000 sim-seconds. The mound
+ *  has to mirror the picture's area in the free space beside it, and at k 4 that was 55%
+ *  of it; at k 3 (today's 48×48) it is 25% and finishes in ~870 steps. So the picture
+ *  fills its box only as far as the mound can absorb; more fill is a packing problem
+ *  (piece size in cells, or a bigger mound region), not a rounding one. The cap below is
+ *  what a nearest-fill rule needs (the left edge must clear the 2-cell border at 27%:
+ *  width ≤ 0.54·cols − 4) and is never binding under floor. A sprite that cannot fit even
+ *  at k = 1 (a 48 px sprite on a 300 px tile) is resampled into the box by ONE scale on
+ *  both axes — the old fallback clamped width and height independently and walled off a
+ *  15×49-cell box around 15×30 cells of art on a phone. */
 const SPRITE_MAX_PX = 48
-function geometry(cfg: SalvageConfig, cols: number, rows: number, imgW: number, imgH: number) {
+export function geometry(cfg: SalvageConfig, cols: number, rows: number, imgW: number, imgH: number) {
   const boxW = Math.floor(cols * 0.40), boxH = Math.floor(rows * 0.70)
+  const capW = Math.max(boxW, Math.floor(cols * 0.54) - 4), capH = Math.max(boxH, Math.floor(rows * 0.85))
   let bw: number, bh: number, k: number
   if (cfg.source === 'Contours') {
     // A generated map fills the box as a solid rectangle, its longer side capped at
-    // SPRITE_MAX_PX blocks — a 76-block map is a 5,700-block job, a 48-block one is
-    // about 2,000 and roughly 190 pieces at the default piece size.
+    // SPRITE_MAX_PX blocks: at the 144×90 arena the box is 57×63, so k = 2 and the map
+    // is 28×31 = 868 blocks, about 70 pieces at the default piece size.
     k = Math.max(1, Math.ceil(Math.max(boxW, boxH) / SPRITE_MAX_PX))
     bw = Math.max(1, Math.floor(boxW / k)); bh = Math.max(1, Math.floor(boxH / k))
   } else if (cfg.source === 'Pictures' || Math.max(imgW, imgH) <= SPRITE_MAX_PX) {
     bw = imgW; bh = imgH
     k = Math.max(1, Math.floor(Math.min(boxW / bw, boxH / bh)))
   } else {
-    k = Math.max(1, Math.floor(boxW / 48))
-    bw = Math.max(1, Math.floor(boxW / k)); bh = Math.max(1, Math.floor(boxH / k))
+    // A photograph: 48 blocks on its long side, the short side by its own aspect, so
+    // the forbidden box is the art's box and not the arena's.
+    const long = Math.max(imgW, imgH)
+    bw = Math.max(1, Math.round(imgW / long * SPRITE_MAX_PX)); bh = Math.max(1, Math.round(imgH / long * SPRITE_MAX_PX))
+    k = Math.max(1, Math.floor(Math.min(boxW / bw, boxH / bh)))
   }
-  // A sprite-sized source can still outgrow a tiny arena (a 48 px upload at cellSize
-  // 24 on a phone): cell indices would wrap onto the next row and overflow the grid.
-  // Fall back to the downsample branch, which fits the box by construction.
-  if (bw * k > boxW || bh * k > boxH) { k = 1; bw = Math.max(1, Math.min(bw, boxW)); bh = Math.max(1, Math.min(bh, boxH)) }
+  while (k > 1 && (bw * k > capW || bh * k > capH)) k--
+  if (bw * k > capW || bh * k > capH) {
+    const sc = Math.min(boxW / bw, boxH / bh)
+    k = 1; bw = Math.max(1, Math.floor(bw * sc)); bh = Math.max(1, Math.floor(bh * sc))
+  }
   const picCols = bw * k, picRows = bh * k
   const originCol = Math.max(0, Math.min(cols - picCols, Math.round(cols * 0.27 - picCols / 2)))
   const originRow = Math.max(0, Math.round((rows - picRows) / 2))
@@ -80,14 +99,21 @@ function geometry(cfg: SalvageConfig, cols: number, rows: number, imgW: number, 
            seedCol: Math.max(0, Math.min(cols - 1, Math.round(cols * 0.73))), seedRow: Math.round(rows / 2) }
 }
 
+/** The cell for a canvas: the size that fits `ARENA_COLS × ARENA_ROWS` into it on the
+ *  tighter side, clamped (see `state.ts`). */
+export function cellFor(size: Size): number {
+  return Math.max(CELL_MIN, Math.min(CELL_MAX, Math.round(Math.min(size.height / ARENA_ROWS, size.width / ARENA_COLS))))
+}
+
 function emptyState(cfg: SalvageConfig, size: Size): SalvageState {
-  const cols = Math.max(8, Math.floor(size.width / cfg.cellSize))
-  const rows = Math.max(8, Math.floor(size.height / cfg.cellSize))
+  const cell = cellFor(size)
+  const cols = Math.max(8, Math.floor(size.width / cell))
+  const rows = Math.max(8, Math.floor(size.height / cell))
   const n = cols * rows
   const grid = makeGrid(cols, rows)
   return {
-    cfg, size, cols, rows, grid, palette: [], chunks: [], drones: [], crews: [],
-    trails: makeTrails(cols, rows, fineSub(cfg.cellSize, cols, rows)), phase: 'dismantle', phaseTime: 0, time: 0,
+    cfg, size, cell, cols, rows, grid, palette: [], chunks: [], drones: [], crews: [],
+    trails: makeTrails(cols, rows, fineSub(cell, cols, rows)), phase: 'dismantle', phaseTime: 0, time: 0,
     nestSeed: cellIndex(grid, Math.round(cols * 0.73), Math.round(rows / 2)),
     picOriginCol: 0, picOriginRow: 0, picCols: 0, picRows: 0, hasPicture: false, generation: 0,
     imageVersion: liveVersion(cfg), arenaKey: '', rand: mulberry32(cfg.seed),
@@ -154,7 +180,7 @@ function buildArena(s: SalvageState): boolean {
   s.siteHint.r = 0; s.siteHint.extent = 0
   s.capacity = arenaCapacity(s)
   s.crews = []
-  s.trails = makeTrails(s.cols, s.rows, fineSub(s.cfg.cellSize, s.cols, s.rows))
+  s.trails = makeTrails(s.cols, s.rows, fineSub(s.cell, s.cols, s.rows))
   s.hasPicture = true
   s.dirty = [-1]
   blankAll(s)
@@ -234,9 +260,10 @@ export function step(s: SalvageState, dtSeconds: number): void {
  *  clustering, so cell indices are untouched and only the palette strings move. */
 export function applyConfig(s: SalvageState, cfg: SalvageConfig, size: Size): boolean {
   const prev = s.cfg
-  const structural: Array<keyof SalvageConfig> = ['source', 'picture', 'image', 'colors', 'cellSize', 'chunkSize', 'seed',
+  const structural: Array<keyof SalvageConfig> = ['source', 'picture', 'image', 'colors', 'chunkSize', 'seed',
                                                    'featureSize', 'roughness']
   for (const k of structural) if (prev[k] !== cfg[k]) return false
+  // The host can hand update() a size resize() never applied; setup() is right there.
   if (size.width !== s.size.width || size.height !== s.size.height) return false
   s.cfg = cfg
   // The Contours ramp is live: band indices never depend on it, so a preset pick, a
@@ -264,11 +291,39 @@ export function applyConfig(s: SalvageState, cfg: SalvageConfig, size: Size): bo
   return true
 }
 
-/** A resize rebuilds the arena with the same seed and picture: a rescale would leave
- *  drones standing inside walls. Rare, and honest. */
-export function resizeState(s: SalvageState, size: Size): void {
+/** Rebuild the arena for a new canvas — keeping the RUN. The generation (and so the
+ *  sprite), the rng stream and the clock carry over, and every drone keeps its pixel
+ *  position: it is rescaled into the new grid, blanked (its path held old-grid
+ *  indices), nudged off the new picture and trimmed or topped up to the new capacity.
+ *  What it does NOT carry is the job: the picture is laid out whole again, the mound is
+ *  cleared and the phase restarts at `dismantle` (a piece's cells are k×k per block, so
+ *  a mound cannot be mapped across a change of grid). This used to be the host's
+ *  fallback path for a Cell size drag too (#319) — a full `setup()` per input event,
+ *  which reset `generation` to 0, dropped the mound and respawned every drone onto the
+ *  same seeded layout: the owner's "the image dances". The knob is gone; a resize is
+ *  the one thing that moves the cell now. */
+export function regrid(s: SalvageState, size: Size): void {
+  const cell = cellFor(size)
+  // A change under one cell (a 5 px window nudge, a DPR-only backing-store change) moves
+  // no grid line: keep the run, the mound and the phase, and just note the new size.
+  if (cell === s.cell && Math.floor(size.width / cell) === s.cols && Math.floor(size.height / cell) === s.rows) { s.size = size; return }
+  const carried = s.drones
+  const scale = s.cell / cell
   const fresh = emptyState(s.cfg, size)
   fresh.generation = s.generation
+  fresh.rand = s.rand
+  fresh.time = s.time
   Object.assign(s, fresh)
-  if (!buildArena(s)) { floodReach(s.grid, s.queue); s.capacity = arenaCapacity(s); reconcileDrones(s, s.capacity) }
+  for (const d of carried) {
+    d.x = Math.min(s.cols - 0.5, Math.max(0.5, d.x * scale))
+    d.y = Math.min(s.rows - 0.5, Math.max(0.5, d.y * scale))
+  }
+  s.drones = carried
+  if (!buildArena(s)) {
+    floodReach(s.grid, s.queue)
+    blankAll(s); relocateStranded(s)
+    s.capacity = arenaCapacity(s); reconcileDrones(s, s.capacity)
+  }
 }
+
+export function resizeState(s: SalvageState, size: Size): void { regrid(s, size) }

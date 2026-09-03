@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeTrails, deposit, depositAt, decay, decayFine, recruitColor, clearTrails, fineSub, FINE_CAP } from './trails'
-import { TRAIL_RECRUIT } from './state'
+import { TRAIL_RECRUIT, CELL_MIN, CELL_MAX } from './state'
 
 describe('trails', () => {
   it('halves in one half-life to within 1%', () => {
@@ -36,8 +36,8 @@ describe('trails', () => {
 })
 
 describe('fine display trails', () => {
-  it('fineSub keeps a fine cell between 2 and 3 CSS px across the whole Cell size range', () => {
-    for (let cs = 4; cs <= 24; cs++) {
+  it('fineSub keeps a fine cell between 2 and 3 CSS px across the whole derived cell range', () => {
+    for (let cs = CELL_MIN; cs <= CELL_MAX; cs++) {
       const sub = fineSub(cs)
       expect(Number.isInteger(sub) && sub >= 1).toBe(true)
       expect(cs / sub).toBeGreaterThanOrEqual(2)

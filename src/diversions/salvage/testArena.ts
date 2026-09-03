@@ -30,9 +30,9 @@ export function makeArena(
   const ncol = Math.max(...picture.idx) + 1
   const n = cols * rows
   return {
-    cfg, size: { width: cols * cfg.cellSize, height: rows * cfg.cellSize }, cols, rows, grid,
+    cfg, size: { width: cols * 10, height: rows * 10 }, cell: 10, cols, rows, grid,
     palette: Array.from({ length: ncol }, (_, i) => `#${(i * 40 + 60).toString(16).padStart(2, '0')}8080`),
-    chunks, drones: [], crews: [], trails: makeTrails(cols, rows, fineSub(cfg.cellSize, cols, rows)),
+    chunks, drones: [], crews: [], trails: makeTrails(cols, rows, fineSub(10, cols, rows)),
     phase: 'dismantle', phaseTime: 0, time: 0,
     nestSeed: cellIndex(grid, cols - 6, Math.floor(rows / 2)),
     picOriginCol: originCol, picOriginRow: originRow, picCols, picRows,

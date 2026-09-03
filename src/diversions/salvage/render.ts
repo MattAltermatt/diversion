@@ -17,7 +17,7 @@ interface Layers {
   trailAt: number
   width: number
   height: number
-  cellSize: number
+  cell: number
   failed: boolean
 }
 const layers = new WeakMap<SalvageState, Layers>()
@@ -40,11 +40,11 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement | null {
  *  is exactly the kind of churn a drag turns into a stutter. */
 function getLayers(s: SalvageState): Layers {
   let L = layers.get(s)
-  if (!L || L.width !== s.size.width || L.height !== s.size.height || L.cellSize !== s.cfg.cellSize) {
+  if (!L || L.width !== s.size.width || L.height !== s.size.height || L.cell !== s.cell) {
     // Cache a refusal: retrying every frame would allocate a detached canvas per frame.
     const failed = L?.failed ?? false
     L = { picture: null, mound: null, trail: null, trailData: null, trailAt: -Infinity, width: s.size.width,
-          height: s.size.height, cellSize: s.cfg.cellSize, failed }
+          height: s.size.height, cell: s.cell, failed }
     if (!failed) {
       L.picture = makeCanvas(s.size.width, s.size.height)
       L.mound = makeCanvas(s.size.width, s.size.height)
@@ -61,7 +61,7 @@ function getLayers(s: SalvageState): Layers {
 }
 
 export function render(s: SalvageState, ctx: CanvasRenderingContext2D): void {
-  const cs = s.cfg.cellSize
+  const cs = s.cell
   const W = s.size.width, H = s.size.height
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
@@ -90,7 +90,7 @@ function drawTrails(s: SalvageState, ctx: CanvasRenderingContext2D, L: Layers): 
   const glow = s.cfg.trailGlow
   if (glow <= 0 || !L.trail || !L.trailData) return
   const t = s.trails
-  // A rebuilt arena (Cell size moved) resizes the fine field under a cached layer.
+  // A rebuilt arena (a resize moved the cell) resizes the fine field under a cached layer.
   if (L.trail.width !== t.fcols || L.trail.height !== t.frows) {
     L.trail.width = Math.max(1, t.fcols); L.trail.height = Math.max(1, t.frows)
     L.trailData = L.trail.getContext('2d')!.createImageData(t.fcols, t.frows)
@@ -115,7 +115,7 @@ function drawTrails(s: SalvageState, ctx: CanvasRenderingContext2D, L: Layers): 
   ctx.globalCompositeOperation = 'lighter'
   ctx.globalAlpha = 1
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(L.trail, 0, 0, t.fcols, t.frows, 0, 0, s.cols * s.cfg.cellSize, s.rows * s.cfg.cellSize)
+  ctx.drawImage(L.trail, 0, 0, t.fcols, t.frows, 0, 0, s.cols * s.cell, s.rows * s.cell)
   ctx.globalCompositeOperation = 'source-over'
 }
 

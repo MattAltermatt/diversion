@@ -41,11 +41,6 @@ export const salvageSchema = z.object({
             help: 'How many colours the picture is reduced to. Each is a trail the colony can '
                 + 'follow and a tint a drone can take, so fewer colours means bigger, more '
                 + 'decisive waves.' }),
-  cellSize: z.number().int().min(4).max(24).default(10)
-    .meta({ section: 'Picture', ui: 'slider', min: 4, max: 24, step: 1, label: 'Cell size',
-            help: 'Size of one cell in pixels. Smaller means a bigger arena, a finer picture, and '
-                + 'a far longer job.' }),
-
   // ─── Colony ───────────────────────────────────────────────────────────────
   drones: z.number().int().min(10).max(400).default(60)
     .meta({ section: 'Colony', ui: 'slider', min: 10, max: 400, step: 10, label: 'Drones',
@@ -57,7 +52,8 @@ export const salvageSchema = z.object({
                 + 'drones latched on and pulsing, until enough have gathered to lift it together.' }),
   chunkSize: z.number().int().min(1).max(48).default(12)
     .meta({ section: 'Colony', ui: 'slider', min: 1, max: 48, step: 1, label: 'Piece size',
-            help: 'Largest piece the picture is cut into, in pixels of the picture. Pieces follow '
+            help: 'Largest piece the picture is cut into, in pixels of the picture — this is what '
+                + 'sets how many pieces there are. Pieces follow '
                 + 'the pixel grid. At 1 every pixel is its own piece and no crew ever forms.' }),
   immunity: z.number().min(0).max(120).default(20)
     .meta({ section: 'Colony', ui: 'slider', min: 0, max: 120, step: 1, label: 'Immunity',

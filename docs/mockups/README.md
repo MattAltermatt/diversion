@@ -10,3 +10,6 @@ with tweaks, the HTML can.
 | 2026-09-01 | [Salvage, mid-dismantle](2026-09-01-salvage.png) | the Salvage diversion at its shipped defaults — brown wave carrying, mound forming at the nest |
 | 2026-09-02 | [Salvage, straight paths + thin trails](2026-09-02-salvage-straight-paths-30s.png) | #317 string-pulled paths, #318 fine-field trails — 30 s in, before the reserved-site fix |
 | 2026-09-02 | [Salvage, reserved sites as floor](2026-09-02-salvage-straight-paths-reserved-floor.png) | the shipped look: no drones parked on the heap after the walled-in-pocket fix |
+| 2026-09-02 | [Salvage, derived cell](2026-09-02-salvage-derived-cell-config.jpeg) | #319 Config preview after the Cell size knob was removed: cell derived from the canvas (745×396 → 5), the sword at 94% of its box |
+| 2026-09-02 | [Salvage, derived cell — Play](2026-09-02-salvage-derived-cell-play.jpeg) | #319 Play at 760×880: cell 5, 152×176 cells, the sword at 92% of its box width; 120 fps |
+| 2026-09-02 | [Salvage, derived cell — narrow](2026-09-02-salvage-derived-cell-phone.jpeg) | #319 after a live resize to 500×700 (Chrome's minimum): cell 4, 125×175 cells, generation and clock carried, the sword at 112% of its box width |

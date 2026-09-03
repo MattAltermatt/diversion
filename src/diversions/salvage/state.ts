@@ -22,7 +22,21 @@ export const REST = 8               // s between the last drop and the fade
 export const FADE = 3               // s for the mound-out and picture-in fades
 export const SETTLE = 0.35          // s a crew takes to lower a piece onto its site
 export const MIN_CARRY_FACTOR = 0.4 // slowest a heavy carry goes, as a fraction of drone speed
-export const CELLS_PER_DRONE = 10   // density cap: at most one drone per this many reachable cells (a tile gets ~40)
+export const CELLS_PER_DRONE = 10   // density cap: at most one drone per this many reachable cells
+/** The arena is a fixed NUMBER of cells; the cell is whatever makes that many fit the
+ *  canvas (#319). 144×90 is the arena the piece shipped and was tuned on — 1440×900 at
+ *  cell 10 — so a phone, a laptop and a 4K wall all run the same composition, drone
+ *  size and pacing, scaled like a vector drawing, and nothing changes between sprites.
+ *  The cell comes from whichever side is tighter (`min(H / 90, W / 144)`), NOT from the
+ *  area: a square-root rule gave an ultrawide 3440×1440 only 72 rows, and a 63 px-tall
+ *  sprite no longer fit at one cell per pixel and was resampled. Landscape always has
+ *  90 rows; a portrait phone gets more. The clamp is the old slider's range, so no
+ *  viewport reaches a regime the piece has not run in (a 300×190 gallery tile floors at
+ *  4; 4K ceilings at 24, 160×90 cells — cheaper than the 83k cells cell 10 gave it). */
+export const ARENA_COLS = 144
+export const ARENA_ROWS = 90
+export const CELL_MIN = 4
+export const CELL_MAX = 24
 export const BLANK = -1
 
 export type Where = 'picture' | 'lifted' | 'mound'
@@ -88,6 +102,8 @@ export interface Crew {
 export interface SalvageState {
   cfg: SalvageConfig
   size: Size
+  /** Cell size in CSS px, derived from `size` (see `ARENA_COLS` / `ARENA_ROWS`). */
+  cell: number
   cols: number
   rows: number
   grid: Grid

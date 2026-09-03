@@ -20,7 +20,11 @@ const salvage = defineDiversion<typeof salvageSchema, SalvageState, '2d'>({
   setup(_ctx, config, size) {
     // Decode the stored upload here, not at module scope (the registry is eager).
     if (config.source === 'Yours') rehydrate()
-    return createState(config, size)
+    const state = createState(config, size)
+    // DEV-only probe for in-page monitors during a Chrome verify; a re-grid mutates
+    // this same object, so the handle stays live across a resize.
+    if (import.meta.env.DEV) (globalThis as { __salvage?: unknown }).__salvage = state
+    return state
   },
 
   // dt arrives in MILLISECONDS; the sim works in seconds.
