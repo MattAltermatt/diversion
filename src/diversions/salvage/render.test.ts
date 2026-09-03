@@ -21,6 +21,23 @@ describe('render', () => {
       expect(ctx.globalAlpha).toBe(1)
     }
   })
+  it('Drone size scales the glyph, not its placement', () => {
+    const probe = (droneSize: number) => {
+      const s = makeArena({ glyph: 'Spider', strength: 24, chunkSize: 4, droneSize })
+      spawnDrone(s, s.picOriginCol - 0.5, s.picOriginRow + 0.5)
+      const ctx = make2DContext()
+      const radii: number[] = [], moves: number[][] = []
+      ctx.ellipse = ((_x: number, _y: number, rx: number) => { radii.push(rx) }) as typeof ctx.ellipse
+      ctx.translate = ((x: number, y: number) => { moves.push([x, y]) }) as typeof ctx.translate
+      render(s, ctx)
+      return { radius: radii[0], at: moves[0] }
+    }
+    const one = probe(1), small = probe(0.75)
+    expect(one.radius).toBeCloseTo(10 * 0.45)          // cell 10 in the test arena
+    expect(small.radius).toBeCloseTo(one.radius * 0.75)
+    expect(small.at).toEqual(one.at)
+  })
+
   it('sets globalAlpha in (0, 1] before every fill', () => {
     const s = arena('Spider')
     const ctx = make2DContext()

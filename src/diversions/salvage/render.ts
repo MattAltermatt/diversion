@@ -196,7 +196,9 @@ function drawLifted(s: SalvageState, ctx: CanvasRenderingContext2D, crew: Crew, 
 
 function drawDrones(s: SalvageState, ctx: CanvasRenderingContext2D, cs: number): void {
   const glyph = s.cfg.glyph
-  ctx.lineWidth = Math.max(1, cs * 0.08)
+  // The glyph is a picture of a point: `g` scales the drawing, `cs` still places it.
+  const g = cs * s.cfg.droneSize
+  ctx.lineWidth = Math.max(1, g * 0.08)
   ctx.lineCap = 'round'
   for (const d of s.drones) {
     const colour = d.tint === BLANK || d.tint >= s.palette.length ? BLANK_TINT : s.palette[d.tint]
@@ -204,12 +206,12 @@ function drawDrones(s: SalvageState, ctx: CanvasRenderingContext2D, cs: number):
     ctx.fillStyle = colour
     ctx.strokeStyle = colour
     const x = d.x * cs, y = d.y * cs
-    if (glyph === 'Dot') { dot(ctx, x, y, d.heading, cs); continue }
+    if (glyph === 'Dot') { dot(ctx, x, y, d.heading, g); continue }
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate(d.heading)
-    if (glyph === 'Spider') spider(ctx, d, cs)
-    else ant(ctx, d, cs)
+    if (glyph === 'Spider') spider(ctx, d, g)
+    else ant(ctx, d, g)
     ctx.restore()
   }
   ctx.globalAlpha = 1

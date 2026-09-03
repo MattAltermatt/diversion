@@ -65,6 +65,10 @@ export const salvageSchema = z.object({
   glyph: z.enum(['Spider', 'Ant', 'Dot']).default('Spider')
     .meta({ section: 'Colony', ui: 'segmented', label: 'Drone', options: ['Spider', 'Ant', 'Dot'],
             help: 'How a drone is drawn. Same colony either way.' }),
+  droneSize: z.number().min(0.6).max(1.5).default(0.8)
+    .meta({ section: 'Colony', ui: 'slider', min: 0.6, max: 1.5, step: 0.05, label: 'Drone size',
+            help: 'How big a drone draws, as a multiple of its natural size. Looks only: the colony, '
+                + 'its speed and its reach are unchanged.' }),
 
   // ─── Trails ───────────────────────────────────────────────────────────────
   trailFade: z.number().min(2).max(120).default(25)
