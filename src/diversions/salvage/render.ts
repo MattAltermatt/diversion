@@ -1,6 +1,6 @@
 import { hexToRgb } from '../../framework/color'
 import type { SalvageState, Drone, Crew } from './state'
-import { BLANK } from './state'
+import { BLANK, GLYPH_MIN_PX } from './state'
 import { decayFine } from './trails'
 
 const BLANK_TINT = '#5a5a62'
@@ -196,8 +196,9 @@ function drawLifted(s: SalvageState, ctx: CanvasRenderingContext2D, crew: Crew, 
 
 function drawDrones(s: SalvageState, ctx: CanvasRenderingContext2D, cs: number): void {
   const glyph = s.cfg.glyph
-  // The glyph is a picture of a point: `g` scales the drawing, `cs` still places it.
-  const g = cs * s.cfg.droneSize
+  // The glyph is a picture of a point: `g` scales the drawing, `cs` still places it —
+  // and never below GLYPH_MIN_PX, or a phone's 4 px cell draws a sub-pixel drone.
+  const g = Math.max(GLYPH_MIN_PX, cs * s.cfg.droneSize)
   ctx.lineWidth = Math.max(1, g * 0.08)
   ctx.lineCap = 'round'
   for (const d of s.drones) {

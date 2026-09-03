@@ -4,6 +4,7 @@ import { makeArena } from './testArena'
 import { stepColony } from './colony'
 import { spawnDrone } from './recruit'
 import { render } from './render'
+import { GLYPH_MIN_PX } from './state'
 
 function arena(glyph: 'Spider' | 'Ant' | 'Dot') {
   const s = makeArena({ glyph, strength: 24, chunkSize: 4 })
@@ -36,6 +37,17 @@ describe('render', () => {
     expect(one.radius).toBeCloseTo(10 * 0.45)          // cell 10 in the test arena
     expect(small.radius).toBeCloseTo(one.radius * 0.75)
     expect(small.at).toEqual(one.at)
+  })
+
+  it('never draws a drone smaller than GLYPH_MIN_PX, whatever the cell (#322)', () => {
+    const s = makeArena({ glyph: 'Spider', strength: 24, chunkSize: 4, droneSize: 0.8 })
+    spawnDrone(s, s.picOriginCol - 0.5, s.picOriginRow + 0.5)
+    s.cell = 4 // a phone or a gallery tile
+    const ctx = make2DContext()
+    const radii: number[] = []
+    ctx.ellipse = ((_x: number, _y: number, rx: number) => { radii.push(rx) }) as typeof ctx.ellipse
+    render(s, ctx)
+    expect(radii[0]).toBeCloseTo(GLYPH_MIN_PX * 0.45) // not 4 * 0.8 * 0.45 = 1.44
   })
 
   it('sets globalAlpha in (0, 1] before every fill', () => {

@@ -37,6 +37,11 @@ export const ARENA_COLS = 144
 export const ARENA_ROWS = 90
 export const CELL_MIN = 4
 export const CELL_MAX = 24
+/** A drone never draws smaller than this many px of glyph unit (#322): the cell derives
+ *  to 4 on a phone or a gallery tile, where 0.45 of a cell is a sub-pixel body. Only the
+ *  picture of the point grows — positions, speed and reach stay in cells. Above the
+ *  floor the glyph is `cell · droneSize` as before (8 px at the shipped arena). */
+export const GLYPH_MIN_PX = 6
 export const BLANK = -1
 
 export type Where = 'picture' | 'lifted' | 'mound'

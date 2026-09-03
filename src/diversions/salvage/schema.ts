@@ -68,7 +68,8 @@ export const salvageSchema = z.object({
   droneSize: z.number().min(0.6).max(1.5).default(0.8)
     .meta({ section: 'Colony', ui: 'slider', min: 0.6, max: 1.5, step: 0.05, label: 'Drone size',
             help: 'How big a drone draws, as a multiple of its natural size. Looks only: the colony, '
-                + 'its speed and its reach are unchanged.' }),
+                + 'its speed and its reach are unchanged. On a very small screen a drone never draws '
+                + 'below a few pixels, so this does little there.' }),
 
   // ─── Trails ───────────────────────────────────────────────────────────────
   trailFade: z.number().min(2).max(120).default(25)
