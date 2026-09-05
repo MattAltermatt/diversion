@@ -18,7 +18,22 @@ export const substrateSchema = z.object({
   straightPct: z.number().int().min(0).max(100).default(80)
     .meta({ section: 'Growth', ui: 'slider', min: 0, max: 100, step: 1, label: 'Straight %',
             help: 'Share of cracks that grow straight; the rest curve along an arc. '
-                + '100 = all straight (classic Substrate), 0 = all curved.' }),
+                + '100 = all straight (classic Substrate), 0 = all circles. '
+                + 'The Shape picker at the top sets this in one click.' }),
+  orientation: z.enum(['free', 'grid']).default('free')
+    .meta({ section: 'Growth', ui: 'segmented', options: ['free', 'grid'], label: 'Orientation',
+            help: 'Free: a crack may start at any heading. Grid: every start snaps to horizontal or '
+                + 'vertical, so the network is a street grid (branch jitter is ignored; curves still curve).' }),
+  origin: z.enum(['scatter', 'corner', 'centre']).default('scatter')
+    .meta({ section: 'Growth', ui: 'segmented', options: ['scatter', 'corner', 'centre'], label: 'Origin',
+            help: 'Where the seed cracks of each cycle begin. Scatter: random spots. Corner: one corner '
+                + '(a different one each cycle), headed inward, so the network grows from a point. '
+                + 'Centre: the middle of the canvas. Later cracks always branch off the network.' }),
+  startDelay: z.number().min(0).max(10).default(0)
+    .meta({ section: 'Growth', ui: 'slider', min: 0, max: 10, step: 0.25, label: 'Start delay',
+            help: 'Seconds a crack idles before it starts: seeds appear one by one, and a crack that hits '
+                + 'something pauses before branching off again. Fuzzy — each wait is ½ to 1½ times this. '
+                + '0 = instant, the classic look.' }),
   minRadius: z.number().int().min(10).max(400).default(25)
     .meta({ section: 'Growth', ui: 'slider', min: 10, max: 400, step: 5, label: 'Min curve radius',
             help: 'Tightest arc radius (px) a curved crack can take. Small = tight curls that loop into '

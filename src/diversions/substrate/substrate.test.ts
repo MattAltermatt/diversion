@@ -8,6 +8,7 @@ import {
   rayLength, regionFill, rollCurvature,
   stepSubstrate,
   updateSubstrateState, resizeSubstrateState,
+  SEED_INSET, START_OFFSET, cornerInset, snapHeading, type Crack,
 } from './substrate'
 import { substrateSchema, type SubstrateConfig } from './schema'
 
@@ -162,8 +163,8 @@ describe('findStart', () => {
     c.alive = false
     findStart(s, c)
     expect(c.alive).toBe(true)
-    // landed on the inked row
-    expect(Math.floor(c.y)).toBe(25)
+    // landed on the inked row, START_OFFSET along the new heading
+    expect(Math.abs(c.y - 25)).toBeLessThanOrEqual(START_OFFSET + 1e-9)
     expect(c.x).toBeGreaterThanOrEqual(5); expect(c.x).toBeLessThan(45)
     // heading ~perpendicular to 0° → cos(angle) ≈ 0 (±90°)
     expect(Math.abs(Math.cos(c.angle))).toBeLessThan(0.2)
@@ -177,7 +178,9 @@ describe('findStart', () => {
     for (let i = 0; i < 80; i++) {
       c.alive = false
       findStart(s, c)
-      const landed = Math.floor(c.y) * 60 + Math.floor(c.x)
+      // back out the START_OFFSET along the heading to find the cell it was drawn from
+      const landed = Math.floor(c.y - Math.sin(c.angle) * START_OFFSET) * 60
+        + Math.floor(c.x - Math.cos(c.angle) * START_OFFSET)
       expect(inked).toContain(landed)
     }
   })
@@ -434,5 +437,206 @@ describe('stepSubstrate dirty flag (blit-skip contract, #199)', () => {
   it('returns true on a growing frame that actually advanced ≥1 step', () => {
     const s = createSubstrateState(cfg({ seed: 1, speed: 60 }), 100, 100)
     expect(stepSubstrate(s, 100)).toBe(true) // 100ms at speed 60 → many steps
+  })
+})
+
+// ── #323: orientation / origin / start delay ─────────────────────────────────
+
+const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by)
+
+describe('origin: corner (#323)', () => {
+  it('places every seed within SEED_INSET+1 px of ONE corner, headed inward', () => {
+    for (let seed = 1; seed <= 8; seed++) {
+      const s = createSubstrateState(cfg({ seed, origin: 'corner', initialCracks: 4 }), 120, 80)
+      const corners = [[0, 0], [120, 0], [120, 80], [0, 80]]
+      // diagonal inset (cornerInset·√2) plus the along-heading SEED_INSET
+      const reach = cornerInset(120, 80) * Math.SQRT2 + SEED_INSET + 1
+      const near = (c: Crack) => corners.findIndex(([cx, cy]) => dist(c.x, c.y, cx, cy) <= reach)
+      const which = s.cracks.map(near)
+      expect(which.every((i) => i >= 0)).toBe(true)
+      expect(new Set(which).size).toBe(1) // one corner per cycle
+      // inward: 40 steps later every seed is still inside the canvas and farther from its corner
+      const [cx, cy] = corners[which[0]]
+      for (const c of s.cracks) {
+        const d0 = dist(c.x, c.y, cx, cy)
+        for (let i = 0; i < 40; i++) advanceCrack(s, c)
+        expect(c.x).toBeGreaterThanOrEqual(0); expect(c.x).toBeLessThan(120)
+        expect(c.y).toBeGreaterThanOrEqual(0); expect(c.y).toBeLessThan(80)
+        expect(dist(c.x, c.y, cx, cy)).toBeGreaterThan(d0 + 10)
+      }
+    }
+  })
+
+  it('rolls a different corner on later cycles of the same seed', () => {
+    const s = createSubstrateState(cfg({ seed: 3, origin: 'corner', initialCracks: 2, speed: 5, drawTime: 1, fadeTime: 1 }), 120, 80)
+    const cornerOf = () => {
+      const c = s.cracks[0]
+      return (c.x < 60 ? 0 : 1) + (c.y < 40 ? 0 : 2)
+    }
+    const seen = new Set<number>([cornerOf()])
+    for (let cyc = 0; cyc < 12; cyc++) {
+      stepSubstrate(s, 60_001) // drawTime (1 min) elapses → fading
+      stepSubstrate(s, 1_001)  // fade completes → reseed
+      expect(s.phase).toBe('growing')
+      seen.add(cornerOf())
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(2)
+  })
+
+  it('seeds do not kill each other on their first steps (inset keeps them off one pixel)', () => {
+    const s = createSubstrateState(cfg({ seed: 2, origin: 'corner', initialCracks: 3, straightPct: 100 }), 120, 80)
+    stepSubstrate(s, 1000) // speed 13 px/s → ~31 steps
+    expect(s.cracks.every((c) => c.alive)).toBe(true)
+  })
+})
+
+describe('origin: centre (#323)', () => {
+  it('places every seed within SEED_INSET+1 px of the canvas centre', () => {
+    const s = createSubstrateState(cfg({ seed: 4, origin: 'centre', initialCracks: 5 }), 120, 80)
+    for (const c of s.cracks) expect(dist(c.x, c.y, 60, 40)).toBeLessThanOrEqual(SEED_INSET + 1)
+  })
+})
+
+describe('orientation: grid (#323)', () => {
+  const isAxis = (a: number) => {
+    const q = a / (Math.PI / 2)
+    return Math.abs(q - Math.round(q)) < 1e-9
+  }
+  it('snapHeading rounds to the nearest quarter turn only in grid mode', () => {
+    expect(snapHeading(0.3, 'grid')).toBe(0)
+    expect(snapHeading(1.4, 'grid')).toBeCloseTo(Math.PI / 2)
+    expect(snapHeading(-1.4, 'grid')).toBeCloseTo(-Math.PI / 2)
+    expect(snapHeading(0.3, 'free')).toBe(0.3)
+  })
+  it('every seed heading is horizontal or vertical', () => {
+    const s = createSubstrateState(cfg({ seed: 6, orientation: 'grid', initialCracks: 8 }), 120, 80)
+    for (const c of s.cracks) expect(isAxis(c.angle)).toBe(true)
+  })
+  it('every relocation heading is horizontal or vertical even with max branch jitter', () => {
+    const s = createSubstrateState(cfg({ seed: 6, orientation: 'grid', branchJitter: 8, straightPct: 100 }), 120, 80)
+    stepSubstrate(s, 500)
+    for (let i = 0; i < 30; i++) {
+      const c = s.cracks[i % s.cracks.length]
+      findStart(s, c)
+      expect(isAxis(c.angle)).toBe(true)
+    }
+  })
+  it('corner + grid still heads inward (a snapped quadrant heading never leaves the canvas)', () => {
+    const s = createSubstrateState(cfg({ seed: 7, orientation: 'grid', origin: 'corner', initialCracks: 4 }), 120, 80)
+    for (const c of s.cracks) {
+      for (let i = 0; i < 40; i++) advanceCrack(s, c)
+      expect(c.alive).toBe(true)
+    }
+  })
+})
+
+describe('branch direction is unbiased (#323)', () => {
+  it('branches off a horizontal line survive their first steps going DOWN as well as UP', () => {
+    for (const orientation of ['free', 'grid'] as const) {
+      const s = createSubstrateState(cfg({ seed: 5, orientation, initialCracks: 1, straightPct: 100 }), 100, 100)
+      let up = 0, down = 0, tries = 0
+      for (let i = 0; i < 300; i++) {
+        // a fresh line each attempt, so only the FIRST steps are under test
+        s.grid.fill(EMPTY); s.marked.length = 0
+        for (let x = 10; x < 90; x++) { const idx = 50 * 100 + x; markCell(s.grid, idx, 0); s.marked.push(idx) }
+        const c = makeCrack(s)
+        s.cracks.push(c) // a fresh RNG stream per crack (makeCrack keys on the population)
+        const goesDown = Math.sin(c.angle) > 0
+        tries++
+        advanceCrack(s, c); advanceCrack(s, c)
+        if (!c.alive) continue
+        if (goesDown) down++; else up++
+      }
+      // ~half go each way; with the start offset essentially all of them survive
+      expect(down).toBeGreaterThan(tries * 0.4)
+      expect(up).toBeGreaterThan(tries * 0.4)
+    }
+  })
+})
+
+describe('start delay (#323)', () => {
+  it('seeds stagger: the first starts at once, later seeds wait strictly longer', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 1, initialCracks: 4 }), 120, 80)
+    expect(s.cracks[0].wait).toBe(0)
+    for (let i = 1; i < 4; i++) expect(s.cracks[i].wait).toBeGreaterThan(s.cracks[i - 1].wait)
+  })
+  it('a waiting seed does not move until its wait runs out', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 2, initialCracks: 2, speed: 30 }), 120, 80)
+    const c = s.cracks[1]
+    const { x, y } = c
+    stepSubstrate(s, 500) // 0.5 s ≪ the ≥1 s wait
+    expect(c.x).toBe(x); expect(c.y).toBe(y)
+    expect(s.cracks[0].x !== 0 || s.cracks[0].y !== 0).toBe(true)
+    for (let i = 0; i < 10; i++) stepSubstrate(s, 500) // 5.5 s total > 3 s max wait
+    expect(c.x !== x || c.y !== y).toBe(true)
+  })
+  it('a wait is measured in sim seconds: delay × (0.5..1.5), whatever the speed', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 2, initialCracks: 6, speed: 20 }), 120, 80)
+    for (let i = 1; i < 6; i++) {
+      const gap = s.cracks[i].wait - s.cracks[i - 1].wait
+      expect(gap).toBeGreaterThanOrEqual(1 - 1e-9)
+      expect(gap).toBeLessThanOrEqual(3 + 1e-9)
+    }
+  })
+  it('a wait runs at the CURRENT speed: rolled fast, run slow, it still ends on time', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 2, initialCracks: 2, speed: 200 }), 120, 80)
+    const c = s.cracks[1]
+    const wait0 = c.wait
+    expect(updateSubstrateState(s, cfg({ seed: 8, startDelay: 2, initialCracks: 2, speed: 5 }), { width: 120, height: 80 })).toBe(true)
+    // At speed 5 a 100 ms frame is ~1.2 steps; the wait must shrink by 0.1 s per frame.
+    stepSubstrate(s, 100)
+    expect(wait0 - c.wait).toBeCloseTo(0.1, 1)
+  })
+  it('a travelled crack that stops idles (dead, wait > 0), then comes back alive on the network', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 1, initialCracks: 1, maxCracks: 5, speed: 30 }), 40, 40)
+    const c = s.cracks[0]
+    for (let f = 0; f < 60 && c.alive; f++) stepSubstrate(s, 100) // walk the lone seed into the wall
+    expect(c.alive).toBe(false); expect(c.wait).toBeGreaterThan(0)
+    expect(s.cracks).toHaveLength(1) // nobody spawns while it idles
+    for (let f = 0; f < 60 && !c.alive; f++) stepSubstrate(s, 100)
+    expect(c.alive).toBe(true)
+    expect(c.wait).toBe(0)
+    expect(s.cracks.length).toBeGreaterThan(1) // its restart admitted a new crack
+  })
+  it('a bounce (dying within BOUNCE_STEPS of a start) restarts at once instead of idling', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 1, initialCracks: 1, speed: 30 }), 40, 40)
+    const c = s.cracks[0]
+    // Make its very next step die: age fresh, head just off the canvas edge.
+    c.age = 0; c.x = -0.2; c.y = 20; c.angle = Math.PI; c.curvature = 0
+    stepSubstrate(s, 20) // ~1 step
+    expect(c.alive).toBe(true)
+    expect(c.wait).toBe(0)
+  })
+  it('at delay 0 a stopped crack restarts on the same step, never idling', () => {
+    const s = createSubstrateState(cfg({ seed: 8, startDelay: 0, initialCracks: 1, speed: 30 }), 40, 40)
+    for (let f = 0; f < 60; f++) {
+      stepSubstrate(s, 100)
+      expect(s.cracks.every((c) => c.alive && c.wait === 0)).toBe(true)
+    }
+    expect(s.cracks.length).toBeGreaterThan(1)
+  })
+  it('same seed → identical buffer with a delay in play, across frame cadences (#121)', () => {
+    const run = (dt: number, frames: number) => {
+      const s = createSubstrateState(cfg({ seed: 11, startDelay: 1.5, origin: 'corner', speed: 40 }), 90, 70)
+      for (let i = 0; i < frames; i++) stepSubstrate(s, dt)
+      return s.buf
+    }
+    const at60 = run(1000 / 60, 120) // 2 s
+    expect(run(1000 / 60, 120)).toEqual(at60)
+    expect(run(1000 / 30, 60)).toEqual(at60)
+    expect(run(50, 40)).toEqual(at60)
+  })
+  it('delay applies live; origin and orientation restart the piece', () => {
+    const s = createSubstrateState(cfg(), 50, 50)
+    expect(updateSubstrateState(s, cfg({ startDelay: 3 }), { width: 50, height: 50 })).toBe(true)
+    expect(s.cfg.startDelay).toBe(3)
+    // …and the next stop actually uses it: walk a crack into the wall and read its wait.
+    const c = s.cracks[0]
+    c.age = 10; c.x = 0.2; c.y = 25; c.angle = Math.PI; c.curvature = 0
+    stepSubstrate(s, 100) // ~3 steps at the default speed 13; the first one leaves the canvas
+    expect(c.alive).toBe(false)
+    expect(c.wait).toBeGreaterThanOrEqual(1.5); expect(c.wait).toBeLessThanOrEqual(4.5)
+    expect(updateSubstrateState(s, cfg({ origin: 'corner' }), { width: 50, height: 50 })).toBe(false)
+    expect(updateSubstrateState(s, cfg({ orientation: 'grid' }), { width: 50, height: 50 })).toBe(false)
   })
 })

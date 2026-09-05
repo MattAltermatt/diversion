@@ -20,6 +20,9 @@ describe('substrateSchema', () => {
     expect(cfg.color.mode).toBe('palette')
     expect(cfg.color.colors.length).toBeGreaterThanOrEqual(1)
     expect(cfg.seed).toBe(2917)
+    expect(cfg.orientation).toBe('free')
+    expect(cfg.origin).toBe('scatter')
+    expect(cfg.startDelay).toBe(0)
   })
 
   it('enforces ranges', () => {
@@ -28,6 +31,8 @@ describe('substrateSchema', () => {
     expect(() => substrateSchema.parse({ maxCracks: 600 })).toThrow()
     expect(() => substrateSchema.parse({ straightPct: 101 })).toThrow()
     expect(() => substrateSchema.parse({ minRadius: 5 })).toThrow()
+    expect(() => substrateSchema.parse({ startDelay: 11 })).toThrow()
+    expect(() => substrateSchema.parse({ origin: 'edge' })).toThrow()
     expect(() => substrateSchema.parse({ grainOpacity: 1 })).toThrow()
     expect(() => substrateSchema.parse({ background: 'white' })).toThrow()
     expect(() => substrateSchema.parse({ crackColor: '#fff' })).toThrow()

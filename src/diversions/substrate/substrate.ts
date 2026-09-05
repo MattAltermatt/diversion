@@ -20,7 +20,11 @@ export const WARMUP_MS = 2000     // saturation can't trigger before this into a
 export const RAY_DECAY = 0.005    // ray-length EMA weight per sample
 export const MAX_STEPS = 12       // per-frame advance cap (safety)
 export const FUZZ = 0.33          // crack-head positional fuzz
+export const START_OFFSET = 1     // px a restarted crack begins along its heading (see findStart)
 export const EMPTY = -1           // occupancy-grid sentinel
+export const SEED_INSET = 3       // px a corner/centre seed starts in along its heading (#323)
+export const CORNER_INSET = 0.03  // fraction of the short side a corner origin sits in from the edges
+export const BOUNCE_STEPS = 3     // a crack dying this young after a start is a bounce, not a stop (#323)
 
 /** Per-crack RNG seed offset. */
 export function seedFor(seed: number, i: number): number {
@@ -90,6 +94,12 @@ export interface Crack {
   curvature: number         // heading rotation per step (rad); 0 = straight
   color: RGBA               // wash colour for this crack's current life
   alive: boolean
+  wait: number              // sim-SECONDS to idle before moving (seed stagger) or, when dead,
+                            // before restarting on the network (#323). 0 = go now. Ticked per
+                            // step by STEP/speed, so it rides growth's own frame-rate-independent
+                            // clock and honours a live speed change (a wait rolled in steps at
+                            // speed 200 and run at speed 5 lasted 210 s in review).
+  age: number               // steps advanced since this crack's last start
   rng: () => number         // this crack's own seeded stream
 }
 
@@ -137,6 +147,45 @@ function cycleSeed(seed: number, cycle: number): number {
   return (seed + cycle * 0x85ebca6b) >>> 0
 }
 
+/** Grid orientation snaps a heading to the nearest quarter turn; free leaves it. */
+export function snapHeading(angle: number, orientation: SubstrateConfig['orientation']): number {
+  if (orientation !== 'grid') return angle
+  return Math.round(angle / (Math.PI / 2)) * (Math.PI / 2)
+}
+
+/** A fuzzy idle in sim-seconds: `startDelay` × (0.5..1.5). One rng draw, and only
+ *  when a delay is set, so the delay-0 draw order is exactly the classic one. */
+function fuzzyWait(cfg: SubstrateConfig, rng: () => number): number {
+  if (cfg.startDelay <= 0) return 0
+  return cfg.startDelay * (0.5 + rng())
+}
+
+/** How far in from both edges a corner origin sits (px). */
+export function cornerInset(w: number, h: number): number {
+  return Math.max(SEED_INSET, CORNER_INSET * Math.min(w, h))
+}
+
+/** Where this cycle's seeds begin: a point plus the heading band pointing away
+ *  from it into the canvas. Scatter returns null (each seed rolls its own spot). */
+function originOf(
+  cfg: SubstrateConfig, w: number, h: number, rng: () => number,
+): { x: number; y: number; lo: number; hi: number } | null {
+  if (cfg.origin === 'centre') return { x: w / 2, y: h / 2, lo: 0, hi: Math.PI * 2 }
+  if (cfg.origin === 'corner') {
+    const k = Math.floor(rng() * 4) // 0 TL, 1 TR, 2 BR, 3 BL — the inward quadrant starts at k·90°
+    // Inset from both edges: a seed running along the edge (heading 0 from top-left,
+    // or any grid heading) would sit on row 0 and be fuzzed off-canvas, and every
+    // branch off it toward the edge would be a 3 px stub — measured in Chrome as a
+    // dense hatched band down both edges. A few % of the short side gives those
+    // branches room to read as streets while the origin still reads as the corner.
+    const inset = cornerInset(w, h)
+    const x = k === 1 || k === 2 ? w - inset : inset
+    const y = k >= 2 ? h - inset : inset
+    return { x, y, lo: k * (Math.PI / 2), hi: (k + 1) * (Math.PI / 2) }
+  }
+  return null
+}
+
 /** Per-crack curvature (rad/step) from its own RNG: 0 for a straight crack
  *  (probability straightPct/100), else ±STEP/radius with radius uniform across
  *  the [minRadius,maxRadius] band (order-insensitive) and a random direction. */
@@ -149,18 +198,34 @@ export function rollCurvature(cfg: SubstrateConfig, rng: () => number): number {
   return (dir * STEP) / Math.max(1, radius)
 }
 
-/** Seed `initialCracks` cracks at random positions/headings for cycle `cycle`. */
+/** Seed `initialCracks` cracks for cycle `cycle`: scattered at random, or all at
+ *  the cycle's origin point (corner / centre) headed into the canvas and inset
+ *  SEED_INSET px along their own heading so no two stamp the same first pixel.
+ *  Best-effort: with many seeds on that 3 px ring some still meet on step one, and
+ *  a killed seed bounces onto the network as a branch, so the origin still reads.
+ *  With a start delay the seeds stagger cumulatively — the first goes at once,
+ *  each next one a fuzzy delay after the one before. */
 function seedCracks(cfg: SubstrateConfig, palette: RGBA[], w: number, h: number, cycle: number): Crack[] {
   const base = cycleSeed(cfg.seed, cycle)
+  const origin = originOf(cfg, w, h, mulberry32(seedFor(base, 0xffff))) // outside any crack index
+  let wait = 0
   return Array.from({ length: cfg.initialCracks }, (_, i) => {
     const rng = mulberry32(seedFor(base, i))
-    const x = rng() * w
-    const y = rng() * h
-    const angle = rng() * Math.PI * 2
+    let x = rng() * w
+    let y = rng() * h
+    let angle = rng() * Math.PI * 2
+    if (origin) {
+      angle = snapHeading(origin.lo + (angle / (Math.PI * 2)) * (origin.hi - origin.lo), cfg.orientation)
+      x = origin.x + Math.cos(angle) * SEED_INSET
+      y = origin.y + Math.sin(angle) * SEED_INSET
+    } else {
+      angle = snapHeading(angle, cfg.orientation)
+    }
     const gain = 0.01 + rng() * 0.09
     const color = pickColor(cfg, palette, x, y, w, h, rng)
     const curvature = rollCurvature(cfg, rng)
-    return { x, y, angle, gain, curvature, color, alive: true, rng }
+    if (i > 0) wait += fuzzyWait(cfg, rng) // cumulative: one by one
+    return { x, y, angle, gain, curvature, color, alive: true, wait, age: 0, rng }
   })
 }
 
@@ -185,6 +250,7 @@ export function createSubstrateState(cfg: SubstrateConfig, w: number, h: number)
 /** Advance one crack one STEP: move, fuzz, (sand fill — Task 5), ink, collide. */
 export function advanceCrack(state: SubstrateState, cr: Crack): void {
   const { grid, buf, w, h, crackC } = state
+  cr.age += 1
   cr.angle += cr.curvature // curve the heading (0 for straight cracks)
   cr.x += STEP * Math.cos(cr.angle)
   cr.y += STEP * Math.sin(cr.angle)
@@ -214,28 +280,42 @@ export function findStart(state: SubstrateState, cr: Crack): void {
     const base = (grid[idx] * Math.PI) / 180
     const sign = cr.rng() < 0.5 ? 1 : -1
     const jitter = (cr.rng() * 2 - 1) * (cfg.branchJitter * Math.PI / 180)
-    cr.x = px; cr.y = py
-    cr.angle = base + sign * (Math.PI / 2) + jitter
+    cr.angle = snapHeading(base + sign * (Math.PI / 2) + jitter, cfg.orientation)
+    // Start one cell along the new heading. Started ON the cell, the first 0.42 px
+    // step in a POSITIVE x/y direction floors back into the same cell — whose angle
+    // is 90° off — and is blocked, while a negative step leaves it: branches could
+    // only go up or left. Invisible under free headings (fuzz and jitter leak a few
+    // through); fatal under grid, where a horizontal line's downward branches ALL
+    // died and the city stayed pinned to the top edge. The original offsets by 0.61,
+    // which under the ±0.33 head fuzz still floors back 45% of the time; a full
+    // pixel clears the cell either way.
+    cr.x = px + Math.cos(cr.angle) * START_OFFSET
+    cr.y = py + Math.sin(cr.angle) * START_OFFSET
   } else {
     cr.x = cr.rng() * w
     cr.y = cr.rng() * h
-    cr.angle = cr.rng() * Math.PI * 2
+    cr.angle = snapHeading(cr.rng() * Math.PI * 2, cfg.orientation)
   }
+  cr.wait = 0
+  cr.age = 0
   cr.gain = 0.01 + cr.rng() * 0.09
   cr.color = pickColor(cfg, palette, cr.x, cr.y, w, h, cr.rng)
   cr.curvature = rollCurvature(cfg, cr.rng)
   cr.alive = true
 }
 
-/** A brand-new crack with its own RNG stream (keyed by current population), findStart-ed. */
+/** A brand-new crack with its own RNG stream (keyed by current population). With
+ *  no start delay it is findStart-ed at once (the classic path); with one it joins
+ *  dead and idling, and picks its start point when the wait runs out. */
 export function makeCrack(state: SubstrateState): Crack {
   const base = cycleSeed(state.cfg.seed, state.cycle)
   const cr: Crack = {
     x: 0, y: 0, angle: 0, gain: 0.05, curvature: 0,
-    color: state.palette[0], alive: false,
+    color: state.palette[0], alive: false, wait: 0, age: 0,
     rng: mulberry32(seedFor(base, state.cracks.length + 1)),
   }
-  findStart(state, cr)
+  cr.wait = fuzzyWait(state.cfg, cr.rng)
+  if (cr.wait <= 0) findStart(state, cr)
   return cr
 }
 
@@ -332,9 +412,27 @@ export function stepSubstrate(state: SubstrateState, dt: number): boolean {
   for (let s = 0; s < steps; s++) {
     let spawn = 0
     for (const cr of state.cracks) {
+      if (cr.wait > 0) {
+        cr.wait -= STEP / state.cfg.speed // one step's worth of sim time
+        if (cr.wait > 0) continue
+        cr.wait = 0
+        // Idle over. A waiting SEED is already placed and simply starts moving next
+        // step; a stopped crack picks its restart on whatever the network is NOW.
+        if (!cr.alive) { findStart(state, cr); spawn++ }
+        continue
+      }
       if (!cr.alive) continue
       advanceCrack(state, cr)
-      if (!cr.alive) { findStart(state, cr); spawn++ } // relocate keeps it alive
+      if (!cr.alive) {
+        // A restart can still die on its first step or two — a "bounce": the 1 px
+        // START_OFFSET plus a diagonal first step floors back into the origin cell
+        // about a quarter of the time, and a branch can start straight into an inked
+        // neighbour. A bounce restarts at once, as on the classic path; only a crack
+        // that actually travelled earns the idle, or a delay would be paid per bounce
+        // and feel several times longer than the knob says.
+        cr.wait = cr.age < BOUNCE_STEPS ? 0 : fuzzyWait(state.cfg, cr.rng)
+        if (cr.wait <= 0) { findStart(state, cr); spawn++ } // relocate keeps it alive
+      }
     }
     while (spawn-- > 0 && state.cracks.length < state.cfg.maxCracks) {
       state.cracks.push(makeCrack(state))
@@ -354,7 +452,9 @@ export function updateSubstrateState(state: SubstrateState, cfg: SubstrateConfig
     cfg.initialCracks !== state.cfg.initialCracks ||
     cfg.maxCracks !== state.cfg.maxCracks ||
     cfg.seed !== state.cfg.seed ||
-    cfg.background !== state.cfg.background
+    cfg.background !== state.cfg.background ||
+    cfg.origin !== state.cfg.origin ||           // only shapes the seeds — a restart is what
+    cfg.orientation !== state.cfg.orientation    // makes the change visible in the preview
   ) return false
   state.cfg = cfg
   state.palette = cfg.color.colors.map(parseHex8)

@@ -8,6 +8,7 @@ import {
   type SubstrateState,
 } from './substrate'
 import { meta } from './meta'
+import { shapePresets, stylePresets } from './presets'
 
 // The accreting painting lives in a CSS-px ImageData buffer. The main 2D context
 // is DPR-scaled (setTransform(dpr)), and putImageData ignores that transform — so
@@ -29,6 +30,7 @@ function getOffscreen(state: SubstrateState) {
 const substrate = defineDiversion<typeof substrateSchema, SubstrateState, '2d'>({
   ...meta,
   schema: substrateSchema,
+  presets: [shapePresets, stylePresets],
 
   setup(ctx, config, size) {
     ctx.fillStyle = config.background
