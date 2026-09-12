@@ -1,3 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>#315 — description under the title (mockup, 2026-09-11)</title>
+<style>
+/* ═══ REAL src/framework/theme.css, inlined verbatim so this mockup keeps
+       rendering correctly after the stylesheet moves on ═══════════════════ */
 /* ── Diversion — "Instrument" theme ──────────────────────────────────────────
    High-contrast dark studio. Five invariants: readability, hide-nothing,
    inline help, sliders-only-if-bounded, more contrast. */
@@ -288,56 +297,6 @@ button {
   font-size: 15px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-}
-/* The piece's own description under the title (#315) — the same sentence the
-   gallery card renders, for the deep-link arrival who never saw the card. In the
-   panel's own mono, so the head reads as one block.
-
-   Clamped to --desc-lines (set from DESC_CLAMP_LINES in DiversionDescription.tsx,
-   so the measurement and the clamp can't drift apart), and `.is-clamped` is only
-   applied when the text actually overflows — a 54-character piece shows in full
-   with no control at all. */
-.config-desc {
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
-}
-.config-desc-text {
-  margin: 0;
-}
-.config-desc.is-clamped .config-desc-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: var(--desc-lines, 5);
-  overflow: hidden;
-}
-.config-desc-more {
-  margin: 4px 0 0;
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--accent-2);
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.config-desc-more:hover {
-  color: var(--accent);
-}
-/* The clamp exists because of the 820px stacked layout, so this toggle is most
-   needed exactly where a 45x17 box is a poor tap target. Grow the layout box the
-   way #290 grew `.sw` — inline-flex + min-height rather than an absolute overlay,
-   which would give it a hit area overlapping the head's other controls. The text
-   stays put: the extra height is centred around it. */
-@media (pointer: coarse) {
-  .config-desc-more {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-  }
 }
 .config-preview {
   grid-area: preview;
@@ -1156,3 +1115,190 @@ input[type='color'] {
     transform: none;
   }
 }
+
+/* ═══ MOCKUP-ONLY scaffolding (never ships) ═══════════════════════════════ */
+body { padding: 28px 24px 60px; }
+.mock-h1 { font-size: 17px; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 4px; }
+.mock-lede { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0 0 28px; max-width: 88ch; }
+.mock-lede b { color: var(--fg); font-weight: 600; }
+.mock-sec { margin: 0 0 14px; padding-top: 26px; border-top: 1px solid var(--line); }
+.mock-sec h2 { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent-2); margin: 0 0 6px; }
+.mock-sec p { color: var(--muted); font-size: 11.5px; line-height: 1.6; margin: 0; max-width: 86ch; }
+.mock-row { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; margin: 18px 0 6px; }
+.mock-card { display: flex; flex-direction: column; gap: 8px; }
+.mock-tag { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.mock-tag b { color: var(--accent); font-weight: 600; letter-spacing: .14em; }
+.mock-note { font-size: 10px; color: #6a6a74; letter-spacing: .06em; }
+/* a faithful 320px slice of .config-panel — same width, padding, background */
+.mock-panel { width: 320px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 4px; padding: 18px 18px 22px; display: flex; flex-direction: column; gap: 18px; }
+.mock-phone .mock-panel { width: 390px; border-top: none; border-radius: 0 0 4px 4px; }
+.mock-sticky { width: 390px; height: 176px; border: 1px solid var(--line); border-bottom: none;
+  border-radius: 4px 4px 0 0; background: radial-gradient(130% 130% at 72% 28%, #0c161b, #050507);
+  display: grid; place-items: center; }
+.mock-sticky::after { content: 'sticky preview'; font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: #2f3a3e; }
+
+/* ═══ THE PROPOSAL — the only rules that would actually be added ══════════ */
+/* The gallery card's exact sentence, in the panel's own mono, under the title. */
+.config-head .config-desc {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+/* Collapsed: clamp to N lines. The line count is the one thing still to pick. */
+.config-desc.is-clamped .config-desc-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--desc-lines, 4);
+  overflow: hidden;
+}
+/* The toggle only exists when the text actually overflows its clamp, so a
+   one-line description never grows a control. */
+.config-desc-more {
+  margin: 4px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.config-desc-more:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<script>window.__LENS__ = [182,66,254,93,142,169,102,139,158,213,132,207,328,172,104,193,77,305,68,300,188,215,119,174,152,205,454,196,54,91,186,158,138,215,246,134,55,222,160,133,90,212,137,197,192,82,298,132,66,89,86,132,176,217,133,163,291,176,147,172,151,236,173,60,213,84,185,109,107,293,162,126,137,219,201,218,164,288,54,138,111,164,195,152,100,184,244,145,204,166,80,82,62,167,73,327,249,242,180,147,89,132,161,293,93,90,124,176,172,68,121,183,107,55,167,167,108,419,279,140,197,105,146,138,253,210,176,122,216,271,71,99,334,250,135,182,149,263]</script>
+<h1 class="mock-h1">#315 — the description under the title</h1>
+<p class="mock-lede">Mockup, 2026-09-11 (rev 2 — decisions applied). The real <b>theme.css</b> is inlined above,
+so every panel is the app's own 320&nbsp;px <code>.config-panel</code> at its own padding, type scale and colours.
+Text is the exact <code>meta.description</code> the live gallery card renders. <b>Locked:</b> mono, matching the rest
+of the panel · gallery's exact sentence · more/less toggle with scroll correction · Config screen only, nothing on Play.
+<b>The toggles below are live — click them.</b></p>
+
+<div class="mock-sec">
+  <h2>§1 · The shipped shape — Ablation, and the two short ones</h2>
+  <p>Under the clamp, no toggle is rendered at all: the button only appears when the text genuinely overflows,
+  so a 55-character piece never grows a control it doesn't need.</p>
+</div>
+<div class="mock-row" id="s1"></div>
+
+<div class="mock-sec">
+  <h2>§2 · Where "a certain point" goes — 3, 4 or 5 lines</h2>
+  <p>At 320&nbsp;px in mono, a line holds ~38 characters. Across all 138 pieces that makes the toggle appear on
+  <b id="c3"></b> at 3 lines, <b id="c4"></b> at 4, <b id="c5"></b> at 5. Shown on the median piece (169 ch) and the
+  worst case (454 ch). Click <i>more</i> / <i>less</i>.</p>
+</div>
+<div class="mock-row" id="s2"></div>
+<div class="mock-row" id="s2b"></div>
+
+<div class="mock-sec">
+  <h2>§3 · 390 px phone — panel flowing under the sticky preview</h2>
+  <p>The width where height is scarcest, and the one deep links land on. A line holds ~47 characters here,
+  so the same clamp shows more of the text.</p>
+</div>
+<div class="mock-row" id="s3"></div>
+
+<script>
+const D = {
+  abl: { t: 'Ablation', d: 'Turrets ride a track and peel a contour map, one colour at a time.', n: 66 },
+  met: { t: 'Metaballs', d: 'Gooey blobs that rise, merge, and split — a lava lamp.', n: 54 },
+  ast: { t: 'Asteroids', d: 'A slow drift through a painted Homeworld sky — a soft purple nebula and dark dust lanes veiling one low sun, with a field of tumbling asteroids adrift in the foreground.', n: 169 },
+  del: { t: 'Delaunay Mesh', d: 'A field of drifting points, continuously re-triangulated into the Delaunay mesh that connects each to its nearest neighbours — the empty-circumcircle condition that also underlies terrain modelling and low-poly art. Rendered as a shifting web of faceted triangles, like an animated cut crystal. Clean-room port of the xscreensaver hack "delaunay" (Jamie Zawinski / tessellimage, itself built on Paul Bourke\'s classic incremental triangulation algorithm).', n: 454 },
+}
+
+const form = `
+  <div class="ctl">
+    <div class="ctl-top"><span class="ctl-name">Particles</span><span class="ctl-val">1200</span></div>
+    <input type="range" min="0" max="100" value="62">
+  </div>
+  <div class="ctl">
+    <div class="ctl-top"><span class="ctl-name">Speed</span><span class="ctl-val">0.85</span></div>
+    <input type="range" min="0" max="100" value="41">
+  </div>`
+
+const panel = (k, lines, tag, phone) => {
+  const wrap = document.createElement('div')
+  wrap.className = 'mock-card'
+  wrap.innerHTML = `<span class="mock-tag">${tag}</span>
+    <div class="${phone ? 'mock-phone' : ''}">${phone ? '<div class="mock-sticky"></div>' : ''}
+      <div class="mock-panel">
+        <header class="config-head">
+          <a class="back" href="#">← gallery</a>
+          <h2>${D[k].t}</h2>
+          <div class="config-desc is-clamped" style="--desc-lines:${lines}">
+            <p class="config-desc-text">${D[k].d}</p>
+          </div>
+        </header>
+        ${form}
+      </div>
+    </div>`
+  // Render the toggle only when the text actually overflows its clamp — the same
+  // measurement the real control would make.
+  const box = wrap.querySelector('.config-desc')
+  const txt = wrap.querySelector('.config-desc-text')
+  requestAnimationFrame(() => {
+    if (txt.scrollHeight <= txt.clientHeight + 1) return
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'config-desc-more'
+    btn.textContent = 'more ▾'
+    btn.setAttribute('aria-expanded', 'false')
+    btn.onclick = () => {
+      const open = box.classList.contains('is-clamped')
+      // Find the scroller this lives in: the .config-panel above 820px, the
+      // document below it (where the panel is `overflow-y: visible`).
+      const sc = (() => {
+        for (let el = box.parentElement; el; el = el.parentElement) {
+          const oy = getComputedStyle(el).overflowY
+          if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el
+        }
+        return document.scrollingElement
+      })()
+      // Collapsing removes height ABOVE wherever the reader is, so every pixel
+      // below it drags upward and they lose their place. Give the scroller that
+      // height back. The description sits at the very top of the panel, so when
+      // it is on screen scrollTop is ~0 and the clamp makes this a no-op — the
+      // block just reflows, which is what it should do.
+      const before = box.offsetHeight
+      box.classList.toggle('is-clamped', !open)
+      btn.textContent = open ? 'less ▴' : 'more ▾'
+      btn.setAttribute('aria-expanded', String(open))
+      if (!open) sc.scrollTop = Math.max(0, sc.scrollTop - (before - box.offsetHeight))
+    }
+    box.appendChild(btn)
+  })
+  return wrap
+}
+
+s1.append(
+  panel('abl', 4, '<b>Ablation</b> — 66 ch, no toggle needed'),
+  panel('met', 4, '<b>Metaballs</b> — 54 ch, no toggle needed'),
+  panel('ast', 4, '<b>Asteroids</b> — 169 ch, 4-line clamp + <i>more</i>'),
+)
+s2.append(
+  panel('ast', 3, '<b>3 lines</b> · median piece (169 ch)'),
+  panel('ast', 4, '<b>4 lines</b> · median piece'),
+  panel('ast', 5, '<b>5 lines</b> · median piece'),
+)
+s2b.append(
+  panel('del', 3, '<b>3 lines</b> · worst case (454 ch)'),
+  panel('del', 4, '<b>4 lines</b> · worst case'),
+  panel('del', 5, '<b>5 lines</b> · worst case'),
+)
+s3.append(
+  panel('ast', 4, '<b>4 lines</b> · 390 px, median piece', true),
+  panel('del', 4, '<b>4 lines</b> · 390 px, worst case', true),
+)
+
+// how many of the 138 overflow each clamp, at ~38 chars per line
+const LENS = window.__LENS__ || []
+const over = (n) => `${LENS.filter((l) => l > n * 38).length} of 138`
+c3.textContent = over(3); c4.textContent = over(4); c5.textContent = over(5)
+</script>
+</body>
+</html>

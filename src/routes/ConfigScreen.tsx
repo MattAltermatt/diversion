@@ -8,6 +8,7 @@ import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { encodeConfig, decodeConfig, applyFreshLoadRandomization } from '../framework/urlCodec'
 import { CopyLinkButton } from '../framework/CopyLinkButton'
+import { DiversionDescription } from '../framework/DiversionDescription'
 
 export function ConfigScreen() {
   const { slug } = useParams()
@@ -164,6 +165,7 @@ export function ConfigScreen() {
             ← gallery
           </Link>
           <h2>{diversion.title}</h2>
+          <DiversionDescription description={diversion.description} />
         </header>
         {diversion.presets?.length ? (
           <Subpanel label="Presets">

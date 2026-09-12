@@ -28,6 +28,27 @@ function renderAt(entries: string[]) {
   )
 }
 
+describe('ConfigScreen description (#315)', () => {
+  it("shows the piece's own meta.description under the title", async () => {
+    const { getByRole, getByText } = renderAt(['/d/flow-field'])
+    const meta = (await loadDiversion('flow-field'))!
+    expect(getByRole('heading', { level: 2 }).textContent).toBe(meta.title)
+    // The gallery card's exact sentence, verbatim — same string, same source.
+    expect(getByText(meta.description)).not.toBeNull()
+  })
+
+  it('puts the description inside the head, under the title', async () => {
+    renderAt(['/d/flow-field'])
+    const head = document.querySelector('.config-head')!
+    const desc = head.querySelector('.config-desc')
+    expect(desc).not.toBeNull()
+    // DOM order is the reading order: back link, title, then the description.
+    expect(head.querySelector('h2')!.compareDocumentPosition(desc!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+})
+
 describe('ConfigScreen URL hydration', () => {
   it('initialises the form from the URL params', () => {
     renderAt(['/d/flow-field?particles=1000'])

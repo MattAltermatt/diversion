@@ -361,6 +361,19 @@ describe('switch touch target (#290)', () => {
     expect(px(sw!.body, 'height')).toBeGreaterThanOrEqual(44)
   })
 
+  it('grows the description toggle to a 44px target on coarse pointers (#315)', () => {
+    // The description clamp exists BECAUSE of the stacked layout below 820px, so
+    // its more/less toggle is most needed exactly where a 45x17 box is a poor
+    // target. Same treatment as `.sw` above, and for the same reason.
+    const more = coarse('.config-desc-more')
+    expect(more, 'no .config-desc-more rule under (pointer: coarse)').toBeDefined()
+    expect(px(more!.body, 'min-height')).toBeGreaterThanOrEqual(44)
+    // A layout box, not an overlay — the head's other controls sit close enough
+    // that a reaching hit area would claim part of the "← gallery" link.
+    expect(more!.body).not.toMatch(/position:\s*absolute/)
+    expect(more!.body).not.toMatch(/(^|[\s;])(inset|margin):\s*-/)
+  })
+
   it('grows a LAYOUT box, never an absolute overlay', () => {
     // The whole reason the pill moved to ::before. Two help-less booleans inside a
     // .group sit 15px apart, so an overlay reaching 12px past each edge would have
