@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # .nvmrc is the single declaration of this project's runtime, read here and by
           # any version manager a contributor uses (none is installed on the author's
