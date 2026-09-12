@@ -6,7 +6,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~22s, 7505 tests in 340 files)
+npm test         # vitest run (full suite; ~25s, 7524 tests in 341 files)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint
 npm run build    # tsc -b && vite build
@@ -58,7 +58,7 @@ Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5
 
 ### Schema UX canon (#256) — the gallery reads as one system
 
-A new diversion copies this canon; it's what the majority of the 137 already do. All of it lives in `.meta({...})` — none of it touches the URL codec (the codec keys on field name + value, never `section`/`label`/`collapsed`), so aligning an existing schema to canon is codec-safe and default-preserving.
+A new diversion copies this canon; it's what the majority of the 138 already do. All of it lives in `.meta({...})` — none of it touches the URL codec (the codec keys on field name + value, never `section`/`label`/`collapsed`), so aligning an existing schema to canon is codec-safe and default-preserving.
 
 - **Palette:** a piece that *cycles many colors* uses a single `ui:'colorList'` field named **`'Palette'`**. Discrete `ui:'color'` fields (in a `ui:'group'`) are only for colors that are **distinct semantic roles** (species A/B/C, core/halo/ember, sky/terrain).
 - **Background:** the ground color is a `ui:'color'` field named **`background`**, label **`'Background'`**, with a **dark default** (err toward contrast, invariant #5). A full-field simulation whose palette paints every pixel may legitimately omit it (the palette's dark end *is* the ground) — that's the only sanctioned exception; don't editorialize the label ("Grout", "Plate") — say `'Background'`.
