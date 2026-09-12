@@ -64,14 +64,14 @@ describe('NumberInput bounds (clamp / draft / NaN-guard)', () => {
   it('clamps the − button at the lower bound', () => {
     const onChange = vi.fn()
     render(<NumberInput value={1} onChange={onChange} meta={bounded} />)
-    fireEvent.click(screen.getByRole('button', { name: '–' }))
+    fireEvent.click(screen.getByRole('button', { name: `Decrease ${bounded.label}` }))
     expect(onChange).toHaveBeenCalledWith(1) // 1 - 1 = 0 → clamped to min
   })
 
   it('clamps the + button at the upper bound', () => {
     const onChange = vi.fn()
     render(<NumberInput value={10} onChange={onChange} meta={bounded} />)
-    fireEvent.click(screen.getByRole('button', { name: '+' }))
+    fireEvent.click(screen.getByRole('button', { name: `Increase ${bounded.label}` }))
     expect(onChange).toHaveBeenCalledWith(10) // 10 + 1 = 11 → clamped to max
   })
 

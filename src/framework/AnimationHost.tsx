@@ -590,6 +590,14 @@ export function AnimationHost({
             ? 'anim-canvas anim-canvas--interactive'
             : 'anim-canvas'
         }
+        // A bare <canvas> is exposed to assistive tech with neither a text alternative
+        // nor ignorable status (SC 1.1.1). On a Gallery tile the adjacent markup already
+        // names the piece — Gallery.tsx wraps each canvas with an <h3> and a <p>, so the
+        // link reads "Flow Field. Particles drifting through a noise field." — which makes
+        // the canvas decorative and `aria-hidden` correct. On a mount the viewer DRIVES
+        // (Play/Config), it stays exposed, because there the canvas is the thing being
+        // operated rather than a thumbnail. Keyed on `interactive` for exactly that reason.
+        aria-hidden={!interactive}
       />
       {showChrome && (
         <div className="anim-bar">

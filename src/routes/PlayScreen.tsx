@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigationType, Link } from 'react-router-dom'
 import { useDiversion } from '../framework/registry'
+import { diversionTitle, useDocumentTitle } from '../framework/useDocumentTitle'
 import { AnimationHost } from '../framework/AnimationHost'
 import { DiversionErrorBoundary } from '../framework/DiversionErrorBoundary'
 import { decodeConfig, applyFreshLoadRandomization, encodeConfig } from '../framework/urlCodec'
@@ -22,6 +23,10 @@ export function PlayScreen() {
   // while a plain reload brings a bred run back. Captured at mount (constant here).
   const navType = useNavigationType()
   const diversion = useDiversion(slug!)
+  // Every route reported the same <title> before #306 (SC 2.4.2, Level A). Routes
+  // suspend rather than loading in an effect, so `diversion` is already non-null on
+  // the first executed render and the title never flashes the fallback.
+  useDocumentTitle(diversionTitle(diversion?.title, 'play'))
 
   // Parse config ONCE from the URL; frozen for the session. Source the query
   // string from the router (useLocation) rather than window.location.search so

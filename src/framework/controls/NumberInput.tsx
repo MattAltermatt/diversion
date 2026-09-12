@@ -48,9 +48,17 @@ export function NumberInput({
         <span className="ctl-name">{meta.label}</span>
       </div>
       <div className="num">
-        <button onClick={() => onChange(clampToBounds(value - step, meta))}>–</button>
+        <button
+          aria-label={`Decrease ${meta.label}`}
+          onClick={() => onChange(clampToBounds(value - step, meta))}
+        >
+          –
+        </button>
         <input
           type="number"
+          // Sibling <span> label (SC 4.1.2). The steppers above/below are named too:
+          // "–" and "+" are non-empty but say nothing about WHICH field they step.
+          aria-label={meta.label}
           min={meta.min}
           max={meta.max}
           step={step}
@@ -63,7 +71,12 @@ export function NumberInput({
           }}
           onBlur={() => setDraft(null)}
         />
-        <button onClick={() => onChange(clampToBounds(value + step, meta))}>+</button>
+        <button
+          aria-label={`Increase ${meta.label}`}
+          onClick={() => onChange(clampToBounds(value + step, meta))}
+        >
+          +
+        </button>
         <button
           className="num-random"
           aria-label={`Randomize ${meta.label}`}

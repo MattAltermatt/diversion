@@ -12,6 +12,23 @@
   --accent-ink: #062018;
   --line: #26262c;
   --line-2: #30303a;
+  /* Form-control borders only (#306, SC 1.4.11 — non-text contrast needs 3:1). --line-2
+     is 1.51:1 against --panel and 1.43:1 against --field, so an empty text field was
+     effectively invisible AS a field. Deliberately a separate token rather than lifting
+     --line-2, which also draws .tile, .offline-bar, dividers and the .sw pill — the
+     audit is explicit that those are fine as they are (the switch reads by its knob,
+     11.46:1 against the pill; the slider track by its thumb, 12.78:1), and lifting the
+     shared token would make the whole panel read busier to fix six controls.
+     #6a6a76 = 3.68:1 vs --panel, 3.50:1 vs --field. The minimum that clears both is
+     #60606a at 3.16/3.00, which sits exactly on the line — a later --field tweak would
+     silently break it. Still far quieter than --muted (#8a8a94, 5.75:1), which is
+     body-text weight on a border.
+     Left on --line-2 deliberately, each because a visible label already identifies the
+     control: the generic button, .copy-link-btn, .matrix-reset and .matrix-preset (text
+     at 5.46:1 or better), .offline-bar (its fill is --accent), and .tile (a content card,
+     not a component). input[type='color'] IS included beyond the audit's five — its fill
+     is arbitrary and can land near --panel, so the border is its only guaranteed edge. */
+  --line-ctl: #6a6a76;
   --field: #121218;
   --radius: 7px;
   --mono: ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
@@ -353,7 +370,7 @@ button {
   z-index: 2;
   font-size: 12px;
   color: var(--accent);
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   border: 1px solid #2a3a40;
   border-radius: 6px;
   padding: 6px 10px;
@@ -369,7 +386,7 @@ button {
   font-size: 12px;
   cursor: pointer;
   color: var(--accent);
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   border: 1px solid #2a3a40;
   border-radius: 6px;
   padding: 6px 10px;
@@ -392,7 +409,7 @@ button {
   width: 100%;
   background: var(--field);
   color: var(--fg);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: var(--radius);
   padding: 8px 10px;
   font-family: inherit;
@@ -400,7 +417,7 @@ button {
   cursor: pointer;
 }
 .preset-select:hover {
-  border-color: var(--line-2);
+  border-color: var(--accent);
 }
 .preset-select:focus {
   outline: none;
@@ -551,6 +568,18 @@ input[type='range']::-moz-range-thumb {
   background: var(--accent);
   cursor: pointer;
 }
+/* The base rule above sets `outline: none` to drop the browser's default ring around
+   the 5px TRACK, which looks wrong on a pill that thin — but nothing restored an
+   indicator, so tabbing the form left all 1006 sliders with no visible focus at all
+   (SC 2.4.7, Level AA; #306). The other three `outline: none` sites in this sheet are
+   fine because each swaps its border to --accent on :focus.
+   `:focus-visible`, not `:focus`, so a pointer drag does not paint a ring the mouse
+   user never asked for; the offset keeps it clear of the thumb's own glow. */
+input[type='range']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
 
 /* number input */
 .num {
@@ -561,7 +590,7 @@ input[type='range']::-moz-range-thumb {
 .num input {
   flex: 1;
   background: var(--field);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: 6px;
   color: var(--fg);
   font-family: inherit;
@@ -588,7 +617,7 @@ input[type='range']::-moz-range-thumb {
   max-width: 100%;
 }
 .seg button {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: var(--radius);
   background: transparent;
   color: #b6b6be;
@@ -608,7 +637,7 @@ input[type='range']::-moz-range-thumb {
   width: 100%;
   background: var(--field);
   color: var(--fg);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: var(--radius);
   padding: 7px 10px;
   font-family: inherit;
@@ -660,7 +689,7 @@ input[type='color'] {
   width: 100%;
   height: 32px;
   background: var(--field);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: 6px;
   padding: 3px;
   cursor: pointer;
@@ -694,7 +723,7 @@ input[type='color'] {
   grid-column: 2;
   grid-row: 1;
   background: var(--field);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-ctl);
   border-radius: 5px;
   color: var(--fg);
   font-family: inherit;
@@ -843,8 +872,13 @@ input[type='color'] {
   padding: 12px;
   text-align: center;
   font-size: 0.85rem;
-  color: var(--muted, #8a98a0);
-  background: rgba(8, 16, 18, 0.6);
+  /* --fg, not --muted: this is the one scrim site whose foreground could not be fixed
+     by alpha — muted over a bright canvas is 1.48:1 at 0.6 and still 3.10:1 at 0.8,
+     against a required 4.5 (SC 1.4.3). --fg is 6.38:1 at this alpha over white and
+     17.38:1 over black. An error the viewer must read should not be the quietest text
+     on screen (#306). */
+  color: var(--fg);
+  background: rgba(8, 16, 18, 0.7);
 }
 .anim-bar {
   position: absolute;
@@ -866,7 +900,7 @@ input[type='color'] {
   display: grid;
   place-items: center;
   color: var(--accent);
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   border-color: #2a3a40;
 }
 /* Screen Wake Lock toggle (#284). An `.anim-bar button`, so it inherits the 30px
@@ -887,7 +921,7 @@ input[type='color'] {
   border-radius: 6px;
   padding: 6px 9px;
   font-size: 11px;
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
 }
 .anim-bar .anim-hint {
   color: var(--accent);
@@ -895,7 +929,7 @@ input[type='color'] {
   border-radius: 6px;
   padding: 6px 9px;
   font-size: 11px;
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   white-space: nowrap;
 }
 
@@ -918,7 +952,7 @@ input[type='color'] {
 .play-back {
   font-size: 12px;
   color: var(--accent);
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   border: 1px solid #2a3a40;
   border-radius: 6px;
   padding: 6px 10px;
@@ -927,7 +961,7 @@ input[type='color'] {
 .play-copy {
   min-width: 102px;
   font-size: 12px;
-  background: rgba(8, 16, 18, 0.6);
+  background: rgba(8, 16, 18, 0.7);
   border-color: #2a3a40;
   border-radius: 6px;
   padding: 6px 10px;

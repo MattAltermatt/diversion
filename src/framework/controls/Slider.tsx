@@ -22,12 +22,13 @@ export function Slider({
   // when idle (draft === null) the readout reflects the formatted committed value.
   const [draft, setDraft] = useState<string | null>(null)
   const readout = draft ?? format(value, meta.step)
+  const atMax = meta.maxLabel != null && meta.max != null && value >= meta.max && draft === null
 
   return (
     <div className="ctl">
       <div className="ctl-top">
         <span className="ctl-name">{meta.label}</span>
-        {meta.maxLabel != null && meta.max != null && value >= meta.max && draft === null ? (
+        {atMax ? (
           <span className="ctl-val ctl-val-max" aria-label={`${meta.label} value`}>{meta.maxLabel}</span>
         ) : (
           <input
@@ -50,6 +51,15 @@ export function Slider({
       </div>
       <input
         type="range"
+        // .ctl-name is a sibling <span>, not a <label for>, so without this the track
+        // announces as "slider, 4000" with no field name — across 1006 slider fields
+        // (SC 4.1.2, Level A). The readout above carries "<label> value" to stay distinct.
+        aria-label={meta.label}
+        // At max, the readout beside this track swaps the number for meta.maxLabel
+        // ("∞", "off"). Without valuetext the slider still announces the raw bound, so
+        // the spoken value and the visible one disagree at exactly the value whose
+        // meaning is special.
+        aria-valuetext={atMax ? meta.maxLabel : undefined}
         min={meta.min}
         max={meta.max}
         step={meta.step ?? 1}

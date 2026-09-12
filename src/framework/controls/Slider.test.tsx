@@ -65,3 +65,19 @@ describe('Slider maxLabel', () => {
     expect(screen.getByRole('spinbutton')).toHaveValue(20)
   })
 })
+
+describe('Slider at a labelled maximum', () => {
+  const meta = { ui: 'slider' as const, label: 'Lifespan', min: 0, max: 10, step: 1, maxLabel: '∞' }
+
+  it('announces the label the readout shows, not the raw bound', () => {
+    render(<Slider value={10} onChange={vi.fn()} meta={meta} />)
+    // The readout swaps 10 for "∞"; without aria-valuetext the track still said "10",
+    // so the spoken value disagreed with the visible one at exactly the special value.
+    expect(screen.getByRole('slider', { name: 'Lifespan' })).toHaveAttribute('aria-valuetext', '∞')
+  })
+
+  it('leaves valuetext off below the maximum, so the number is announced normally', () => {
+    render(<Slider value={4} onChange={vi.fn()} meta={meta} />)
+    expect(screen.getByRole('slider', { name: 'Lifespan' })).not.toHaveAttribute('aria-valuetext')
+  })
+})

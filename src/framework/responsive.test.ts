@@ -418,3 +418,94 @@ describe('switch touch target (#290)', () => {
     expect(coarse('.sw.on::after'), 'the ON knob would sit at its 38px offset').toBeDefined()
   })
 })
+
+// SC 2.4.7 (Level AA), from #306's audit: the base `input[type='range']` rule sets
+// `outline: none` and, before this, nothing restored an indicator — so keyboard focus
+// was invisible on all 1006 slider fields. Read with node:fs, never `?raw`: vitest runs
+// with CSS processing off, so a `?raw` import is the EMPTY STRING and every assertion
+// below would pass vacuously (see this file's own header).
+describe('slider focus indicator', () => {
+  // Uses this file's module-level `css`, which is already read with node:fs and guarded
+  // for non-emptiness above — a second read would be a second guard over the same bytes.
+  it('restores a visible ring on keyboard focus', () => {
+    const rule = css.match(/input\[type='range'\]:focus-visible\s*\{([^}]*)\}/)
+    expect(rule).not.toBeNull()
+    expect(rule![1]).toMatch(/outline:\s*2px solid var\(--accent\)/)
+  })
+
+  it('uses :focus-visible rather than :focus, so a mouse drag paints no ring', () => {
+    expect(css).not.toMatch(/input\[type='range'\]:focus\s*\{/)
+  })
+})
+
+// Contrast conformance from #306's audit. These are computed ratios, not eyeballed —
+// the arithmetic lives here so a future palette edit that quietly drops one below its
+// threshold fails rather than shipping. Uses this file's module-level `css`.
+describe('contrast (SC 1.4.3 text, SC 1.4.11 non-text)', () => {
+  const srgb = (c: number) => (c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4)
+  const lum = ([r, g, b]: number[]) => 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b)
+  const ratio = (a: number[], b: number[]) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+    return (hi + 0.05) / (lo + 0.05)
+  }
+  const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+  /** What the eye actually sees: the scrim composited over whatever the piece painted. */
+  const over = (a: number, bg: number[]) => [8, 16, 18].map((f, i) => a * f + (1 - a) * bg[i])
+
+  /** The :root block only, so a token redefined in a theme or media block cannot be
+   *  mistaken for the effective value. Reads `code` (comments stripped, see line 22) —
+   *  otherwise a rule quoted inside a comment satisfies the assertion. */
+  const root = code.slice(code.indexOf(':root'), code.indexOf('}', code.indexOf(':root')))
+  const token = (name: string): string => {
+    const m = root.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`))
+    expect(m, `${name} not found in theme.css's :root`).not.toBeNull()
+    return m![1]
+  }
+
+  const WHITE = [255, 255, 255]
+
+  it('chrome text clears 4.5:1 over the worst-case canvas (a white one)', () => {
+    const alpha = Number(code.match(/rgba\(8, 16, 18, ([\d.]+)\)/)![1])
+    expect(alpha).toBeGreaterThanOrEqual(0.68) // 0.6 gave 3.81:1 and failed
+    expect(ratio(hex(token('--accent')), over(alpha, WHITE))).toBeGreaterThanOrEqual(4.5)
+    // The error surface is the one site alpha alone could never fix: --muted is 3.10:1
+    // even at 0.8, so it must not be what .diversion-error uses.
+    expect(ratio(hex(token('--fg')), over(alpha, WHITE))).toBeGreaterThanOrEqual(4.5)
+    expect(code).toMatch(/\.diversion-error\s*\{[^}]*color:\s*var\(--fg\)/)
+  })
+
+  it('EVERY scrim site clears the bar, including one added later at some other alpha', () => {
+    const alphas = [...code.matchAll(/rgba\(8, 16, 18, ([\d.]+)\)/g)].map((m) => Number(m[1]))
+    expect(alphas.length).toBeGreaterThanOrEqual(8) // non-vacuity: the sites were found
+    for (const a of alphas) expect(a).toBeGreaterThanOrEqual(0.68)
+  })
+
+  it('control borders clear 3:1 against BOTH surfaces they sit between', () => {
+    const ctl = hex(token('--line-ctl'))
+    expect(ratio(ctl, hex(token('--panel')))).toBeGreaterThanOrEqual(3)
+    expect(ratio(ctl, hex(token('--field')))).toBeGreaterThanOrEqual(3)
+  })
+
+  it('no STATE rule downgrades a lifted control border back below the bar', () => {
+    // SC 1.4.11 covers component states, and this is the trap the fix itself created:
+    // `.preset-select:hover { border-color: var(--line-2) }` was a NO-OP while the base
+    // was also --line-2, so raising the base silently turned a dead rule into a live
+    // downgrade — 3.68:1 back to 1.51:1 on hover, on the control whose dropdown IS the
+    // affordance. A state rule on a lifted control must go to --accent or --line-ctl.
+    const LIFTED = ['.preset-select', '.num input', '.seg button', '.ctl-select', '.crow .hex']
+    const rules = [...code.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    expect(rules.length).toBeGreaterThan(50) // non-vacuity: the sheet parsed
+    const downgrades = rules
+      .filter(([, sel, body]) => /:(hover|focus|active|focus-visible)/.test(sel)
+        && /border-color:\s*var\(--line-2\)/.test(body)
+        && LIFTED.some((c) => sel.includes(c)))
+      .map(([, sel]) => sel.trim())
+    expect(downgrades).toEqual([])
+  })
+
+  it('leaves --line-2 alone, because .tile and the .sw pill read fine as they are', () => {
+    // Lifting the shared token instead of adding a dedicated one is the over-fix this
+    // guard exists to catch: it would make every divider and card border louder.
+    expect(token('--line-2')).toBe('#30303a')
+  })
+})

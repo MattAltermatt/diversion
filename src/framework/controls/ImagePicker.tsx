@@ -53,6 +53,9 @@ export function ImagePicker({
           without picking some other file first. */}
       <input
         type="file"
+        // Sibling <span> label (SC 4.1.2) — otherwise this announces as a bare
+        // "Choose File" with no indication of what the picture is for.
+        aria-label={meta.label}
         accept="image/*"
         onChange={(e) => { pick(e.target.files?.[0]); e.target.value = '' }}
       />

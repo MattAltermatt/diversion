@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useDiversion } from '../framework/registry'
+import { diversionTitle, useDocumentTitle } from '../framework/useDocumentTitle'
 import { SchemaForm } from '../framework/SchemaForm'
 import { PresetPicker } from '../framework/PresetPicker'
 import { Subpanel } from '../framework/controls/Subpanel'
@@ -16,6 +17,10 @@ export function ConfigScreen() {
   const location = useLocation()
   const navType = useNavigationType()
   const diversion = useDiversion(slug!)
+  // Every route reported the same <title> before #306 (SC 2.4.2, Level A). Routes
+  // suspend rather than loading in an effect, so `diversion` is already non-null on
+  // the first executed render and the title never flashes the fallback.
+  useDocumentTitle(diversionTitle(diversion?.title, 'config'))
 
   // Initialise from the router URL (stable initializer); fall back to defaults.
   const [config, setConfig] = useState(() => {

@@ -30,7 +30,14 @@ export function Select({
       <div className="ctl-top">
         <span className="ctl-name">{meta.label}</span>
       </div>
-      <select className="ctl-select" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className="ctl-select"
+        // Sibling <span> label again — an unnamed <select> announces only its current
+        // option, so the panel says "Bazaar" with no hint that it is the Palette (SC 4.1.2).
+        aria-label={meta.label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
         {ungrouped.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
