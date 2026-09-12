@@ -1,6 +1,6 @@
 # Diversion — project conventions
 
-A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 138 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code.
+A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 138 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code. Ideas for pieces not yet built live in GitHub Issues under the **`future-diversion`** label (50 filed 2026-09-12, #338–#387, each with a look / mechanism / distinct-from section) — pick from there rather than scouting again; a pick still gets a real brainstorm and a committed mockup before code.
 
 ## Commands
 
