@@ -6,7 +6,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~25s, 7524 tests in 341 files)
+npm test         # vitest run (full suite; ~25s, 7558 tests in 344 files)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint --deny-warnings (a new warning fails CI; #308)
 npm run build    # tsc -b && vite build
@@ -17,6 +17,8 @@ npm run check:preload                  # deep-link modulepreload map (needs a fr
 npm run check:cache                    # every emitted file has exactly one caching lane (fresh build)
 node scripts/audit-preflight.mjs <slug> | --next | --unaudited   # gallery-audit brief (#314)
 ```
+
+**Node 24** (`.nvmrc`, `engines.node`, and what both workflows resolve — #307). `nodeVersion.test.ts` fails if `.nvmrc`, `engines.node` and `@types/node`'s major ever disagree, because nothing else compares them: `tsc` never reads `.nvmrc` and `engines` is advisory. Dependabot offering `@types/node` 26 against a Node 24 CI is therefore a red PR, not a silent fourth answer — it already happened on #333. Lint is gated (`--deny-warnings --report-unused-disable-directives`), so a new warning **and** a suppression that has stopped applying both fail. oxlint is deliberately pinned and kept in its own dependabot group: a minor can add default-on rules (1.71→1.82 adds 8 findings, tracked in #330), and bundling that into the weekly batch would hold vite/react/vitest hostage to triaging them.
 
 Dev URLs have **no** `/diversion` prefix (that's prod-only): `http://localhost:5180/d/<slug>/play`. A brand-new diversion folder 404s until the dev server is restarted — Vite's `import.meta.glob` registry doesn't pick it up live.
 
@@ -68,6 +70,37 @@ A new diversion copies this canon; it's what the majority of the 138 already do.
 - **Help:** every non-obvious field carries persistent `.meta({ help })`.
 
 **The meta sweep is the enforcement, and it used to guard two invariants out of several (#304).** `diversionMeta.test.ts` early-returned unless `ui === 'segmented'` for the options contract, and checked bound-agreement for `ui:'number'` only — so four siblings shipped broken: `morphogen`'s two `ui:'select'` fields declared no `options` (empty dropdowns, and three sliders gated on the frozen `fateMode` were unreachable from their own control), `intermomentary`'s `hex8` inks sat behind a bare `<input type="color">` whose sanitizer rewrites anything but 6-hex to `#000000`, `ablation`'s Palette used `ColorList`'s own `1..8` fallback against a `.min(2).max(24)` schema, and `Swatch`/`ColorList` inputs had no accessible name. The sweep now covers **every** `ui` kind that renders from `meta.options` or carries bounds — and it **re-derives that kind list from `SchemaForm.tsx` at test time** rather than hardcoding it, because a hardcoded list is exactly what let `select` be missed for the whole life of the options test. `Swatch` decides whether to show its alpha row from the incoming value's **length**: a control sees only `value` + `meta`, never the Zod node, but the value is *produced by* that node, so 8-hex is proof the field takes alpha.
+
+### Controls carry their own accessible name (#306)
+
+`.ctl-name` is a sibling `<span>` in every control — never a `<label for>`, never
+referenced by `aria-labelledby`. So a form element that does not spell out its own
+`aria-label` has an **empty accessible name** and announces as "slider, 4000" with no
+field identity (WCAG 2.2 SC 4.1.2, Level A). Every control now names its own inputs from
+`meta.label`; a new one must too, and `controls/accessibleName.test.tsx` is what enforces
+it. That sweep derives its `ui` kind list from **`SchemaForm`'s own dispatch — both
+`controlFor`'s switch and the three `meta.ui ===` branches that precede it** — because a
+config-aware control gets a dedicated `renderField` branch (see `ui:'matrix'` above) and
+a switch-only derivation would hand the next one zero coverage. Its three exemptions are
+declared with reasons, and one that stops applying fails.
+
+Two shapes that are NOT just a missing label:
+- **State, not just name.** `Segmented` carried selection in a CSS class alone, which
+  assistive tech cannot see: `role="group"` + `aria-label` on the wrapper, `aria-pressed`
+  per option. A group is the correct carrier of the field name; the buttons name only
+  their own option.
+- **Announced value vs shown value.** Where a readout swaps the number for `meta.maxLabel`
+  ("∞"), the track still announced the raw bound — `aria-valuetext` keeps the two in step.
+
+**Contrast is computed, not eyeballed** (`responsive.test.ts`). Two thresholds are live:
+chrome text over the `rgba(8,16,18,α)` scrim needs 4.5:1 against the **worst case, which is
+a white canvas** (α ≥ 0.68; the accent is 5.48:1 at 0.70), and a form control's border needs
+3:1 against **both** `--panel` and `--field` — which is why `--line-ctl` (#6a6a76) exists as
+a token separate from `--line-2`. Do NOT "fix" a border by lifting `--line-2`: it also draws
+`.tile`, `.offline-bar`, dividers and the `.sw` pill, which read fine by their knob and thumb
+contrast, and a guard fails if it moves. ⚠️ **Raising a base value wakes any same-value
+`:hover` rule into a live downgrade** — `.preset-select:hover` was a no-op at the old border
+and reverted the fix at the new one; SC 1.4.11 covers states, and a guard now enumerates them.
 
 Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **54 of 138** pieces have no `'Palette'` preset group (84 declare one) — add later. Recount before quoting these; the previous figures here (69/67) did not survive a recount. Count with `grep -rlz "label: 'Palette',[[:space:]]*options:"` per diversion folder — matching `label: 'Palette'` alone over-counts, because the canon `colorList` **field** carries that same label.
 

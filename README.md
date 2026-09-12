@@ -16,6 +16,8 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 
 ## Run it
 
+Needs **Node 24** (`.nvmrc`).
+
 ```bash
 npm install
 npm run dev      # → http://localhost:5180
@@ -91,7 +93,9 @@ export default myDiversion
 2. **Discoverable, not buried** — every param stays discoverable and carries help when its effect isn't obvious. Values needn't be on-screen at all times: collapsible sections, subpanels, and `showWhen` mode-swaps (e.g. the Color panel shows palette *or* gradient controls) are all fine, as long as the control is easy to find and its value returns when you open the section / switch the controlling field.
 3. **Add help when confusing** — `.meta({ help })` renders as persistent inline subtext.
 4. **Sliders only when bounded** — `ui:'slider'` needs `min`/`max`; open-ended numbers use `ui:'number'`.
-5. **Err toward more contrast** — high-contrast palette, crisp borders.
+5. **Err toward more contrast** — high-contrast palette, crisp borders. Measured, not eyeballed: the panel and the play chrome meet WCAG 2.2 AA for text and non-text contrast, and `responsive.test.ts` computes the ratios so a palette edit that drops one below threshold fails (#306).
+
+Every control also names its own inputs, exposes its selected state, and keeps a visible keyboard focus ring, so the panel is usable with a screen reader and by keyboard alone. Still open: the interaction-matrix grid is mouse-only (#306).
 
 ## Control vocabulary
 
