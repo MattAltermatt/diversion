@@ -1,3 +1,6 @@
+/* oxlint-disable oxc/erasing-op -- Flat-grid indices are written `row * stride + col`
+   so the cell being asserted stays legible against the grid; row 0 is a coordinate,
+   not a mistake. Scoped to this one rule so everything else still applies (#308). */
 import { describe, it, expect } from 'vitest'
 import { redQueenSchema } from './schema'
 import { createRedQueenState, step, advance, buildKernel, buildColors } from './redQueen'

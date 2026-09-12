@@ -1,0 +1,48 @@
+# Dependency automation (#308). Nothing here was urgent when this landed — which is
+# exactly how a repo arrives at a security advisory making everything urgent at once.
+#
+# Patch and minor are GROUPED into one PR per ecosystem so this is a weekly chore and
+# not a firehose. Majors are deliberately left UNGROUPED and arrive one at a time:
+# each of the four outstanding (typescript 7, jsdom 30, @testing-library/jest-dom 7,
+# @types/node 26) wants its own deliberate pass, and a grouped major PR would hide
+# which one broke the suite.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Four held majors each occupy a slot, and a grouped PR occupies one more. At the
+    # default of 5 the weekly chore PR — the entire point of this file — is the one
+    # silently not opened once a fifth major appears.
+    open-pull-requests-limit: 10
+    groups:
+      # oxlint is the lint GATE's own implementation, so it is deliberately NOT in the
+      # batch below. Measured on this tree: 1.71 → 0 warnings, 1.78 → 0, 1.82 → 8, all
+      # from newly default-on rules (react/refs, react/set-state-in-effect). Since #308
+      # made a warning fail CI, a bundled oxlint bump would turn the weekly PR red and
+      # hold vite/react/vitest hostage to triaging eight unrelated findings. On its own
+      # it is a readable, deliberate PR instead.
+      lint-toolchain:
+        patterns:
+          - oxlint
+      minor-and-patch:
+        exclude-patterns:
+          - oxlint
+        update-types:
+          - minor
+          - patch
+
+  # Actions are pinned by tag (actions/checkout@v4, …), so this is what moves them.
+  # Minor/patch are grouped; MAJORS are not, because the Pages actions live only in
+  # deploy.yml, which no pull request ever exercises — the first signal on a bad one is
+  # a failed deploy, so each gets its own PR rather than arriving inside a batch.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch

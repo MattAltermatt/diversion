@@ -6,8 +6,13 @@
  * "found nothing, so everything passed". `cacheLanes.test.mjs` runs it against a
  * hand-built service worker, including the one input that breaks the naive version.
  *
- * `.mjs` rather than `.ts` deliberately: CI runs on Node 20, which cannot import
- * TypeScript, and the shell that consumes this is a plain node script.
+ * `.mjs` rather than `.ts`: this was forced when CI ran Node 20, which could not read
+ * TypeScript at all. Since #307 moved CI to Node 24 that reason is GONE — type stripping
+ * is on by default from 23.6, and `node` compiles `src/framework/offlineWarm.ts` fine.
+ * What still blocks the import is narrower and worth stating so nobody re-derives it:
+ * `src/` uses EXTENSIONLESS relative imports (`./offlineState`), which Vite resolves and
+ * Node's ESM resolver does not — a direct import dies with ERR_MODULE_NOT_FOUND on the
+ * first hop, not a syntax error. Converting this file is tracked on #307.
  */
 
 /** Read a regex LITERAL out of `src` starting at `start` (which must be its opening
@@ -282,7 +287,8 @@ export function classifyAssets({ files, base, origin = 'https://example.invalid'
  *  build published and the sprite manifest.
  *
  *  ⚠️ This RE-DERIVES what `src/framework/offlineWarm.ts` derives; it cannot import it
- *  (CI is Node 20, that file is TypeScript). So it is deliberately kept to the same
+ *  (not for the Node 20 reason it was written for — see the header — but because that
+ *  module's relative imports carry no extension). So it is deliberately kept to the same
  *  three lines the original is — chunk per slug, plus `extras`, plus the sprite
  *  manifest and one PNG per credited slug — and the caller asserts the result is not
  *  implausibly small. If the derivation over there grows a fourth source, this is the

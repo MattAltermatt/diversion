@@ -97,6 +97,9 @@ describe('MatrixEditor (editing)', () => {
     fireEvent.pointerDown(cell, { clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(cell, { clientY: 60, pointerId: 1 })
     fireEvent.pointerUp(cell, { pointerId: 1 })
+    // `row * stride + col` keeps the cell legible against the grid; row 0 is a
+    // coordinate, not a mistake.
+    // oxlint-disable-next-line oxc/erasing-op
     expect(latest.matrix[0 * 3 + 2]).toBeCloseTo(latest.matrix[2 * 3 + 0], 5)
   })
 })

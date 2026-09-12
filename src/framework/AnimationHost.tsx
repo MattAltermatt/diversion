@@ -485,6 +485,10 @@ export function AnimationHost({
       // so the timer fires and the slot is genuinely freed (the gallery relies on this).
       releaseTimerRef.current = { timer: setTimeout(releaseContext, 0), canvas }
     }
+    // `interactive`, `config` and `showChrome` are read inside but deliberately absent:
+    // all three are fixed for the life of a mount or handled by the [diversion, config]
+    // effect, and adding them here would re-run setup() on every config edit (#308).
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [diversion])
 
   // config changes: apply live via update(), else fall back to a full re-setup.

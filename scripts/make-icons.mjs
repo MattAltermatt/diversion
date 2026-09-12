@@ -27,7 +27,7 @@
 // and a mask, which ImageMagick's built-in MSVG renderer does not honour — and
 // ImageMagick 7 (`magick`) for the composition.
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

@@ -4,10 +4,13 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

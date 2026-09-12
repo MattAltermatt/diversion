@@ -35,7 +35,10 @@ describe('buildMatrix', () => {
     const biased = buildMatrix(n, 7, 'Asymmetric', 0.5)
     const mean = (m: Float32Array) => m.reduce((s, v) => s + v, 0) / m.length
     expect(mean(biased)).toBeGreaterThan(mean(neutral))
-    for (const v of biased) expect(v).toBeGreaterThanOrEqual(-1), expect(v).toBeLessThanOrEqual(1)
+    for (const v of biased) {
+      expect(v).toBeGreaterThanOrEqual(-1)
+      expect(v).toBeLessThanOrEqual(1)
+    }
   })
 
   it('matrix is exactly n×n', () => {

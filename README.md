@@ -20,7 +20,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
 npm install
 npm run dev      # → http://localhost:5180
 npm test         # vitest
-npm run lint     # oxlint
+npm run lint     # oxlint --deny-warnings (a new warning fails CI; #308)
 npm run build    # tsc -b + vite build
 npm run size     # entry-chunk + precache budgets (after a build)
 npm run check:pwa # service worker + manifest contracts

@@ -1,3 +1,7 @@
+/* oxlint-disable react/only-export-components -- effectiveMatrix/speciesLabel/relation have
+   no consumer but this file and its own test; the genuinely shared transforms already live
+   in matrixTransforms.ts. Cost: editing this file full-reloads rather than hot-reloads, and
+   on a seedless URL a reload re-rolls the seed (#308). */
 import { useMemo, useState } from 'react'
 import type React from 'react'
 import type { FieldMeta } from '../fieldMeta'

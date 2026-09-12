@@ -1,6 +1,11 @@
+/* oxlint-disable react/only-export-components -- randomNumber has no consumer but this
+   file and its own test, so it stays here; the helper this file SHARES with Slider
+   (clampToBounds) was extracted to bounds.ts instead, which is what the rule is for.
+   The cost of keeping this one is that editing this file full-reloads rather than
+   hot-reloads — and on a seedless URL a reload re-rolls the seed (#308). */
 import { useState } from 'react'
 import type { FieldMeta } from '../fieldMeta'
-import { clampToBounds } from './Slider'
+import { clampToBounds } from './bounds'
 
 /**
  * Pick a fresh value for a number field. Bounded fields (rare here — those are

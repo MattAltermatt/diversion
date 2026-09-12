@@ -39,16 +39,13 @@ import {
   b2DestroyWorld,
   STATIC,
   DYNAMIC,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } from 'phaser-box2d/dist/PhaserBox2D.js'
 
 /* phaser-box2d ships loose/no types; these aliases keep the seam honest without
  * leaking `any` into the rest of the codebase. */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export type WorldId = any
 export type BodyId = any
 export type JointId = any
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export interface Vec2 {
   x: number

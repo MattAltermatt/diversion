@@ -1,5 +1,5 @@
 import type { FieldMeta } from '../fieldMeta'
-import { splitColor, joinColor } from './ColorList'
+import { splitColor, joinColor } from './hexAlpha'
 
 /** Single color field (ui:'color').
  *

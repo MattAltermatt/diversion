@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ColorList, splitColor, joinColor } from './ColorList'
+import { ColorList } from './ColorList'
+import { splitColor, joinColor } from './hexAlpha'
 import type { FieldMeta } from '../fieldMeta'
 
 const meta: FieldMeta = { ui: 'colorList', label: 'Colors', min: 1, max: 8 }

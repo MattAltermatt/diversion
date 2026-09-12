@@ -1,19 +1,12 @@
 import { useState } from 'react'
 import type { FieldMeta } from '../fieldMeta'
+import { clampToBounds } from './bounds'
 
 /** Decimal places implied by the step (0.0005 → 4), so the readout matches the slider. */
 function format(value: number, step?: number): string {
   if (!step || Number.isInteger(step)) return String(Math.round(value))
   const decimals = (String(step).split('.')[1] ?? '').length
   return value.toFixed(decimals)
-}
-
-/** Keep a value inside whichever of [min, max] are defined. */
-export function clampToBounds(v: number, meta: { min?: number; max?: number }): number {
-  let r = v
-  if (meta.min != null) r = Math.max(meta.min, r)
-  if (meta.max != null) r = Math.min(meta.max, r)
-  return r
 }
 
 export function Slider({

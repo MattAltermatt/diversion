@@ -37,8 +37,9 @@ const SPRITES = 'pictures/credits.json'
  *  warmed, not that the whole operation fails.
  *
  *  ⚠️ `scripts/cacheLanes.mjs` RE-DERIVES this list to check, at build time, that every
- *  runtime-cached file is actually warmed (#296) — it cannot import this module, since
- *  CI runs Node 20 and this is TypeScript. A fourth source of URLs here has to land
+ *  runtime-cached file is actually warmed (#296) — it cannot import this module. Not
+ *  because of TypeScript any more (CI is Node 24 since #307, which strips types), but
+ *  because the relative imports below carry no extension. A fourth source of URLs has to land
  *  there too, or the check goes quietly incomplete rather than red. */
 export async function collectTargets(base: string, signal?: AbortSignal): Promise<WarmTargets> {
   const published = publishedAssets()

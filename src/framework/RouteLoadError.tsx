@@ -1,3 +1,7 @@
+/* oxlint-disable react/only-export-components -- reloadForFreshChunks is the reload this
+   component's button performs; it is exported so its fail-soft paths can be tested without
+   rendering, and stays here beside its only caller. Cost: editing this file full-reloads
+   rather than hot-reloads, and on a seedless URL a reload re-rolls the seed (#308). */
 import { useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 

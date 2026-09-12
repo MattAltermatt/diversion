@@ -74,6 +74,9 @@ describe('field: a wave propagates to a neighbor', () => {
     f.state[center] = WAVE
     f.timer[center] = cfg.waveWidth
     stepField(f, cfg)
+    // `row * stride + col` keeps the cell legible against the grid; row 0 is a
+    // coordinate, not a mistake.
+    // oxlint-disable-next-line oxc/erasing-op
     const far = 0 * 9 + 0
     expect(f.state[far]).toBe(REST)
   })

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Slider, clampToBounds } from './Slider'
+import { Slider } from './Slider'
+import { clampToBounds } from './bounds'
 
 const meta = { ui: 'slider' as const, label: 'Speed', min: 0, max: 10, step: 0.5 }
 
