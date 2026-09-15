@@ -1,0 +1,128 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>grid walker probe</title>
+<style>html,body{margin:0;background:#07090e;overflow:hidden}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script>
+// Waymark design mockup (2026-09-15). Standalone; open in a browser. URL knobs:
+//   prog=LRRRRRLLR  init=regions|uniform|random  speed=1.5  dwell=0.75  cols=48  seed=7  gap=2  mark=0.09  t=<seconds to pre-run>
+const q = new URLSearchParams(location.search);
+const PROG = (q.get('prog') || 'LRRRRRLLR').toUpperCase();
+const COLS = +(q.get('cols') ?? 48);
+const SPEED = +(q.get('speed') ?? 1.5);      // cells per second (zen default)
+const DWELL = +(q.get('dwell') ?? 0.75);     // fraction of each step the ant sits on the cell; the rest is the hop
+const WARM = +(q.get('t') ?? 0);
+const TRAIL = +(q.get('trail') ?? 40);       // max trail length in cells
+const GAP = +(q.get('gap') ?? 2);            // px gutter between tiles
+const MARK = +(q.get('mark') ?? 0.09);       // ant mark stroke as a fraction of the cell
+const N = PROG.length;
+const INIT = q.get('init') || 'random';     // random | uniform | regions
+let seed = +(q.get('seed') ?? 7) >>> 0 || 1;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+
+// muted base colour per letter, and the lit (inked) version of each
+const BASE = { L: [52, 104, 196], R: [206, 84, 58], U: [44, 160, 128], F: [44, 160, 128], D: [150, 78, 196], B: [150, 78, 196] };
+const INK = [255, 233, 196];
+const LIFT = +(q.get('lift') ?? 0.62);      // lightness a fully-inked tile is raised to (HSL L)
+// lighten in HSL: same hue, same saturation, lightness raised toward LIFT by t
+function lighten(c, t) {
+  const r = c[0]/255, g = c[1]/255, b = c[2]/255, max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0, sat = 0; const l = (max + min) / 2;
+  if (max !== min) { const d = max - min; sat = l > .5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+  const L = l + (LIFT - l) * t;
+  const f = (n) => { const k = (n + h * 12) % 12, a = sat * Math.min(L, 1 - L); return (L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255; };
+  return [f(0), f(8), f(4)];
+}
+
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, ROWS, sp, cells;
+function resize() {
+  W = cv.width = innerWidth; H = cv.height = innerHeight;
+  sp = W / COLS; ROWS = Math.round(H / sp);
+  const seeds = []; for (let k = 0; k < 14; k++) seeds.push([rnd() * COLS, rnd() * ROWS, Math.floor(rnd() * N)]);
+  cells = new Array(COLS * ROWS).fill(0).map((_, k) => {
+    let i;
+    if (INIT === 'uniform') i = 0;
+    else if (INIT === 'regions') { const x = k % COLS, y = Math.floor(k / COLS); let best = 1e9; for (const sd of seeds) { const d = (sd[0]-x)**2 + (sd[1]-y)**2; if (d < best) { best = d; i = sd[2]; } } }
+    else i = Math.floor(rnd() * N);
+    const c = BASE[PROG[i]] || [40, 40, 40];
+    return { i, col: c.slice(), ink: 0, inkTarget: 0, inTrail: 0 };
+  });
+}
+addEventListener('resize', resize); resize();
+
+const HEAD = [[1,0],[0,1],[-1,0],[0,-1]];
+// letters are the ant's OWN compass: L/R turn, U = keep going (its 'up'), D = turn back. F/B accepted as aliases for U/D.
+const turn = (h, L) => L === 'L' ? (h + 3) & 3 : L === 'R' ? (h + 1) & 3 : (L === 'D' || L === 'B') ? (h + 2) & 3 : h;
+const ease = (t) => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+const ant = { x: COLS >> 1, y: ROWS >> 1, h: 0, nx: 0, ny: 0, nh: 0, prog: 0 };
+const trail = [];                            // ring of cell indices, oldest first
+
+// arrival: read the letter, decide where we'll go, and start this cell's colour tween toward its NEXT letter
+function arrive() {
+  const k = ant.y * COLS + ant.x, c = cells[k];
+  const letter = PROG[c.i];
+  ant.nh = turn(ant.h, letter);
+  ant.nx = (ant.x + HEAD[ant.nh][0] + COLS) % COLS; ant.ny = (ant.y + HEAD[ant.nh][1] + ROWS) % ROWS;
+  c.from = c.col.slice(); c.to = BASE[PROG[(c.i + 1) % N]] || [40, 40, 40]; c.tween = 0;
+}
+// departure: the letter advance is committed, the ant is now on the next cell
+function depart() {
+  const c = cells[ant.y * COLS + ant.x];
+  c.i = (c.i + 1) % N; c.col = c.to.slice(); c.tween = 1;
+  ant.x = ant.nx; ant.y = ant.ny; ant.h = ant.nh;
+  arrive();
+}
+function step() { depart(); }                // kept for the in-page check
+arrive();
+function tick(dt) {
+  ant.prog += dt * SPEED;
+  while (ant.prog >= 1) { ant.prog -= 1; depart(); }
+  // the cell under the ant tweens over the dwell; ink ramps on the same clock, fades out a little slower
+  const cur = cells[ant.y * COLS + ant.x];
+  cur.tween = Math.min(1, ant.prog / DWELL);
+  cur.col = [cur.from[0] + (cur.to[0]-cur.from[0]) * ease(cur.tween), cur.from[1] + (cur.to[1]-cur.from[1]) * ease(cur.tween), cur.from[2] + (cur.to[2]-cur.from[2]) * ease(cur.tween)];
+}
+function antPos() {
+  if (ant.prog < DWELL) return [ant.x, ant.y];
+  const t = ease((ant.prog - DWELL) / (1 - DWELL));
+  let dx = ant.nx - ant.x, dy = ant.ny - ant.y;
+  if (dx > 1) dx -= COLS; if (dx < -1) dx += COLS; if (dy > 1) dy -= ROWS; if (dy < -1) dy += ROWS;
+  return [(ant.x + dx * t + COLS) % COLS, (ant.y + dy * t + ROWS) % ROWS];
+}
+function tile(x, y) {
+  const c = cells[y * COLS + x];
+  ctx.fillStyle = `rgb(${c.col[0]|0},${c.col[1]|0},${c.col[2]|0})`;
+  ctx.fillRect(x * sp + GAP/2, y * sp + GAP/2, sp - GAP, sp - GAP);
+}
+// heading index -> angle (E=0, S=90, W=180, N=270); the ant's angle flows from the arrival heading to the departure heading over the dwell
+function antAngle() {
+  const a0 = ant.h * 90, a1 = ant.nh * 90;
+  let d = ((a1 - a0) % 360 + 540) % 360 - 180;    // shortest arc; a U-turn resolves to +180
+  if (d === -180) d = 180;
+  return (a0 + d * ease(Math.min(1, ant.prog / DWELL))) * Math.PI / 180;
+}
+function draw() {
+  ctx.fillStyle = '#07090e'; ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) tile(x, y);
+  // the ant: the triangle's three vertices drawn as marks on its cell's edges --
+  // a dash centred on the leading edge (head) and brackets on the two trailing corners (feet)
+  const [ax, ay] = antPos();
+  const cx = (ax + .5) * sp, cy = (ay + .5) * sp, lw = Math.max(2.5, sp * MARK), r = (sp - GAP) / 2 - lw / 2;
+  const head = r * 0.5, arm = r * 0.6;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(antAngle() + Math.PI / 2);   // authored facing north
+  ctx.strokeStyle = 'rgba(255,250,240,0.95)'; ctx.lineWidth = lw; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  ctx.moveTo(-head, -r); ctx.lineTo(head, -r);                       // head
+  ctx.moveTo(-r, r - arm); ctx.lineTo(-r, r); ctx.lineTo(-r + arm, r); // left foot
+  ctx.moveTo(r, r - arm); ctx.lineTo(r, r); ctx.lineTo(r - arm, r);    // right foot
+  ctx.stroke();
+  ctx.restore();
+}
+for (let i = 0; i < WARM * 60; i++) tick(1/60);
+window.__probe = { cells: () => cells, ant, step, PROG, trail, cols: () => COLS, rows: () => ROWS };
+let last = performance.now();
+function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; tick(dt); draw(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
