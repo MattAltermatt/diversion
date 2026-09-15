@@ -59,7 +59,8 @@ describe('thin-film colour', () => {
     // THE anti-regression test. A three-cosine approximation is indistinguishable from
     // the truth in saturation (0.182 vs 0.180 at opd 1600) — it is the LUMINANCE that
     // separates them, by an order of magnitude. Measured band over opd > 1500:
-    // lum in [0.3920, 0.4079]; saturation falls to 0.041 by 2400 and 0.002 by 5200.
+    // lum in [0.5066, 0.5268] under peak-luminance normalisation; saturation peaks at
+    // 0.327 just above the band's start and falls away from there.
     const lut = buildColorLut(N, 'Daylight')
     let lo = Infinity
     let hi = -Infinity
@@ -71,8 +72,8 @@ describe('thin-film colour', () => {
       hi = Math.max(hi, lum(c))
       if (sat(c) > maxSat) { maxSat = sat(c); maxSatAt = opd }
     }
-    expect(lo, `min luminance in the band`).toBeGreaterThan(0.38)
-    expect(hi, `max luminance in the band`).toBeLessThan(0.42)
+    expect(lo, 'min luminance in the band').toBeGreaterThan(0.49)
+    expect(hi, 'max luminance in the band').toBeLessThan(0.54)
     expect(maxSat, `peak saturation at opd ${maxSatAt}`).toBeLessThan(0.40)
   })
 
@@ -101,14 +102,26 @@ describe('thin-film colour', () => {
     // far inside the reference's own spread.
     const lut = buildColorLut(N, 'Daylight')
     let worst = 0
+    let worstUnclipped = 0
+    let clipped = 0
     for (let opd = 0; opd <= LUT_MAX_OPD; opd += 37) {
       const ref = spectralFilmColor(opd, N)
       if (lum(ref) <= 0.005) continue
+      const got = sampleLut(lut, opd)
       const [rx, ry] = chroma(ref)
-      const [gx, gy] = chroma(sampleLut(lut, opd))
-      worst = Math.max(worst, Math.abs(rx - gx), Math.abs(ry - gy))
+      const [gx, gy] = chroma(got)
+      const d = Math.max(Math.abs(rx - gx), Math.abs(ry - gy))
+      worst = Math.max(worst, d)
+      if (Math.max(got.r, got.g, got.b) >= 0.999) clipped++
+      else worstUnclipped = Math.max(worstUnclipped, d)
     }
-    expect(worst).toBeLessThan(0.002)
+    // ⚠️ Only the UNCLIPPED entries. Eleven of these samples have a channel at 1.0 —
+    // that clip is deliberate (see `peakLuminance`), it is what desaturates the
+    // brightest orders into a pearly film rather than neon, and it necessarily moves
+    // their chromaticity. Measured: 2.3e-4 worst where nothing clips, 5.6e-2 including
+    // the clipped ones.
+    expect(clipped, 'the brightest orders should clip').toBeGreaterThan(5)
+    expect(worstUnclipped).toBeLessThan(0.002)
   })
 
   it('the LUT is not constant', () => {

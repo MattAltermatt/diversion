@@ -113,21 +113,21 @@ export function spectralFilmColor(opdNm: number, filmIndex: number, illuminant: 
   return xyzToLinearSrgb((X / WX) * w[0], Y / WY, (Z / WZ) * w[2])
 }
 
-/** Peak CHANNEL over the whole table, not peak luminance.
+/** Peak LUMINANCE over the whole table (a 13.14x lift at n = 1.33).
  *
- *  ⚠️ This is a decision, not an accident. Normalising by peak *luminance* (a 13.14x
- *  multiplier at n = 1.33) is what the approved mockup did, and it drives the brightest
- *  first-order channels to 1.29 — i.e. it clips, and clipping a channel is a hue shift
- *  in exactly the most colourful part of the piece. Normalising by peak *channel*
- *  (9.02x) puts the maximum at exactly 1.0 and clips nothing; `exposure` then defaults
- *  above 1 to restore the approved brightness. Negative channels (8 of 141 sampled
- *  first-order colours fall outside sRGB) are clamped to 0 here, because they are
- *  unrepresentable on any display and clamping at build time keeps the shader branchless. */
-function peakChannel(filmIndex: number, illuminant: IlluminantName): number {
+ *  ⚠️ This is a decision, and I made the other one first and it was wrong. Normalising
+ *  by peak *channel* (9.02x) puts the maximum at exactly 1.0 and clips nothing, which
+ *  sounds strictly better — and it renders the first orders as saturated neon pink and
+ *  cyan, because nothing pulls them toward white. Normalising by luminance drives the
+ *  brightest channels past 1 and the clamp desaturates them, which is what a camera and
+ *  a display both do, and it is why real soap films photograph pastel. It is also the
+ *  normalisation behind the approved mockup. Clipping here is the correct rendering
+ *  choice, not an accident to be engineered away. */
+function peakLuminance(filmIndex: number, illuminant: IlluminantName): number {
   let peak = 0
   for (let i = 0; i < LUT_N; i++) {
     const c = spectralFilmColor((i / (LUT_N - 1)) * LUT_MAX_OPD, filmIndex, illuminant)
-    peak = Math.max(peak, c.r, c.g, c.b)
+    peak = Math.max(peak, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)
   }
   return peak
 }
@@ -135,13 +135,16 @@ function peakChannel(filmIndex: number, illuminant: IlluminantName): number {
 /** `LUT_N * 4` RGBA floats, normalised and gamut-clamped, ready for `texImage2D`. */
 export function buildColorLut(filmIndex: number, illuminant: IlluminantName): Float32Array {
   const out = new Float32Array(LUT_N * 4)
-  const k = 1 / peakChannel(filmIndex, illuminant)
+  const k = 1 / peakLuminance(filmIndex, illuminant)
   for (let i = 0; i < LUT_N; i++) {
     const c = spectralFilmColor((i / (LUT_N - 1)) * LUT_MAX_OPD, filmIndex, illuminant)
     const o = i * 4
-    out[o] = Math.max(0, c.r * k)
-    out[o + 1] = Math.max(0, c.g * k)
-    out[o + 2] = Math.max(0, c.b * k)
+    // Clamped at BOTH ends: below, because 8 of 141 first-order colours fall outside
+    // sRGB and are unrepresentable; above, because that clip is what desaturates the
+    // brightest orders into the pearly look a real film has.
+    out[o] = Math.min(1, Math.max(0, c.r * k))
+    out[o + 1] = Math.min(1, Math.max(0, c.g * k))
+    out[o + 2] = Math.min(1, Math.max(0, c.b * k))
     out[o + 3] = 1
   }
   return out
