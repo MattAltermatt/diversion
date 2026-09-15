@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thin-film colour probe — Soap Bubble (#363)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #0a0b0e; color: #e7e7ee;
+    font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 15px; letter-spacing: .07em; text-transform: uppercase; margin: 0 0 3px; color: #9ee6d2; }
+  h2 { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; margin: 26px 0 3px; color: #8fd8e6; }
+  p.note { margin: 0 0 12px; color: #9a9aa8; max-width: 80ch; }
+  p.note b { color: #cfcfda; font-weight: 600; }
+  canvas { display: block; border-radius: 6px; background: #000; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 14px 0 6px;
+    padding: 10px 12px; background: #13151a; border: 1px solid #2c2f38; border-radius: 8px; }
+  .ctl { display: flex; align-items: center; gap: 8px; }
+  .ctl label { font-size: 11px; color: #c3c3d0; }
+  .ctl input[type=range] { width: 130px; accent-color: #57c9a6; }
+  .ctl .v { font-variant-numeric: tabular-nums; font-size: 11px; color: #8fe0c6; width: 42px; }
+  .seg { display: flex; gap: 4px; }
+  .seg button { padding: 5px 10px; font-size: 11px; cursor: pointer; background: #1b1b24;
+    color: #c3c3d0; border: 1px solid #6a6a76; border-radius: 6px; }
+  .seg button[aria-pressed=true] { background: #57c9a6; border-color: #57c9a6; color: #06120f; font-weight: 600; }
+  .two { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .cap { font-size: 11px; color: #7d7d8c; margin: 5px 0 0; }
+  code { color: #9ee6d2; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Thin-film colour probe — #363 Soap Bubble</h1>
+<p class="note">
+  Before any simulation: <b>is the colour beautiful on its own?</b> Everything below is computed, not
+  chosen — reflectance of an air&ndash;film&ndash;air layer at thickness <code>d</code>, integrated against the
+  CIE 1931 observer across 380&ndash;780&nbsp;nm and converted to sRGB. No palette exists anywhere in this file.
+</p>
+
+<div class="bar">
+  <div class="seg" id="modeSeg">
+    <button data-mode="spectral" aria-pressed="true">Spectral (correct)</button>
+    <button data-mode="cheap" aria-pressed="false">3-cosine hack</button>
+  </div>
+  <div class="ctl"><label for="nf">Film index n</label><input id="nf" type="range" min="115" max="160" value="133"><span class="v" id="nfV">1.33</span></div>
+  <div class="ctl"><label for="ex">Exposure</label><input id="ex" type="range" min="20" max="300" value="100"><span class="v" id="exV">1.00</span></div>
+  <div class="ctl"><label for="ang">View angle</label><input id="ang" type="range" min="0" max="80" value="0"><span class="v" id="angV">0&deg;</span></div>
+</div>
+
+<h2>1 &mdash; The ramp: thickness &rarr; colour</h2>
+<p class="note">
+  0 to 1500&nbsp;nm left to right. The left edge going black is <b>not a bug</b> &mdash; it is Newton black film:
+  below about 30&nbsp;nm the two reflections cancel and the film reflects almost nothing. That is the physical
+  event a draining bubble ends on, and it comes free from the same formula as the colours.
+</p>
+<canvas id="ramp" width="1140" height="118"></canvas>
+<p class="cap" id="rampCap"></p>
+
+<h2>2 &mdash; A vertical film draining in a frame</h2>
+<p class="note">
+  The classic demonstration, and the honest test of the LUT: gravity thins the top, so thickness increases
+  downward and the film reads as <b>horizontal bands</b> with black creeping down from the top. If this does
+  not look like the photographs, the colour model is wrong and no amount of fluid simulation will save it.
+</p>
+<div class="two">
+  <div><canvas id="film" width="330" height="430"></canvas><p class="cap">gravity drainage + marginal-regeneration plumes</p></div>
+  <div><canvas id="bub" width="430" height="430"></canvas><p class="cap">a bubble: same LUT, but path length scales as 1/cos&theta;<sub>t</sub>, which is what bands the rim</p></div>
+</div>
+
+<div class="bar">
+  <div class="ctl"><label for="drain">Drain rate</label><input id="drain" type="range" min="0" max="200" value="70"><span class="v" id="drainV">0.70</span></div>
+  <div class="ctl"><label for="swirl">Swirl</label><input id="swirl" type="range" min="0" max="200" value="90"><span class="v" id="swirlV">0.90</span></div>
+  <div class="ctl"><label for="thick">Thickness scale</label><input id="thick" type="range" min="200" max="2400" value="1100"><span class="v" id="thickV">1100</span></div>
+  <div class="seg"><button id="reset" aria-pressed="false">Re-form</button></div>
+</div>
+
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// Thin-film interference colour, done properly.
+//
+// Reflectance of a symmetric air-film-air layer is the Airy (Fabry-Perot) form:
+//
+//     R(d, lambda) = 4 R1 sin^2(delta/2) / ( (1-R1)^2 + 4 R1 sin^2(delta/2) )
+//     delta        = 4 pi n d cos(theta_t) / lambda
+//
+// R1 is the single-interface Fresnel intensity reflectance (unpolarised). Note this
+// form is already correct about the half-wave phase shift at the FIRST surface: R -> 0
+// as d -> 0, which is Newton black film. A two-beam cosine that forgets the shift gets
+// a BRIGHT film at zero thickness, i.e. exactly backwards at the one moment that
+// matters dramatically.
+//
+// Colour is then the spectral integral against the CIE 1931 observer. The observer is
+// Wyman, Sloan & Shirley's multi-lobe piecewise-Gaussian fit (JCGT 2013) so no data
+// file is needed. Illuminant is equal-energy E, von Kries-adapted so that a perfect
+// mirror maps to D65 white -- stated because it is an approximation: a real D65 SPD
+// would warm the sequence slightly. Hue ORDER, which is what this probe is for, is
+// unaffected.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LMIN = 380, LMAX = 780, LSTEP = 4;
+const pg = (x, mu, s1, s2) => { const s = x < mu ? s1 : s2, t = (x - mu) / s; return Math.exp(-0.5 * t * t); };
+const cieX = l => 1.056 * pg(l, 599.8, 37.9, 31.0) + 0.362 * pg(l, 442.0, 16.0, 26.7) - 0.065 * pg(l, 501.1, 20.4, 26.2);
+const cieY = l => 0.821 * pg(l, 568.8, 46.9, 40.5) + 0.286 * pg(l, 530.9, 16.3, 31.1);
+const cieZ = l => 1.217 * pg(l, 437.0, 11.8, 36.0) + 0.681 * pg(l, 459.0, 26.0, 13.8);
+
+// precompute the observer once
+const LAM = [], CX = [], CY = [], CZ = [];
+for (let l = LMIN; l <= LMAX; l += LSTEP) { LAM.push(l); CX.push(cieX(l)); CY.push(cieY(l)); CZ.push(cieZ(l)); }
+let WX = 0, WY = 0, WZ = 0;
+for (let i = 0; i < LAM.length; i++) { WX += CX[i]; WY += CY[i]; WZ += CZ[i]; }
+
+// D65 white in XYZ, for the von Kries adaptation off equal-energy
+const D65 = [0.95047, 1.0, 1.08883];
+
+function fresnelR1(n, cosI, cosT) {
+  const rs = (cosI - n * cosT) / (cosI + n * cosT);
+  const rp = (n * cosI - cosT) / (n * cosI + cosT);
+  return 0.5 * (rs * rs + rp * rp);
+}
+function xyzToSrgb(X, Y, Z) {
+  let r = 3.2406 * X - 1.5372 * Y - 0.4986 * Z;
+  let g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z;
+  let b = 0.0557 * X - 0.2040 * Y + 1.0570 * Z;
+  const enc = c => {
+    c = c < 0 ? 0 : c > 1 ? 1 : c;
+    return 255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+  };
+  return [enc(r), enc(g), enc(b)];
+}
+
+// ── the LUT ────────────────────────────────────────────────────────────────
+// Indexed by OPTICAL thickness n*d*cos(theta_t) so one table serves every angle:
+// the whole angular story of a bubble is that the same table is read further along
+// near the rim, where the slant path is longer.
+const LUTN = 2048, LUT_MAX_OPD = 3000;   // nm of n*d*cos(theta_t)
+let lutSpectral = new Float32Array(LUTN * 3);
+let lutCheap = new Float32Array(LUTN * 3);
+let peakY = 1;
+
+function buildLUT(n) {
+  const cosI = 1, sinT = 0, cosT = 1;
+  const R1 = fresnelR1(n, cosI, cosT);
+  const A = (1 - R1) * (1 - R1), B = 4 * R1;
+  let maxY = 0;
+  const ys = new Float32Array(LUTN);
+  for (let i = 0; i < LUTN; i++) {
+    const opd = (i / (LUTN - 1)) * LUT_MAX_OPD;     // = n * d * cos(theta_t)
+    let X = 0, Y = 0, Z = 0;
+    for (let k = 0; k < LAM.length; k++) {
+      const s = Math.sin(2 * Math.PI * opd / LAM[k]);   // sin(delta/2), delta = 4 pi opd / lambda
+      const s2 = s * s;
+      const R = B * s2 / (A + B * s2);
+      X += R * CX[k]; Y += R * CY[k]; Z += R * CZ[k];
+    }
+    X /= WX; Y /= WY; Z /= WZ;                         // von Kries: mirror -> white
+    X *= D65[0]; Y *= D65[1]; Z *= D65[2];
+    lutSpectral[i * 3] = X; lutSpectral[i * 3 + 1] = Y; lutSpectral[i * 3 + 2] = Z;
+    ys[i] = Y; if (Y > maxY) maxY = Y;
+
+    // the cheap version everyone writes: two-beam cosine at three fixed wavelengths,
+    // no Fresnel, no multiple beams, no observer.
+    const ch = lam => 0.5 - 0.5 * Math.cos(4 * Math.PI * opd / lam);
+    lutCheap[i * 3] = ch(612); lutCheap[i * 3 + 1] = ch(549); lutCheap[i * 3 + 2] = ch(465);
+  }
+  peakY = maxY;
+}
+
+let MODE = 'spectral', EXPOSURE = 1, NFILM = 1.33, VIEWDEG = 0;
+
+// returns 0..255 rgb for an optical path difference in nm
+function colourFor(opd, out) {
+  let i = (opd / LUT_MAX_OPD) * (LUTN - 1);
+  i = i < 0 ? 0 : i > LUTN - 1 ? LUTN - 1 : i;
+  const i0 = i | 0, f = i - i0, i1 = i0 < LUTN - 1 ? i0 + 1 : i0;
+  if (MODE === 'cheap') {
+    const g = EXPOSURE;
+    for (let c = 0; c < 3; c++) {
+      const v = lutCheap[i0 * 3 + c] * (1 - f) + lutCheap[i1 * 3 + c] * f;
+      const s = Math.min(1, v * g);
+      out[c] = 255 * (s <= 0.0031308 ? 12.92 * s : 1.055 * Math.pow(s, 1 / 2.4) - 0.055);
+    }
+    return out;
+  }
+  const g = EXPOSURE / peakY;
+  const X = (lutSpectral[i0 * 3] * (1 - f) + lutSpectral[i1 * 3] * f) * g;
+  const Y = (lutSpectral[i0 * 3 + 1] * (1 - f) + lutSpectral[i1 * 3 + 1] * f) * g;
+  const Z = (lutSpectral[i0 * 3 + 2] * (1 - f) + lutSpectral[i1 * 3 + 2] * f) * g;
+  const c = xyzToSrgb(X, Y, Z);
+  out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+  return out;
+}
+
+// ── panel 1: the ramp ──────────────────────────────────────────────────────
+const rampCv = document.getElementById('ramp'), rampCtx = rampCv.getContext('2d');
+function drawRamp() {
+  const W = rampCv.width, H = rampCv.height, im = rampCtx.createImageData(W, H);
+  const out = [0, 0, 0];
+  const cosT = Math.cos(Math.asin(Math.sin(VIEWDEG * Math.PI / 180) / NFILM));
+  for (let x = 0; x < W; x++) {
+    const d = (x / (W - 1)) * 1500;             // geometric thickness, nm
+    colourFor(NFILM * d * cosT, out);
+    for (let y = 0; y < H - 20; y++) {
+      const p = (y * W + x) * 4;
+      im.data[p] = out[0]; im.data[p + 1] = out[1]; im.data[p + 2] = out[2]; im.data[p + 3] = 255;
+    }
+    for (let y = H - 20; y < H; y++) {
+      const p = (y * W + x) * 4;
+      im.data[p] = 10; im.data[p + 1] = 11; im.data[p + 2] = 14; im.data[p + 3] = 255;
+    }
+  }
+  rampCtx.putImageData(im, 0, 0);
+  rampCtx.fillStyle = '#7d7d8c'; rampCtx.font = '10px ui-monospace, monospace';
+  rampCtx.strokeStyle = '#3a3a46';
+  for (let nm = 0; nm <= 1500; nm += 250) {
+    const x = Math.round((nm / 1500) * (W - 1)) + 0.5;
+    rampCtx.beginPath(); rampCtx.moveTo(x, H - 20); rampCtx.lineTo(x, H - 14); rampCtx.stroke();
+    rampCtx.fillText(nm + (nm === 0 ? ' nm' : ''), Math.min(W - 40, x + 3), H - 7);
+  }
+  // report the first few constructive orders so the ramp can be checked by eye
+  const caps = [];
+  for (let m = 1; m <= 3; m++) caps.push(`order ${m} green (550 nm) at d = ${Math.round((m - 0.5) * 550 / (2 * NFILM * cosT))} nm`);
+  document.getElementById('rampCap').textContent =
+    `n = ${NFILM.toFixed(2)}, view ${VIEWDEG}°  —  ` + caps.join('  ·  ');
+}
+
+// ── the thickness fields ───────────────────────────────────────────────────
+let t0 = performance.now(), formed = 0;
+function noise2(x, y, t) {   // cheap smooth field, enough for a look-probe
+  return 0.5 * Math.sin(x * 1.7 + t * 0.21) * Math.cos(y * 2.3 - t * 0.17)
+       + 0.3 * Math.sin(x * 4.1 - y * 3.3 + t * 0.34)
+       + 0.2 * Math.sin((x + y) * 7.9 + t * 0.51);
+}
+
+const filmCv = document.getElementById('film'), filmCtx = filmCv.getContext('2d');
+const filmIm = filmCtx.createImageData(filmCv.width, filmCv.height);
+function drawFilm(t) {
+  const W = filmCv.width, H = filmCv.height, d = filmIm.data, out = [0, 0, 0];
+  const age = Math.min(1, (t - formed) / 26);
+  const scale = +document.getElementById('thick').value;
+  const drain = +document.getElementById('drain').value / 100;
+  const swirl = +document.getElementById('swirl').value / 100;
+  for (let y = 0; y < H; y++) {
+    const v = y / (H - 1);
+    // gravity drainage: thickness grows downward, and the whole profile thins with age
+    let base = scale * Math.pow(v, 1.35) * (1 - 0.86 * drain * age);
+    for (let x = 0; x < W; x++) {
+      const u = x / (W - 1);
+      // marginal regeneration: thin patches detach at the edges and rise, which is what
+      // makes the bands wobble rather than sit as clean horizontal stripes
+      const n = noise2(u * 3.0, v * 2.2 - t * 0.30 * drain, t);
+      let th = base * (1 + 0.20 * swirl * n) - 26 * swirl * Math.max(0, n);
+      if (th < 0) th = 0;
+      colourFor(NFILM * th, out);
+      const p = (y * W + x) * 4;
+      d[p] = out[0]; d[p + 1] = out[1]; d[p + 2] = out[2]; d[p + 3] = 255;
+    }
+  }
+  filmCtx.putImageData(filmIm, 0, 0);
+}
+
+const bubCv = document.getElementById('bub'), bubCtx = bubCv.getContext('2d');
+const bubIm = bubCtx.createImageData(bubCv.width, bubCv.height);
+function drawBubble(t) {
+  const W = bubCv.width, H = bubCv.height, d = bubIm.data, out = [0, 0, 0];
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.44;
+  const age = Math.min(1, (t - formed) / 26);
+  const scale = +document.getElementById('thick').value;
+  const drain = +document.getElementById('drain').value / 100;
+  const swirl = +document.getElementById('swirl').value / 100;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const p = (y * W + x) * 4;
+    const dx = (x - cx) / R, dy = (y - cy) / R;
+    const r2 = dx * dx + dy * dy;
+    if (r2 > 1) { d[p] = 8; d[p + 1] = 9; d[p + 2] = 12; d[p + 3] = 255; continue; }
+    const nz = Math.sqrt(1 - r2);                       // sphere normal, view down -z
+    const cosI = nz;
+    const sinT = Math.sqrt(1 - cosI * cosI) / NFILM;
+    const cosT = Math.sqrt(Math.max(0, 1 - sinT * sinT));
+    // drainage down the sphere: thinnest at the top of the bubble
+    const v = 0.5 + 0.5 * dy;
+    let th = scale * (0.04 + Math.pow(v, 1.7)) * (1 - 0.88 * drain * age);
+    th *= 1 + 0.22 * swirl * noise2(dx * 2.4, dy * 2.4 - t * 0.26 * drain, t);
+    if (th < 0) th = 0;
+    colourFor(NFILM * th * cosT, out);
+    // a soft window highlight, so the sphere reads as a sphere
+    const hx = dx + 0.42, hy = dy + 0.46, hl = Math.exp(-(hx * hx + hy * hy) * 26) * 46;
+    d[p] = Math.min(255, out[0] + hl); d[p + 1] = Math.min(255, out[1] + hl);
+    d[p + 2] = Math.min(255, out[2] + hl); d[p + 3] = 255;
+  }
+  bubCtx.putImageData(bubIm, 0, 0);
+}
+
+// ── controls + loop ────────────────────────────────────────────────────────
+function bindRange(id, fmt, onChange) {
+  const el = document.getElementById(id), out = document.getElementById(id + 'V');
+  const apply = () => { out.textContent = fmt(+el.value); if (onChange) onChange(+el.value); };
+  el.addEventListener('input', apply); apply();
+}
+bindRange('nf', v => (v / 100).toFixed(2), v => { NFILM = v / 100; buildLUT(NFILM); drawRamp(); });
+bindRange('ex', v => (v / 100).toFixed(2), v => { EXPOSURE = v / 100; drawRamp(); });
+bindRange('ang', v => v + '°', v => { VIEWDEG = v; drawRamp(); });
+bindRange('drain', v => (v / 100).toFixed(2));
+bindRange('swirl', v => (v / 100).toFixed(2));
+bindRange('thick', v => String(v));
+for (const b of document.querySelectorAll('#modeSeg button')) {
+  b.addEventListener('click', () => {
+    MODE = b.dataset.mode;
+    for (const o of document.querySelectorAll('#modeSeg button')) o.setAttribute('aria-pressed', String(o === b));
+    drawRamp();
+  });
+}
+document.getElementById('reset').addEventListener('click', () => { formed = (performance.now() - t0) / 1000; });
+
+buildLUT(NFILM);
+drawRamp();
+(function loop() {
+  requestAnimationFrame(loop);
+  const t = (performance.now() - t0) / 1000;
+  drawFilm(t); drawBubble(t);
+})();
+</script>
+</div>
+</body>
+</html>
