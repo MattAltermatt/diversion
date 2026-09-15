@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soap Film — full-frame mockup (#363)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060a;
+    font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #panel { position: fixed; top: 12px; left: 12px; width: 262px; z-index: 5;
+    background: rgba(6,10,14,0.86); backdrop-filter: blur(8px);
+    border: 1px solid #3a3a46; border-radius: 10px; padding: 12px 13px 13px; color: #e7e7ee; }
+  h1 { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; margin: 0 0 2px; color: #9ee6d2; }
+  p.sub { margin: 0 0 10px; font-size: 11px; color: #9a9aa8; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .row label { flex: 0 0 92px; font-size: 11px; color: #c3c3d0; }
+  .row input[type=range] { flex: 1; min-width: 0; accent-color: #57c9a6; }
+  .row .v { flex: 0 0 38px; text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; color: #8fe0c6; }
+  .seg { display: flex; gap: 4px; margin: 9px 0 6px; }
+  .seg button { flex: 1; padding: 6px 0; font-size: 11px; cursor: pointer; background: #1b1b24;
+    color: #c3c3d0; border: 1px solid #6a6a76; border-radius: 6px; }
+  .seg button[aria-pressed=true] { background: #57c9a6; border-color: #57c9a6; color: #06120f; font-weight: 600; }
+  #stats { margin-top: 10px; padding-top: 9px; border-top: 1px solid #33333f; font-size: 11px;
+    color: #8a8a98; font-variant-numeric: tabular-nums; }
+  #stats b { color: #9ee6d2; font-weight: 600; }
+  .hint { margin: 9px 0 0; font-size: 10.5px; line-height: 1.5; color: #7d7d8c; }
+  #collapse { position: absolute; top: 9px; right: 10px; background: none; border: 0; color: #7d7d8c;
+    cursor: pointer; font-size: 15px; line-height: 1; }
+  body.min #panel > *:not(h1):not(#collapse) { display: none; }
+  body.min #panel { width: auto; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel">
+  <button id="collapse" title="collapse">–</button>
+  <h1>Soap Film — #363</h1>
+  <p class="sub">the film IS the screen · rupture dilated ~15&times;</p>
+
+  <div class="seg" id="modeSeg">
+    <button data-mode="strat" aria-pressed="false">Stratified</button>
+    <button data-mode="marginal" aria-pressed="true">Marginal regen.</button>
+  </div>
+
+  <div class="row"><label for="buoy">Plume strength</label><input id="buoy" type="range" min="0" max="200" value="100"><span class="v" id="buoyV">1.00</span></div>
+  <div class="row"><label for="drain">Drain rate</label><input id="drain" type="range" min="10" max="300" value="100"><span class="v" id="drainV">1.00</span></div>
+  <div class="row"><label for="expo">Exposure</label><input id="expo" type="range" min="20" max="200" value="78"><span class="v" id="expoV">0.78</span></div>
+  <div class="row"><label for="speed">Time scale</label><input id="speed" type="range" min="10" max="600" value="100"><span class="v" id="speedV">1.0</span></div>
+
+  <div id="stats">
+    <div>film age <b id="sAge">0</b> s &nbsp; mean <b id="sTh">0</b> nm</div>
+    <div>black film <b id="sBlk">0</b>% &nbsp; ruptures <b id="sPop">0</b></div>
+    <div>sim <b id="sSim">0.0</b> ms &nbsp; draw <b id="sDraw">0.0</b> ms</div>
+  </div>
+  <p class="hint">Stratified is gravity alone — clean bands sliding down. Marginal regeneration adds the real dominant mechanism: thin patches detach at the borders and, being lighter, <em>rise</em> through the thick film.</p>
+</div>
+
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// Soap Film — full-frame mockup for #363. Composition A (the film is the screen)
+// and rupture option B (real geometry, dilated) are both locked; this exists to
+// decide the THIRD question: what the surface does for the several minutes
+// between forming and bursting.
+//
+// Two mechanisms, and the toggle is the question:
+//
+//   STRATIFIED  — gravity alone. Thickness grows downward, bands slide down.
+//                 Regular, calm, and a little inert.
+//   MARGINAL    — marginal regeneration, which is what actually thins a real soap
+//   REGENERATION  film: thin patches are generated at the Plateau borders and,
+//                 being LIGHTER than the film around them, rise as buoyant plumes.
+//                 This is the mechanism behind every swirling soap-film photograph
+//                 and the one most simulations leave out.
+//
+// The fluid is a vorticity-streamfunction solver on a coarse grid: baroclinic
+// vorticity from the buoyancy gradient, a Jacobi Poisson solve for the stream
+// function, then semi-Lagrangian advection of thickness and vorticity. Colour is
+// the spectral LUT from `2026-09-15-thinfilm-lut.html` — unchanged, and still
+// containing no palette.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── spectral thin-film LUT (see the colour probe for the derivation) ────────
+const LMIN = 380, LMAX = 780, LSTEP = 4, NFILM = 1.33;
+const pg = (x, mu, s1, s2) => { const s = x < mu ? s1 : s2, t = (x - mu) / s; return Math.exp(-0.5 * t * t); };
+const LAM = [], CX = [], CY = [], CZ = [];
+for (let l = LMIN; l <= LMAX; l += LSTEP) {
+  LAM.push(l);
+  CX.push(1.056 * pg(l, 599.8, 37.9, 31.0) + 0.362 * pg(l, 442.0, 16.0, 26.7) - 0.065 * pg(l, 501.1, 20.4, 26.2));
+  CY.push(0.821 * pg(l, 568.8, 46.9, 40.5) + 0.286 * pg(l, 530.9, 16.3, 31.1));
+  CZ.push(1.217 * pg(l, 437.0, 11.8, 36.0) + 0.681 * pg(l, 459.0, 26.0, 13.8));
+}
+let WX = 0, WY = 0, WZ = 0;
+for (let i = 0; i < LAM.length; i++) { WX += CX[i]; WY += CY[i]; WZ += CZ[i]; }
+
+const LUTN = 1024, LUT_MAX = 2400;          // nm of geometric thickness
+const lutR = new Float32Array(LUTN), lutG = new Float32Array(LUTN), lutB = new Float32Array(LUTN);
+(function buildLUT() {
+  const R1 = Math.pow((NFILM - 1) / (NFILM + 1), 2);
+  const A = (1 - R1) * (1 - R1), B = 4 * R1;
+  const X = new Float32Array(LUTN), Y = new Float32Array(LUTN), Z = new Float32Array(LUTN);
+  let maxY = 0;
+  for (let i = 0; i < LUTN; i++) {
+    const opd = NFILM * (i / (LUTN - 1)) * LUT_MAX;
+    let x = 0, y = 0, z = 0;
+    for (let k = 0; k < LAM.length; k++) {
+      const s = Math.sin(2 * Math.PI * opd / LAM[k]), s2 = s * s;
+      const R = B * s2 / (A + B * s2);
+      x += R * CX[k]; y += R * CY[k]; z += R * CZ[k];
+    }
+    X[i] = x / WX * 0.95047; Y[i] = y / WY; Z[i] = z / WZ * 1.08883;
+    if (Y[i] > maxY) maxY = Y[i];
+  }
+  for (let i = 0; i < LUTN; i++) {
+    const x = X[i] / maxY, y = Y[i] / maxY, z = Z[i] / maxY;
+    lutR[i] = 3.2406 * x - 1.5372 * y - 0.4986 * z;
+    lutG[i] = -0.9689 * x + 1.8758 * y + 0.0415 * z;
+    lutB[i] = 0.0557 * x - 0.2040 * y + 1.0570 * z;
+  }
+})();
+// 8-bit gamma table so the hot loop never calls Math.pow
+const GAMMA = new Uint8Array(4096);
+for (let i = 0; i < 4096; i++) {
+  const c = i / 4095;
+  GAMMA[i] = Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055));
+}
+const enc = v => GAMMA[v <= 0 ? 0 : v >= 1 ? 4095 : (v * 4095) | 0];
+
+// ── grid ───────────────────────────────────────────────────────────────────
+const GW = 256, GH = 160;
+const idx = (x, y) => y * GW + x;
+let h, h2, w, w2, psi, psi2, u, v;
+function allocGrid() {
+  const n = GW * GH;
+  h = new Float32Array(n); h2 = new Float32Array(n);
+  w = new Float32Array(n); w2 = new Float32Array(n);
+  psi = new Float32Array(n); psi2 = new Float32Array(n);
+  u = new Float32Array(n); v = new Float32Array(n);
+}
+allocGrid();
+
+const H0 = 1450;                // nm — just inside the coloured range (above ~1500 the
+                                //      spectral model converges to a fixed grey and stays there)
+const BLACK = 28;               // nm — Newton black film threshold
+let filmAge = 0, popCount = 0, rupture = null, seedN = 1, nucAcc = 0;
+
+function rnd() { seedN = (seedN * 1664525 + 1013904223) >>> 0; return seedN / 4294967296; }
+
+function formFilm() {
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = idx(x, y), fy = y / (GH - 1);
+    h[i] = H0 * (0.88 + 0.17 * fy) * (0.98 + 0.05 * rnd());
+    w[i] = 0; psi[i] = 0;
+  }
+  filmAge = 0; rupture = null;
+}
+formFilm();
+
+// ── the fluid ──────────────────────────────────────────────────────────────
+const JACOBI = 14;
+function step(dt) {
+  const buoy = MODE === 'marginal' ? 58 * P.buoy : 0;
+  const drain = P.drain;
+
+  // 1. baroclinic vorticity: thin film is LIGHT, so a horizontal thickness
+  //    gradient tips the fluid over and plumes grow. This one line is the whole
+  //    difference between sliding bands and a swirling film.
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    const i = idx(x, y);
+    const dbdx = ((H0 - h[idx(x + 1, y)]) - (H0 - h[idx(x - 1, y)])) / (2 * H0);
+    w[i] += dt * buoy * dbdx;
+    w[i] *= Math.pow(0.5, dt / 9);          // vorticity decay, keeps it calm
+  }
+
+  // 2. Poisson solve for the stream function
+  for (let k = 0; k < JACOBI; k++) {
+    for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+      const i = idx(x, y);
+      psi2[i] = 0.25 * (psi[i - 1] + psi[i + 1] + psi[i - GW] + psi[i + GW] + w[i]);
+    }
+    const t = psi; psi = psi2; psi2 = t;
+    for (let x = 0; x < GW; x++) { psi[idx(x, 0)] = 0; psi[idx(x, GH - 1)] = 0; }
+    for (let y = 0; y < GH; y++) { psi[idx(0, y)] = 0; psi[idx(GW - 1, y)] = 0; }
+  }
+
+  // 3. velocity from the stream function alone. Gravity is NOT a velocity here —
+  //    see step 6; putting it in the advection only slides the whole field down
+  //    and clamps it at the bottom, which flattens the gradient instead of
+  //    steepening it, and a flat film is one colour everywhere.
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    const i = idx(x, y);
+    u[i] = (psi[i + GW] - psi[i - GW]) * 0.5;
+    v[i] = -(psi[i + 1] - psi[i - 1]) * 0.5;
+  }
+
+  // 4. semi-Lagrangian advection of thickness and vorticity
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = idx(x, y);
+    let sx = x - dt * u[i] * 9, sy = y - dt * v[i] * 9;
+    sx = sx < 0.5 ? 0.5 : sx > GW - 1.5 ? GW - 1.5 : sx;
+    sy = sy < 0.5 ? 0.5 : sy > GH - 1.5 ? GH - 1.5 : sy;
+    const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+    const a = idx(x0, y0), b = a + 1, c = a + GW, d = c + 1;
+    const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+    h2[i] = h[a] * w00 + h[b] * w10 + h[c] * w01 + h[d] * w11;
+    w2[i] = w[a] * w00 + w[b] * w10 + w[c] * w01 + w[d] * w11;
+  }
+  let t1 = h; h = h2; h2 = t1;
+  let t2 = w; w = w2; w2 = t2;
+
+  // 5. marginal regeneration — thin film is injected at the Plateau borders (the
+  //    frame, just off screen) and rises. Without this the film only ever thins
+  //    from the top and the picture is stratified forever.
+  //    Measured (arXiv 2401.03931): gravity-Poiseuille drainage predicts ~4000 s for
+  //    a fringe that really takes ~10 s — it is 400x too slow and cannot be the
+  //    mechanism. What actually drains a mobile film is this: thin PATCHES nucleate
+  //    at the bottom and side Plateau borders and, being lighter per unit area,
+  //    RISE through the thicker film (Gros et al.'s "sliding puzzle"). So the
+  //    patches are seeded at the border as discs, and step 1's buoyancy carries
+  //    them up. Mobility is the real knob: a rigid interface (add a co-surfactant)
+  //    kills marginal regeneration outright and leaves smooth Poiseuille bands.
+  const mob = MODE === 'marginal' ? P.buoy : 0;
+  if (mob > 0) {
+    nucAcc += dt * 24 * mob;
+    while (nucAcc > 1) {
+      nucAcc -= 1;
+      const edge = rnd();
+      let cx, cy;
+      if (edge < 0.62) { cx = 2 + rnd() * (GW - 4); cy = GH - 2 - rnd() * 3; }
+      else if (edge < 0.81) { cx = 1 + rnd() * 3; cy = GH * (0.35 + 0.65 * rnd()); }
+      else { cx = GW - 5 + rnd() * 3; cy = GH * (0.35 + 0.65 * rnd()); }
+      const rad = 2.2 + rnd() * 3.4, thin = 0.34 + 0.30 * rnd();
+      const x0 = Math.max(1, (cx - rad) | 0), x1 = Math.min(GW - 2, (cx + rad) | 0);
+      const y0 = Math.max(1, (cy - rad) | 0), y1 = Math.min(GH - 2, (cy + rad) | 0);
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+        if (d2 > rad * rad) continue;
+        const i = idx(x, y), f = 1 - Math.sqrt(d2) / rad;
+        h[i] *= 1 - (1 - thin) * f;
+        if (h[i] < BLACK * 0.5) h[i] = BLACK * 0.5;
+      }
+    }
+  }
+
+  // 6. gravity drainage as a CONSERVATIVE vertical flux, not a sink. Poiseuille
+  //    flow between the two surfaces gives q proportional to h^3, so thick film
+  //    drains far faster than thin — which is exactly why the gradient sharpens
+  //    instead of averaging out, and why the top runs away to black film while
+  //    the bottom piles up. A uniform sink does the opposite and the screen ends
+  //    up one flat colour.
+  //    ⚠️ The flux MUST be CFL-limited. An unclamped q can exceed the cell's whole
+  //    contents in one step (620 was 30,000x too large and the field went NaN in
+  //    under a minute, with every readout still reporting happily). Never let a
+  //    cell give away more than a fifth of what it holds.
+  const K = dt * drain * (MODE === 'marginal' ? 0.024 : 0.060);
+  for (let x = 0; x < GW; x++) {
+    let qPrev = 0;                              // nothing flows in at the top edge
+    for (let y = 0; y < GH; y++) {
+      const i = idx(x, y), r = h[i] / H0;
+      let q = K * r * r * r * H0;               // nm of thickness leaving per step
+      const cap = 0.2 * h[i];
+      if (q > cap) q = cap;
+      h[i] += qPrev - q;                        // grid spacing is one cell
+      if (!(h[i] > 0.5)) h[i] = 0.5;            // also catches NaN
+      else if (h[i] > 4 * H0) h[i] = 4 * H0;
+      qPrev = q;                                // the bottom row's q exits into the border
+    }
+  }
+
+  // 7. a touch of surface-tension smoothing. Must be scaled by dt — at a flat 0.10
+  //    per frame this ran 60x a second and homogenised the thickness field inside
+  //    half a minute, which reads as one violet screen with no bands at all.
+  const sm = Math.min(0.20, 0.40 * dt);
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    const i = idx(x, y);
+    h2[i] = h[i] + sm * (0.25 * (h[i - 1] + h[i + 1] + h[i - GW] + h[i + GW]) - h[i]);
+  }
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) h[idx(x, y)] = h2[idx(x, y)];
+
+  filmAge += dt;
+}
+
+// ── rupture: the real geometry, dilated ~15x ───────────────────────────────
+// A real hole opens at the Taylor-Culick velocity and clears the screen in about
+// a tenth of a second. Kept at true speed it reads as a glitch; the shape is the
+// part worth watching, so the same expanding hole with its collecting rim is
+// played over ~4 s.
+function maybeRupture(dt) {
+  if (rupture) {
+    rupture.r += dt * rupture.speed;
+    if (rupture.r > rupture.max) { popCount++; formFilm(); }
+    return;
+  }
+  let blackCells = 0;
+  for (let i = 0; i < h.length; i++) if (h[i] < BLACK) blackCells++;
+  const frac = blackCells / h.length;
+  if (frac > 0.12 && rnd() < dt * 0.55) {
+    // nucleate inside the black region, which is where a real film gives way
+    let best = -1, tries = 0;
+    while (tries++ < 400) {
+      const c = (rnd() * h.length) | 0;
+      if (h[c] < BLACK) { best = c; break; }
+    }
+    if (best < 0) return;
+    const gx = best % GW, gy = (best / GW) | 0;
+    rupture = { x: gx / GW, y: gy / GH, r: 0, speed: 0.34, max: 2.0 };
+  }
+}
+
+// ── render ─────────────────────────────────────────────────────────────────
+const cv = document.getElementById('c'), ctx = cv.getContext('2d', { alpha: false });
+let off = document.createElement('canvas'), offCtx = off.getContext('2d'), offIm = null;
+let W = 0, H = 0, RW = 0, RH = 0;
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  RW = Math.min(1180, Math.round(W * 0.78)); RH = Math.round(RW * H / W);
+  off.width = RW; off.height = RH;
+  offIm = offCtx.createImageData(RW, RH);
+}
+window.addEventListener('resize', resize);
+
+function draw() {
+  const d = offIm.data, expo = P.expo;
+  const rx = rupture ? rupture.x * RW : 0, ry = rupture ? rupture.y * RH : 0;
+  const rr = rupture ? rupture.r * RW : -1;
+  const rimW = 0.028 * RW;
+  for (let py = 0; py < RH; py++) {
+    const gy = (py / (RH - 1)) * (GH - 1);
+    const y0 = gy | 0, fy = gy - y0, y1 = y0 < GH - 1 ? y0 + 1 : y0;
+    for (let px = 0; px < RW; px++) {
+      const p = (py * RW + px) * 4;
+      if (rupture) {
+        const dx = px - rx, dy = py - ry, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < rr) {                       // the hole: nothing is left here
+          d[p] = 6; d[p + 1] = 7; d[p + 2] = 11; d[p + 3] = 255; continue;
+        }
+        if (dist < rr + rimW) {                // the collecting rim
+          const t = 1 - (dist - rr) / rimW;
+          const g = enc(0.9 * t * t);
+          d[p] = g; d[p + 1] = g; d[p + 2] = g; d[p + 3] = 255; continue;
+        }
+      }
+      const gx = (px / (RW - 1)) * (GW - 1);
+      const x0 = gx | 0, fx = gx - x0, x1 = x0 < GW - 1 ? x0 + 1 : x0;
+      const th = h[idx(x0, y0)] * (1 - fx) * (1 - fy) + h[idx(x1, y0)] * fx * (1 - fy)
+               + h[idx(x0, y1)] * (1 - fx) * fy + h[idx(x1, y1)] * fx * fy;
+      let li = (th / LUT_MAX) * (LUTN - 1);
+      li = li < 0 ? 0 : li > LUTN - 1 ? LUTN - 1 : li | 0;
+      d[p] = enc(lutR[li] * expo);
+      d[p + 1] = enc(lutG[li] * expo);
+      d[p + 2] = enc(lutB[li] * expo);
+      d[p + 3] = 255;
+    }
+  }
+  offCtx.putImageData(offIm, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(off, 0, 0, cv.width, cv.height);
+}
+
+// ── controls + loop ────────────────────────────────────────────────────────
+let MODE = 'marginal';
+const P = { buoy: 1, drain: 1, expo: 0.78, speed: 1 };
+function bind(id, key, f) {
+  const el = document.getElementById(id), out = document.getElementById(id + 'V');
+  const apply = () => { P[key] = f(+el.value); out.textContent = key === 'speed' ? P[key].toFixed(1) : P[key].toFixed(2); };
+  el.addEventListener('input', apply); apply();
+}
+bind('buoy', 'buoy', v => v / 100);
+bind('drain', 'drain', v => v / 100);
+bind('expo', 'expo', v => v / 100);
+bind('speed', 'speed', v => v / 100);
+for (const b of document.querySelectorAll('#modeSeg button')) {
+  b.addEventListener('click', () => {
+    MODE = b.dataset.mode;
+    for (const o of document.querySelectorAll('#modeSeg button')) o.setAttribute('aria-pressed', String(o === b));
+    formFilm();
+  });
+}
+document.getElementById('collapse').addEventListener('click', () => document.body.classList.toggle('min'));
+
+resize();
+let last = performance.now(), simMs = 0, drawMs = 0, frame = 0;
+(function loop(now) {
+  requestAnimationFrame(loop);
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  dt *= P.speed;
+  const t0 = performance.now();
+  step(dt); maybeRupture(dt);
+  const t1 = performance.now();
+  draw();
+  const t2 = performance.now();
+  simMs = simMs * 0.9 + (t1 - t0) * 0.1;
+  drawMs = drawMs * 0.9 + (t2 - t1) * 0.1;
+  if ((frame++ & 15) === 0) {
+    let sum = 0, blk = 0;
+    for (let i = 0; i < h.length; i++) { sum += h[i]; if (h[i] < BLACK) blk++; }
+    document.getElementById('sAge').textContent = filmAge.toFixed(0);
+    document.getElementById('sTh').textContent = (sum / h.length).toFixed(0);
+    document.getElementById('sBlk').textContent = (100 * blk / h.length).toFixed(0);
+    document.getElementById('sPop').textContent = popCount;
+    document.getElementById('sSim').textContent = simMs.toFixed(1);
+    document.getElementById('sDraw').textContent = drawMs.toFixed(1);
+  }
+})(performance.now());
+</script>
+</body>
+</html>
