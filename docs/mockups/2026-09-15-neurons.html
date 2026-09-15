@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neurons — mockup (#361)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #101014; font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  #wrap { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #panel {
+    position: fixed; top: 12px; left: 12px; width: 268px; z-index: 5;
+    background: rgba(8,16,18,0.82); backdrop-filter: blur(8px);
+    border: 1px solid #3a3a46; border-radius: 10px; padding: 12px 13px 13px;
+    color: #e7e7ee;
+  }
+  #panel h1 { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; margin: 0 0 2px; color: #9ee6d2; }
+  #panel p.sub { margin: 0 0 10px; font-size: 11px; color: #9a9aa8; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .row label { flex: 0 0 96px; font-size: 11px; color: #c3c3d0; }
+  .row input[type=range] { flex: 1; min-width: 0; accent-color: #57c9a6; }
+  .row .val { flex: 0 0 34px; text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; color: #8fe0c6; }
+  .seg { display: flex; gap: 4px; margin: 9px 0 4px; }
+  .seg button {
+    flex: 1; padding: 5px 0; font-size: 11px; cursor: pointer;
+    background: #1b1b24; color: #c3c3d0; border: 1px solid #6a6a76; border-radius: 6px;
+  }
+  .seg button[aria-pressed=true] { background: #57c9a6; border-color: #57c9a6; color: #06120f; font-weight: 600; }
+  .chk { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; font-size: 11px; color: #c3c3d0; }
+  #stats { margin-top: 10px; padding-top: 9px; border-top: 1px solid #33333f; font-size: 11px; color: #8a8a98; font-variant-numeric: tabular-nums; }
+  #stats b { color: #9ee6d2; font-weight: 600; }
+  #panel .hint { margin: 9px 0 0; font-size: 10.5px; line-height: 1.5; color: #7d7d8c; }
+  #collapse { position: absolute; top: 9px; right: 10px; background: none; border: 0; color: #7d7d8c; cursor: pointer; font-size: 15px; line-height: 1; }
+  body.min #panel > *:not(h1):not(#collapse) { display: none; }
+  body.min #panel { width: auto; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+
+<div id="panel">
+  <button id="collapse" title="collapse">–</button>
+  <h1>Neurons — mockup</h1>
+  <p class="sub">space colonization on a <em>persistent</em> attractor field, with retraction</p>
+
+  <div class="seg" id="palSeg">
+    <button data-pal="ink" aria-pressed="true">Ink on paper</button>
+    <button data-pal="dark" aria-pressed="false">Bioluminescent</button>
+  </div>
+
+  <div class="row"><label for="retract">Retraction</label><input id="retract" type="range" min="0" max="100" value="45"><span class="val" id="retractV">45</span></div>
+  <div class="row"><label for="wander">Zone drift</label><input id="wander" type="range" min="0" max="100" value="40"><span class="val" id="wanderV">40</span></div>
+  <div class="row"><label for="rate">Firing rate</label><input id="rate" type="range" min="0" max="100" value="50"><span class="val" id="rateV">50</span></div>
+  <div class="row"><label for="speed">Time scale</label><input id="speed" type="range" min="10" max="400" value="100"><span class="val" id="speedV">1.0</span></div>
+  <div class="row"><label for="cells">Cells</label><input id="cells" type="range" min="1" max="3" value="2"><span class="val" id="cellsV">2</span></div>
+  <div class="row"><label for="density">Field size</label><input id="density" type="range" min="600" max="5200" value="4000"><span class="val" id="densityV">4000</span></div>
+
+  <label class="chk"><input type="checkbox" id="showField" checked> show the input field</label>
+  <label class="chk"><input type="checkbox" id="showZone"> show the active zone</label>
+  <label class="chk"><input type="checkbox" id="showDoomed"> mark retracting tips</label>
+
+  <div id="stats">
+    <div>segments <b id="sSeg">0</b> &nbsp; strokes/frame <b id="sStroke">0</b></div>
+    <div>synapses <b id="sSyn">0</b> &nbsp; retractions <b id="sRet">0</b></div>
+    <div>draw <b id="sMs">0.0</b> ms &nbsp; sim <b id="sSim">0.0</b> ms</div>
+  </div>
+  <p class="hint">Time scale 1.0 &asymp; the shipped pace. Push it to 3&ndash;4&times; to watch a few minutes of arbor life in one minute, then drop it back to judge whether the motion is calm.</p>
+</div>
+
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// Neurons — design mockup for issue #361.
+//
+// The question this mockup exists to answer is NOT "can a tree be drawn". It is:
+//   1. Does RETRACTION read as alive, or as twitchy / as decay?
+//   2. Is the coupling (quiet branch -> branch withdraws) actually PERCEPTIBLE?
+//   3. Does ink-on-paper beat the gallery-default dark ground?
+//   4. Does a full redraw with no accumulation buffer hold its frame budget?
+//
+// Mechanism, in one paragraph. A soma sits below a field of fixed input points
+// (granule cells / parallel fibres in cross-section). Growth is the Runge-Fournier
+// space colonization algorithm with ONE change: an attractor reached by a branch is
+// not consumed, it is CONNECTED — it stops steering growth but starts delivering
+// activity to the node that reached it. A soft "active zone" wanders the field over
+// minutes; connected points inside it fire. Each node carries an activity trace,
+// summed up the tree, normalised per terminal tip, and drawn as INK DARKNESS — so a
+// branch that stops earning pales for many seconds before anything is removed. When
+// the trace at a leaf falls below threshold the leaf is deleted, one node at a time,
+// and the branch withdraws. The arbor therefore never finishes: it thickens into
+// wherever the activity went and thins out of where it left.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d', { alpha: false });
+
+const PAL = {
+  ink: {
+    bg: '#efe6d3', paper: true,
+    ink: [26, 18, 8],
+    soma: '#13100a',
+    dot: 'rgba(124,110,84,0.24)', dotOn: 'rgba(104,90,64,0.42)',
+    flash: 'rgba(168,58,30,0.92)',
+    zone: 'rgba(168,58,30,0.055)',
+    doomed: 'rgba(168,58,30,0.85)',
+    inkMin: 0.10, inkMax: 0.96, glow: false,
+  },
+  dark: {
+    bg: '#06080b', paper: false,
+    ink: [126, 216, 236],
+    soma: '#cdf3ff',
+    dot: 'rgba(96,126,150,0.30)', dotOn: 'rgba(130,178,208,0.55)',
+    flash: 'rgba(212,244,255,0.95)',
+    zone: 'rgba(120,200,220,0.05)',
+    doomed: 'rgba(255,150,110,0.9)',
+    inkMin: 0.07, inkMax: 1.0, glow: true,
+  },
+};
+
+const P = {
+  pal: 'ink', retract: 0.45, wander: 0.40, rate: 0.50,
+  speed: 1.0, cells: 2, density: 4000,
+  showField: true, showZone: false, showDoomed: false,
+};
+
+// ── geometry / rng ──────────────────────────────────────────────────────────
+let W = 0, H = 0, u = 1, dpr = 1;
+let rngState = 0x2f6e2b1 >>> 0;
+function rnd() { // mulberry32
+  rngState = (rngState + 0x6D2B79F5) >>> 0;
+  let t = rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// ── state ───────────────────────────────────────────────────────────────────
+// Nodes are a flat, append-only-then-compacted array. parent < self always, so a
+// bottom-up pass is a descending loop and a top-down pass is an ascending one.
+let nx, ny, npar, nkids, nown, nsub, ntip, nborn, nalive, nretire, nstall, nprot, nCount, nCap;
+let atts;            // {x,y,on,node,flash,pin}
+let somaIdx;         // node index of each soma
+let somaX, somaY, somaCharge, somaSpike;
+let zoneX, zoneY, zonePhase;
+let clock, growAcc, retireAcc, statRetract, lastCompact;
+
+function allocNodes(cap) {
+  nCap = cap;
+  nx = new Float32Array(cap); ny = new Float32Array(cap);
+  npar = new Int32Array(cap); nkids = new Int32Array(cap);
+  nown = new Float32Array(cap); nsub = new Float32Array(cap);
+  ntip = new Int32Array(cap); nborn = new Float32Array(cap);
+  nalive = new Uint8Array(cap); nretire = new Float32Array(cap);
+  nstall = new Float32Array(cap); nprot = new Uint8Array(cap);
+  nCount = 0;
+}
+function addNode(x, y, par) {
+  if (nCount >= nCap) return -1;
+  const i = nCount++;
+  nx[i] = x; ny[i] = y; npar[i] = par; nkids[i] = 0;
+  nown[i] = 0; nsub[i] = 0; ntip[i] = 1; nborn[i] = clock;
+  nalive[i] = 1; nretire[i] = 0; nstall[i] = 0; nprot[i] = 0;
+  if (par >= 0) nkids[par]++;
+  return i;
+}
+
+// Step length, influence radius and kill radius are the three space-colonization
+// constants. They are expressed in `u` so the piece scales like a vector drawing
+// rather than getting denser on a big display.
+// Derived from the ACTUAL point spacing rather than from screen units, so the
+// arbor's grain is a fixed multiple of the field's grain at any density. Absolute
+// constants stall the algorithm the moment the field gets sparser than the
+// influence radius — one of the three termination conditions in Runions et al.
+let fieldCell = 20;
+const STEP = () => 0.30 * fieldCell;
+const INFL = () => 2.9 * fieldCell;
+const KILL = () => 0.60 * fieldCell;
+
+function reset() {
+  rngState = 0x2f6e2b1 >>> 0;
+  clock = 0; growAcc = 0; retireAcc = 0; statRetract = 0; lastCompact = 0;
+  allocNodes(26000);
+
+  // Input field: a rectangular band (the molecular layer), jittered-grid sampled so
+  // it is even rather than clumpy — an even field is what makes the canopy read as
+  // space-filling instead of fractal.
+  const x0 = 0.04 * W, x1 = 0.96 * W, y0 = 0.055 * H, y1 = 0.815 * H;
+  const area = (x1 - x0) * (y1 - y0);
+  const cell = Math.sqrt(area / P.density);
+  fieldCell = cell;
+  const cols = Math.max(1, Math.floor((x1 - x0) / cell));
+  const rows = Math.max(1, Math.floor((y1 - y0) / cell));
+  atts = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const cw = (x1 - x0) / cols, ch = (y1 - y0) / rows;
+    atts.push({
+      x: x0 + (c + (r & 1 ? 0.5 : 0) + 0.06 + 0.88 * rnd()) * cw,
+      y: y0 + (r + 0.06 + 0.88 * rnd()) * ch,
+      on: false, node: -1, flash: 0, pin: 0.55 + 0.45 * rnd(),
+    });
+  }
+
+  somaIdx = []; somaX = []; somaY = [];
+  somaCharge = []; somaSpike = [];
+  const n = P.cells;
+  for (let k = 0; k < n; k++) {
+    const sx = W * (k + 1) / (n + 1) + (n > 1 ? (rnd() - 0.5) * 0.06 * W : 0);
+    const sy = 0.905 * H;
+    somaX.push(sx); somaY.push(sy);
+    // Seed an apical trunk that reaches INTO the field. Space colonization stalls
+    // silently if every tip starts outside the influence radius of every point —
+    // one of the three termination conditions in Runions et al. 2007.
+    let prev = addNode(sx, sy, -1); nprot[prev] = 1;
+    const rise = sy - 0.755 * H, steps = Math.max(4, Math.ceil(rise / STEP()));
+    for (let s = 0; s < steps; s++) { prev = addNode(sx, sy - (s + 1) * (rise / steps), prev); nprot[prev] = 1; }
+    somaIdx.push(prev);
+    somaCharge.push(0); somaSpike.push(-999);
+  }
+
+  zoneX = W * 0.5; zoneY = H * 0.3; zonePhase = rnd() * 1000;
+}
+
+// ── spatial grid over nodes (rebuilt per growth step) ───────────────────────
+let gCell = 0, gCols = 0, gRows = 0, gHead = null, gNext = null;
+function buildGrid() {
+  gCell = INFL();
+  gCols = Math.max(1, Math.ceil(W / gCell));
+  gRows = Math.max(1, Math.ceil(H / gCell));
+  const cells = gCols * gRows;
+  if (!gHead || gHead.length !== cells) gHead = new Int32Array(cells);
+  gHead.fill(-1);
+  if (!gNext || gNext.length < nCount) gNext = new Int32Array(Math.max(nCount, 1024));
+  for (let i = 0; i < nCount; i++) {
+    if (!nalive[i]) continue;
+    const cx = Math.min(gCols - 1, Math.max(0, (nx[i] / gCell) | 0));
+    const cy = Math.min(gRows - 1, Math.max(0, (ny[i] / gCell) | 0));
+    const c = cy * gCols + cx;
+    gNext[i] = gHead[c]; gHead[c] = i;
+  }
+}
+function nearestNode(x, y, maxD) {
+  const cx = Math.min(gCols - 1, Math.max(0, (x / gCell) | 0));
+  const cy = Math.min(gRows - 1, Math.max(0, (y / gCell) | 0));
+  let best = -1, bestD = maxD * maxD;
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+    const jx = cx + ox, jy = cy + oy;
+    if (jx < 0 || jy < 0 || jx >= gCols || jy >= gRows) continue;
+    for (let i = gHead[jy * gCols + jx]; i !== -1; i = gNext[i]) {
+      const dx = nx[i] - x, dy = ny[i] - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) { bestD = d2; best = i; }
+    }
+  }
+  return best;
+}
+
+// ── growth: one space-colonization iteration ───────────────────────────────
+const dirX = new Float64Array(26000), dirY = new Float64Array(26000);
+const touched = new Int32Array(26000);
+function growStep(dtStep) {
+  buildGrid();
+  for (let i = 0; i < nCount; i++) if (nalive[i]) nstall[i] += dtStep;
+  const infl = INFL(), kill = KILL(), step = STEP();
+  let nTouched = 0;
+
+  for (let a = 0; a < atts.length; a++) {
+    const at = atts[a];
+    if (at.on) continue;
+    const i = nearestNode(at.x, at.y, infl);
+    if (i < 0) continue;
+    const dx = at.x - nx[i], dy = at.y - ny[i];
+    const d = Math.hypot(dx, dy);
+    if (d < kill) {            // reached: CONNECT (not consume) — it now feeds this node
+      at.on = true; at.node = i;
+      continue;
+    }
+    if (dirX[i] === 0 && dirY[i] === 0) touched[nTouched++] = i;
+    dirX[i] += dx / d; dirY[i] += dy / d;
+    nstall[i] = 0;                    // still has somewhere to go
+  }
+
+  for (let t = 0; t < nTouched; t++) {
+    const i = touched[t];
+    let dx = dirX[i], dy = dirY[i];
+    dirX[i] = 0; dirY[i] = 0;
+    const m = Math.hypot(dx, dy);
+    if (m < 1e-6) continue;
+    dx /= m; dy /= m;
+    // a little jitter keeps the arbor from looking CAD-drawn
+    const j = (rnd() - 0.5) * 0.16;
+    const cs = Math.cos(j), sn = Math.sin(j);
+    const ux = dx * cs - dy * sn, uy = dx * sn + dy * cs;
+    const kid = addNode(nx[i] + ux * step, ny[i] + uy * step, i);
+    if (kid >= 0) nown[kid] = nown[i] * 0.5; // inherit a little credit so it is not born doomed
+  }
+}
+
+// ── activity + retraction ──────────────────────────────────────────────────
+function passes(dt) {
+  // decay each node's own trace
+  const keep = Math.pow(0.5, dt / 5.0);
+  for (let i = 0; i < nCount; i++) if (nalive[i]) nown[i] *= keep;
+
+  // the active zone wanders — this is what stops the arbor converging and going static
+  const sp = 0.055 * P.wander;
+  zonePhase += dt * sp;
+  zoneX = W * (0.5 + 0.40 * Math.sin(zonePhase * 0.83) * Math.cos(zonePhase * 0.31));
+  zoneY = H * (0.30 + 0.20 * Math.sin(zonePhase * 0.47 + 1.7));
+  const sig = 0.20 * Math.min(W, H), inv2s2 = 1 / (2 * sig * sig);
+
+  // connected points fire, brighter near the zone
+  const base = 0.22 * P.rate * dt;
+  let fired = 0;
+  for (let a = 0; a < atts.length; a++) {
+    const at = atts[a];
+    at.flash *= Math.pow(0.02, dt);
+    if (!at.on) continue;
+    const dx = at.x - zoneX, dy = at.y - zoneY;
+    const g = Math.exp(-(dx * dx + dy * dy) * inv2s2);
+    if (rnd() < base * (0.06 + g) * at.pin) {
+      at.flash = 1;
+      if (at.node >= 0 && nalive[at.node]) nown[at.node] += 1;
+      fired++;
+    }
+  }
+
+  // bottom-up: subtree trace + terminal-tip count
+  for (let i = 0; i < nCount; i++) { if (nalive[i]) { nsub[i] = nown[i]; ntip[i] = 0; } }
+  for (let i = nCount - 1; i >= 0; i--) {
+    if (!nalive[i]) continue;
+    if (nkids[i] === 0) ntip[i] = 1;
+    const p = npar[i];
+    if (p >= 0 && nalive[p]) { nsub[p] += nsub[i]; ntip[p] += ntip[i]; }
+  }
+
+  supportPass();
+
+  // soma integrate-and-fire — one visible event, no travelling dots
+  for (let k = 0; k < somaX.length; k++) {
+    const root = rootOf(k);
+    const drive = root >= 0 ? nsub[root] : 0;
+    somaCharge[k] = somaCharge[k] * Math.pow(0.5, dt / 0.9) + drive * dt * 0.05;
+    if (somaCharge[k] > 6) { somaCharge[k] = 0; somaSpike[k] = clock; }
+  }
+  return fired;
+}
+function rootOf(k) {
+  let i = somaIdx[k];
+  while (i >= 0 && npar[i] >= 0) i = npar[i];
+  return i;
+}
+
+// SUPPORT — the scalar that decides both ink darkness and who retracts.
+//
+// The naive choice (a node's own activity, or its subtree's) is wrong twice: a fresh
+// twig has earned nothing, so EVERY new tip is born doomed and the frontier becomes a
+// grow/retract treadmill — measured at 602 removals/s, the whole arbor turning over
+// three times a minute. And subtree activity just restates depth, so ink darkness
+// would carry no information the taper does not already carry.
+//
+// Instead resource flows OUTWARD from the soma and drains with distance from the last
+// place that earned any. A twig hanging off a branch that is firing is supported; a
+// twig in a region the activity has left drains over ~25 nodes and starves. That makes
+// withdrawal SPATIALLY COHERENT — a patch thins where the active zone moved away,
+// rather than every tip flickering independently — which is the only version of this
+// a viewer can read as caused rather than as noise.
+let nsup = new Float32Array(0);
+const DRAIN = 0.040;   // per node, so support reaches ~25 nodes past the last synapse
+function supportPass() {
+  if (nsup.length < nCap) nsup = new Float32Array(nCap);
+  for (let i = 0; i < nCount; i++) {
+    if (!nalive[i]) continue;
+    const own = nown[i] / (nown[i] + 0.55);
+    const par = npar[i];
+    if (par < 0) {
+      const avg = nsub[i] / (ntip[i] || 1);     // whole-cell earning feeds the trunk
+      nsup[i] = Math.max(own, avg / (avg + 0.30));
+    } else {
+      nsup[i] = Math.max(own, nsup[par] - DRAIN);
+    }
+  }
+}
+function vigour(i) { return nsup[i]; }
+
+function retireStep(dt) {
+  // One node per doomed tip per interval. The INTERVAL is what decides whether the
+  // piece reads as a living edge or as a boiling hedge: at 0.42 s the whole arbor
+  // turned over 3x a minute (measured: 602 nodes/s over 11,355). The slider moves it
+  // between ~2 s and ~14 s, and the equilibrium size is self-correcting because a
+  // saturated field only lets growth back in where retraction freed territory.
+  const thresh = 0.03 + 0.34 * P.retract;
+  const interval = 14 - 12 * P.retract;
+  const minAge = 8;
+  for (let i = 0; i < nCount; i++) {
+    if (!nalive[i] || nkids[i] !== 0 || nprot[i]) continue;
+    if (clock - nborn[i] < minAge) continue;
+    // A tip that still has unclaimed territory in reach is GROWING, not starving.
+    // Pałubicki et al. 2009 warn that a resource-ratio shedding rule bolted onto
+    // space colonization sheds every branch the instant it stops growing, because
+    // SCA's own signal is binary. The graded signal here is firing activity; the
+    // stall test is what keeps the binary one from doing the shedding.
+    if (nstall[i] < 5) { nretire[i] = 0; continue; }
+    if (vigour(i) >= thresh) { nretire[i] = 0; continue; }
+    nretire[i] += dt;
+    if (nretire[i] > interval) {
+      nalive[i] = 0; statRetract++;
+      const p = npar[i];
+      if (p >= 0) { nkids[p]--; nretire[p] = 0; }
+      // release any point this node had claimed, so the territory can be re-won
+      for (let a = 0; a < atts.length; a++) if (atts[a].node === i) { atts[a].on = false; atts[a].node = -1; }
+    }
+  }
+}
+
+function compact() {
+  const map = new Int32Array(nCount).fill(-1);
+  let w = 0;
+  for (let i = 0; i < nCount; i++) if (nalive[i]) map[i] = w++;
+  if (w === nCount) return;
+  for (let i = 0; i < nCount; i++) {
+    const m = map[i]; if (m < 0) continue;
+    nx[m] = nx[i]; ny[m] = ny[i];
+    npar[m] = npar[i] >= 0 ? map[npar[i]] : -1;
+    nkids[m] = nkids[i]; nown[m] = nown[i]; nsub[m] = nsub[i];
+    ntip[m] = ntip[i]; nborn[m] = nborn[i]; nretire[m] = nretire[i]; nalive[m] = 1;
+    nstall[m] = nstall[i]; nprot[m] = nprot[i];
+  }
+  for (let a = 0; a < atts.length; a++) {
+    const nd = atts[a].node;
+    if (nd >= 0) { const m = map[nd]; if (m < 0) { atts[a].on = false; atts[a].node = -1; } else atts[a].node = m; }
+  }
+  for (let k = 0; k < somaIdx.length; k++) { const m = map[somaIdx[k]]; if (m >= 0) somaIdx[k] = m; }
+  nCount = w;
+}
+
+// ── render ─────────────────────────────────────────────────────────────────
+// Batched exactly the way `vines/render.ts` batches: one path per (width bucket x
+// ink bucket). Taper is quantised to width buckets, which costs nothing visually
+// because taper is a function of subtree size anyway.
+const WB = 7, IB = 10;
+const buckets = [];
+for (let i = 0; i < WB * IB; i++) buckets.push([]);
+let statStroke = 0;
+
+function draw() {
+  const p = PAL[P.pal];
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, W, H);
+  if (p.paper) paintPaper();
+
+  if (P.showZone) {
+    const g = ctx.createRadialGradient(zoneX, zoneY, 0, zoneX, zoneY, 0.42 * Math.min(W, H));
+    g.addColorStop(0, p.zone); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+
+  // input field
+  if (P.showField) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = p.dot;
+    const r = 0.75 * u;
+    ctx.beginPath();
+    for (let a = 0; a < atts.length; a++) { const at = atts[a]; if (at.on || at.flash > 0.02) continue; ctx.moveTo(at.x + r, at.y); ctx.arc(at.x, at.y, r, 0, 6.2832); }
+    ctx.fill();
+    ctx.fillStyle = p.dotOn;
+    ctx.beginPath();
+    for (let a = 0; a < atts.length; a++) { const at = atts[a]; if (!at.on || at.flash > 0.02) continue; const rr = 1.05 * u; ctx.moveTo(at.x + rr, at.y); ctx.arc(at.x, at.y, rr, 0, 6.2832); }
+    ctx.fill();
+  }
+
+  // spike wave — one whole-tree brightening per soma spike, travelling outward
+  const waves = [];
+  for (let k = 0; k < somaX.length; k++) {
+    const age = clock - somaSpike[k];
+    if (age >= 0 && age < 1.5) waves.push({ x: somaX[k], y: somaY[k], r: age * 620 * u / 4.2, w: 90 * u, a: 1 - age / 1.5 });
+  }
+
+  // arbor
+  for (let i = 0; i < buckets.length; i++) buckets[i].length = 0;
+  let maxTipRef = 1;
+  for (let k = 0; k < somaIdx.length; k++) { const r = rootOf(k); if (r >= 0 && ntip[r] > maxTipRef) maxTipRef = ntip[r]; }
+  for (let i = 0; i < nCount; i++) {
+    if (!nalive[i]) continue;
+    const par = npar[i];
+    if (par < 0 || !nalive[par]) continue;
+    const t = Math.min(1, ntip[i] / maxTipRef);
+    const wb = Math.min(WB - 1, (Math.pow(t, 0.30) * WB) | 0);
+    let v = vigour(i);
+    for (let q = 0; q < waves.length; q++) {
+      const wv = waves[q];
+      const d = Math.abs(Math.hypot(nx[i] - wv.x, ny[i] - wv.y) - wv.r);
+      if (d < wv.w) v += 0.75 * wv.a * (1 - d / wv.w);
+    }
+    if (P.showDoomed && nretire[i] > 0) v = -1;
+    const ib = v < 0 ? -1 : Math.min(IB - 1, (Math.min(1, v) * IB) | 0);
+    if (ib < 0) { buckets[0].push(-i); continue; }
+    buckets[wb * IB + ib].push(i);
+  }
+
+  statStroke = 0;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (p.glow) { ctx.globalCompositeOperation = 'lighter'; }
+  const [r0, g0, b0] = p.ink;
+  for (let wb = 0; wb < WB; wb++) {
+    const lw = (0.48 + 7.2 * Math.pow((wb + 0.5) / WB, 1.35)) * u;
+    for (let ib = 0; ib < IB; ib++) {
+      const list = buckets[wb * IB + ib];
+      if (!list.length) continue;
+      const a = p.inkMin + (p.inkMax - p.inkMin) * ((ib + 0.5) / IB);
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = `rgba(${r0},${g0},${b0},${a.toFixed(3)})`;
+      ctx.beginPath();
+      for (let q = 0; q < list.length; q++) {
+        const i = list[q] < 0 ? -list[q] : list[q];
+        const par = npar[i];
+        ctx.moveTo(nx[par], ny[par]); ctx.lineTo(nx[i], ny[i]);
+      }
+      ctx.stroke(); statStroke++;
+    }
+  }
+  if (P.showDoomed) {
+    ctx.strokeStyle = p.doomed; ctx.lineWidth = 1.6 * u;
+    ctx.beginPath();
+    for (let q = 0; q < buckets[0].length; q++) {
+      const v = buckets[0][q]; if (v >= 0) continue;
+      const i = -v, par = npar[i];
+      ctx.moveTo(nx[par], ny[par]); ctx.lineTo(nx[i], ny[i]);
+    }
+    ctx.stroke(); statStroke++;
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // synapse flashes — the only fast-moving thing on screen, and they are tiny
+  ctx.fillStyle = p.flash;
+  ctx.beginPath();
+  let flashes = 0;
+  for (let a = 0; a < atts.length; a++) {
+    const at = atts[a];
+    if (at.flash <= 0.02) continue;
+    const rr = (1.0 + 2.0 * at.flash) * u;
+    ctx.moveTo(at.x + rr, at.y); ctx.arc(at.x, at.y, rr, 0, 6.2832); flashes++;
+  }
+  if (flashes) { ctx.fill(); statStroke++; }
+
+  // somata + axons
+  for (let k = 0; k < somaX.length; k++) {
+    const sx = somaX[k], sy = somaY[k];
+    const age = clock - somaSpike[k];
+    const hot = age >= 0 && age < 0.35 ? 1 - age / 0.35 : 0;
+    ctx.strokeStyle = `rgba(${r0},${g0},${b0},${(p.inkMin + 0.5 * (p.inkMax - p.inkMin)).toFixed(3)})`;
+    ctx.lineWidth = 1.1 * u;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy + 7 * u);
+    for (let s = 1; s <= 26; s++) {
+      const t = s / 26;
+      ctx.lineTo(sx + Math.sin(t * 5.5 + k) * 9 * u * t, sy + 7 * u + t * (H - sy - 10 * u));
+    }
+    ctx.stroke(); statStroke++;
+    ctx.fillStyle = p.soma;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, (6.5 + 1.5 * hot) * u, (9.5 + 2 * hot) * u, 0, 0, 6.2832);
+    ctx.fill();
+    if (hot > 0 && p.glow) {
+      ctx.globalAlpha = 0.5 * hot;
+      ctx.beginPath(); ctx.ellipse(sx, sy, 22 * u, 26 * u, 0, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+let paperCv = null;
+function paintPaper() {
+  if (!paperCv || paperCv.width !== cv.width) {
+    paperCv = document.createElement('canvas');
+    paperCv.width = cv.width; paperCv.height = cv.height;
+    const pc = paperCv.getContext('2d');
+    const im = pc.createImageData(paperCv.width, paperCv.height);
+    for (let i = 0; i < im.data.length; i += 4) {
+      const n = (Math.random() * 255) | 0;
+      im.data[i] = im.data[i + 1] = im.data[i + 2] = n;
+      im.data[i + 3] = 14;
+    }
+    pc.putImageData(im, 0, 0);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 0.5;
+  ctx.drawImage(paperCv, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// ── loop ───────────────────────────────────────────────────────────────────
+let last = performance.now(), simMs = 0, drawMs = 0, statFrames = 0;
+function tick(now) {
+  requestAnimationFrame(tick);
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  dt *= P.speed;
+  clock += dt;
+
+  const t0 = performance.now();
+  growAcc += dt;
+  const gi = 1 / 3.5;                    // growth iterations per simulated second
+  let guard = 0;
+  while (growAcc > gi && guard++ < 6) { growStep(gi); growAcc -= gi; }
+  passes(dt);
+  retireStep(dt);
+  if (clock - lastCompact > 4) { compact(); lastCompact = clock; }
+  const t1 = performance.now();
+  draw();
+  const t2 = performance.now();
+
+  simMs = simMs * 0.92 + (t1 - t0) * 0.08;
+  drawMs = drawMs * 0.92 + (t2 - t1) * 0.08;
+  if ((statFrames++ & 15) === 0) {
+    let alive = 0, syn = 0;
+    for (let i = 0; i < nCount; i++) if (nalive[i]) alive++;
+    for (let a = 0; a < atts.length; a++) if (atts[a].on) syn++;
+    document.getElementById('sSeg').textContent = alive;
+    document.getElementById('sStroke').textContent = statStroke;
+    document.getElementById('sSyn').textContent = syn;
+    document.getElementById('sRet').textContent = statRetract;
+    document.getElementById('sMs').textContent = drawMs.toFixed(1);
+    document.getElementById('sSim').textContent = simMs.toFixed(1);
+  }
+}
+
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  u = Math.min(W, H) / 820;
+  paperCv = null;
+  reset();
+}
+window.addEventListener('resize', resize);
+
+// ── controls ───────────────────────────────────────────────────────────────
+function bind(id, key, fmt, onSet) {
+  const el = document.getElementById(id), out = document.getElementById(id + 'V');
+  const apply = () => {
+    const raw = +el.value;
+    P[key] = fmt ? fmt(raw) : raw;
+    out.textContent = key === 'speed' ? P[key].toFixed(1) : (key === 'cells' || key === 'density' ? raw : raw);
+    if (onSet) onSet();
+  };
+  el.addEventListener('input', apply); apply();
+}
+bind('retract', 'retract', v => v / 100);
+bind('wander', 'wander', v => v / 100);
+bind('rate', 'rate', v => v / 100);
+bind('speed', 'speed', v => v / 100);
+bind('cells', 'cells', v => v, () => reset());
+bind('density', 'density', v => v, () => reset());
+for (const b of document.querySelectorAll('#palSeg button')) {
+  b.addEventListener('click', () => {
+    P.pal = b.dataset.pal;
+    for (const o of document.querySelectorAll('#palSeg button')) o.setAttribute('aria-pressed', String(o === b));
+  });
+}
+for (const [id, key] of [['showField', 'showField'], ['showZone', 'showZone'], ['showDoomed', 'showDoomed']]) {
+  const el = document.getElementById(id);
+  el.addEventListener('change', () => { P[key] = el.checked; });
+  P[key] = el.checked;
+}
+document.getElementById('collapse').addEventListener('click', () => document.body.classList.toggle('min'));
+
+resize();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
