@@ -6,11 +6,23 @@ The screen is a soap film seen head-on. It forms nearly colourless, thins, bloom
 into the Newton colour series, is stirred by thin patches rising through it, goes
 black at the top, and tears. Then it forms again.
 
-**Every colour in the piece is computed, not chosen.** There is no palette field
-anywhere in the schema, and that is the identity of the piece: the magenta, gold,
-blue and silver are the reflectance of a film of a given thickness, integrated
-against the CIE 1931 observer. This is the only entry in the gallery whose colours
-are a physical measurement rather than a design decision.
+**The colours come out of the film's thickness, not out of a palette.** There is no
+palette field in the schema: the magenta, gold, blue and silver are the reflectance
+of a film of that thickness, integrated against the CIE 1931 observer.
+
+⚠️ Stated carefully, because the first draft overstated it and the panel was right to
+say so. Provenance is not a visual feature — a viewer cannot see where a colour came
+from, and `foam` already ships a hand-picked four-stop palette literally named "Soap
+Film" in the same hue family. **The property the physics actually buys is
+desaturation with order**: twenty fringes that read as twenty *different* fringes
+rather than a repeating rainbow, because each successive order overlaps more
+wavelengths and washes out. A four-stop palette cannot do that; the integral gets it
+for free. That is the visual claim, and it is the one being made.
+
+The piece also contains chosen colours — `background`, `exposure`, `illuminant`,
+`filmIndex`, and the rupture's rim. `exposure` in particular is doing real work: a
+film reflects about 8%, so the image is the measurement scaled up until it is
+visible.
 
 ## Provenance
 
