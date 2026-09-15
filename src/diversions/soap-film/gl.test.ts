@@ -52,6 +52,28 @@ describe('soap-film gl', () => {
     expect(gl.calls.filter((c: string) => c === 'bindTexture').length).toBeGreaterThanOrEqual(2)
   })
 
+  it('sends the background as LINEAR, not sRGB', () => {
+    // ⚠️ The mock records call NAMES only, so spy on the uniform setter to see the value.
+    // `hexToRgb` returns sRGB-encoded components and the fragment shader encodes on
+    // output; passing them through encodes twice and the default #06080b painted as
+    // ~#2A323B — the near-black you picked coming out slate grey, through the rupture
+    // hole. Nothing read a uniform value before this test, which is how it shipped.
+    const gl = makeGLContext()
+    const res = initGL(gl, 64, 40)
+    const seen: number[][] = []
+    const spy = vi.spyOn(gl, 'uniform3f').mockImplementation((...a: unknown[]) => {
+      seen.push([a[1], a[2], a[3]] as number[])
+    })
+    render(gl, res, {
+      width: 800, height: 500, filmIndex: 1.33, exposure: 1,
+      background: '#808080', rupture: [0, 0, 0, 0], fade: 1,
+    })
+    spy.mockRestore()
+    expect(seen.length).toBe(1)
+    // mid grey: 128/255 = 0.502 encoded -> 0.502^2.2 = 0.216 linear
+    for (const c of seen[0]) expect(c).toBeCloseTo(0.216, 2)
+  })
+
   it('disposeGL deletes everything initGL created', () => {
     const gl = makeGLContext()
     const delTex = vi.spyOn(gl, 'deleteTexture')

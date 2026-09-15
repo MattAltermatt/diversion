@@ -112,6 +112,11 @@ const soapFilm = defineDiversion<typeof soapFilmSchema, SoapFilmState, 'webgl'>(
 
   update(state, cfg) {
     const prev = state.cfg
+    // ⚠️ `seed` is the ONE field that cannot be applied live: it is consumed only by
+    // `createFilm` in setup(), so returning truthy here left the Seed box inert — typing
+    // a number changed nothing at all, forever. Falsy makes the framework re-run setup().
+    // ~30 diversions do exactly this; `types.ts` states the contract.
+    if (cfg.seed !== prev.seed) return false
     state.cfg = cfg
     // ⚠️ There is NO debounce between a slider and update(), so every intermediate value
     // of a drag runs this. Nothing here may rebuild the field.

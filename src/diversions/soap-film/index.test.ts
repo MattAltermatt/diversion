@@ -24,13 +24,38 @@ describe('soap-film wiring', () => {
     const changes: Partial<SoapFilmConfig>[] = [
       { mobility: 0.3 }, { drainRate: 2.2 }, { tempo: 3 }, { filmThickness: 700 },
       { rupture: 'Slow' }, { illuminant: 'Tungsten' }, { exposure: 2.1 },
-      { background: '#010203' }, { filmIndex: 1.41 }, { seed: 99 },
+      { background: '#010203' }, { filmIndex: 1.41 },
     ]
     for (const change of changes) {
       const key = Object.keys(change)[0]
       expect(soapFilm.update!(state, { ...cfg, ...change }, SIZE), `${key} must apply live`).toBeTruthy()
     }
     expect(state.film.h, 'update() must not reallocate the thickness field').toBe(before)
+  })
+
+  it('a seed change forces a re-setup — it is the one field that cannot apply live', () => {
+    // ⚠️ This test asserted the OPPOSITE until 2026-09-15, and in doing so locked in a
+    // dead control: `seed` is consumed only by `createFilm` in setup(), so returning
+    // truthy meant typing a number into the Seed box changed nothing, ever. Returning
+    // falsy is how ~30 diversions signal a structural change; `types.ts` states it.
+    const gl = makeGLContext()
+    const cfg = soapFilmSchema.parse({})
+    const state = soapFilm.setup!(gl, cfg, SIZE)
+    expect(soapFilm.update!(state, { ...cfg, seed: 99 }, SIZE)).toBeFalsy()
+    expect(soapFilm.update!(state, { ...cfg, exposure: 2.1 }, SIZE)).toBeTruthy()
+  })
+
+  it('a Light change re-uploads the colour table', () => {
+    // Mutation-proven gap: deleting the whole LUT re-upload block left the suite green,
+    // which silently makes Light and Refractive index dead controls.
+    const gl = makeGLContext()
+    const cfg = soapFilmSchema.parse({})
+    const state = soapFilm.setup!(gl, cfg, SIZE)
+    const n0 = gl.calls.filter((c: string) => c === 'texImage2D').length
+    soapFilm.update!(state, { ...cfg, exposure: 2.1 }, SIZE)
+    expect(gl.calls.filter((c: string) => c === 'texImage2D').length - n0, 'exposure must not rebuild the LUT').toBe(0)
+    soapFilm.update!(state, { ...cfg, illuminant: 'Tungsten' }, SIZE)
+    expect(gl.calls.filter((c: string) => c === 'texImage2D').length - n0, 'illuminant must rebuild the LUT').toBe(1)
   })
 
   it('a resize resamples rather than re-forms', () => {
@@ -43,6 +68,11 @@ describe('soap-film wiring', () => {
     soapFilm.resize!(state, { width: 1920, height: 600 }, gl)
     expect(Math.abs(mean(state.film.h) - before) / before).toBeLessThan(0.05)
     expect(state.film.cols / state.film.rows).toBeGreaterThan(2)
+    // ⚠️ Then FRAME. Dropping `allocThickness` from resize() left the suite green, and in
+    // a browser it is worse than a wrong picture: the reused upload buffer keeps its old
+    // length and `thickData.set(f.h)` throws RangeError out of frame() on the next tick.
+    expect(state.res.cols).toBe(state.film.cols)
+    soapFilm.frame!(state, gl, 0, 16)
   })
 
   it('frame() sets the viewport every call', () => {

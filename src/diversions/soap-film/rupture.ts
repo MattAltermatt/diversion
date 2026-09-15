@@ -75,18 +75,27 @@ export function updateRupture(
   const black = blackFraction(f, BLACK_NM) > MIN_BLACK
   if (!((thin && black) || f.age > MAX_AGE_S)) return { rupture: null, reform: false }
 
-  // Nucleate at one of the thinnest cells. ⚠️ NOT by rejection-sampling cells below
-  // BLACK_NM: on a fine grid there were none, and the loop then spun and the piece never
-  // ended. The thinnest cell always exists.
+  // Nucleate in the thinnest film. ⚠️ A full scan, not a random sample: sampling
+  // `max(64, n*0.02)` cells looked cheap and missed, because the gate only requires
+  // 0.2% black film — 64 draws from a 3,240-cell grid expect 0.13 hits, so the hole
+  // opened in film 3x thicker than black and the "opens in the thinnest film" test
+  // caught it at 84 nm against a 28 nm threshold. One pass over the grid costs nothing
+  // next to the step that just ran, and it happens once per film.
   const n = f.h.length
   let bestIdx = 0
   let bestVal = Infinity
-  const tries = Math.max(64, Math.floor(n * 0.02))
-  for (let t = 0; t < tries; t++) {
-    const i = Math.floor(f.rng() * n)
-    if (f.h[i] < bestVal) {
-      bestVal = f.h[i]
+  let ties = 0
+  for (let i = 0; i < n; i++) {
+    const v = f.h[i]
+    if (v < bestVal) {
+      bestVal = v
       bestIdx = i
+      ties = 1
+    } else if (v === bestVal) {
+      // Reservoir-sample the ties — a large share of a tearing film sits on the floor,
+      // so taking the first would open every hole in the same corner.
+      ties++
+      if (f.rng() < 1 / ties) bestIdx = i
     }
   }
   const gx = bestIdx % f.cols

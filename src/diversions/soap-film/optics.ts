@@ -123,29 +123,48 @@ export function spectralFilmColor(opdNm: number, filmIndex: number, illuminant: 
  *  a display both do, and it is why real soap films photograph pastel. It is also the
  *  normalisation behind the approved mockup. Clipping here is the correct rendering
  *  choice, not an accident to be engineered away. */
-function peakLuminance(filmIndex: number, illuminant: IlluminantName): number {
+/** Scratch for `buildColorLut`'s first pass — module-scope so a slider drag allocates
+ *  nothing. `filmIndex` is a slider with 51 positions and there is NO debounce between
+ *  it and `update()`. */
+const scratch = new Float64Array(LUT_N * 3)
+
+/** `LUT_N * 4` RGBA floats, normalised and gamut-clamped, ready for `texImage2D`.
+ *
+ *  ⚠️ ONE spectral sweep, not two. The obvious shape — `peakLuminance()` to find the
+ *  scalar, then build — runs the whole 2048 x 101 integral twice and measured 4.6 ms per
+ *  call; a drag across the refractive-index slider issues ~50 of those inside half a
+ *  second. Writing the linear values into scratch while tracking the peak is
+ *  bit-identical and half the cost. */
+export function buildColorLut(filmIndex: number, illuminant: IlluminantName): Float32Array {
+  const out = new Float32Array(LUT_N * 4)
   let peak = 0
   for (let i = 0; i < LUT_N; i++) {
     const c = spectralFilmColor((i / (LUT_N - 1)) * LUT_MAX_OPD, filmIndex, illuminant)
-    peak = Math.max(peak, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)
+    const o = i * 3
+    scratch[o] = c.r
+    scratch[o + 1] = c.g
+    scratch[o + 2] = c.b
+    const y = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+    if (y > peak) peak = y
   }
-  return peak
-}
-
-/** `LUT_N * 4` RGBA floats, normalised and gamut-clamped, ready for `texImage2D`. */
-export function buildColorLut(filmIndex: number, illuminant: IlluminantName): Float32Array {
-  const out = new Float32Array(LUT_N * 4)
-  const k = 1 / peakLuminance(filmIndex, illuminant)
+  const k = 1 / peak
   for (let i = 0; i < LUT_N; i++) {
-    const c = spectralFilmColor((i / (LUT_N - 1)) * LUT_MAX_OPD, filmIndex, illuminant)
-    const o = i * 4
-    // Clamped at BOTH ends: below, because 8 of 141 first-order colours fall outside
-    // sRGB and are unrepresentable; above, because that clip is what desaturates the
-    // brightest orders into the pearly look a real film has.
-    out[o] = Math.min(1, Math.max(0, c.r * k))
-    out[o + 1] = Math.min(1, Math.max(0, c.g * k))
-    out[o + 2] = Math.min(1, Math.max(0, c.b * k))
-    out[o + 3] = 1
+    const o = i * 3
+    const q = i * 4
+    // Clamped at BOTH ends: below, because the first orders fall outside sRGB and are
+    // unrepresentable; above, because that clip is what desaturates the brightest orders
+    // into the pearly look a real film has.
+    //
+    // ⚠️ Peak LUMINANCE, and I normalised by peak CHANNEL first and it was wrong.
+    // Peak-channel puts the maximum at exactly 1.0 and clips nothing — strictly more
+    // faithful, and it renders the first orders as saturated neon. Luminance drives the
+    // bright channels past 1 and this clamp desaturates them, which is what a camera does
+    // and why real soap films photograph pastel. The clip is the rendering decision, not
+    // an accident to engineer away.
+    out[q] = Math.min(1, Math.max(0, scratch[o] * k))
+    out[q + 1] = Math.min(1, Math.max(0, scratch[o + 1] * k))
+    out[q + 2] = Math.min(1, Math.max(0, scratch[o + 2] * k))
+    out[q + 3] = 1
   }
   return out
 }

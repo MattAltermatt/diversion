@@ -87,6 +87,13 @@ function link(gl: WebGL2RenderingContext, vsSrc: string, fsSrc: string): WebGLPr
   gl.attachShader(p, vs)
   gl.attachShader(p, fs)
   gl.linkProgram(p)
+  // ⚠️ THROW on failure. AnimationHost catches a throwing setup() and routes it to the
+  // error boundary; returning a dead program opts out of that, and the symptom is a black
+  // canvas with the fps pill counting up and per-frame validation spam. 16 of the 17
+  // gl.ts files in this repo check this.
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(`soap-film vertex shader: ${gl.getShaderInfoLog(vs)}`)
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(`soap-film fragment shader: ${gl.getShaderInfoLog(fs)}`)
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`soap-film link: ${gl.getProgramInfoLog(p)}`)
   gl.deleteShader(vs)
   gl.deleteShader(fs)
   return p
@@ -169,8 +176,13 @@ export function render(gl: WebGL2RenderingContext, res: SoapGL, view: RenderView
   gl.uniform1f(res.loc.uFilmIndex, view.filmIndex)
   gl.uniform1f(res.loc.uLutMaxOpd, LUT_MAX_OPD)
   gl.uniform1f(res.loc.uExposure, view.exposure)
+  // ⚠️ LINEAR. `hexToRgb` returns sRGB-ENCODED components and the shader encodes on
+  // output, so passing them straight through encodes twice: the default #06080b painted
+  // as ~#2A323B, i.e. the near-black you picked came out slate grey — through the rupture
+  // hole, which is the piece's most dramatic beat. `caustics/gl.ts` sends pow(hex, 2.2)
+  // for the same reason.
   const bg = hexToRgb(view.background)
-  gl.uniform3f(res.loc.uBackground, bg[0], bg[1], bg[2])
+  gl.uniform3f(res.loc.uBackground, Math.pow(bg[0], 2.2), Math.pow(bg[1], 2.2), Math.pow(bg[2], 2.2))
   gl.uniform4f(res.loc.uRupture, view.rupture[0], view.rupture[1], view.rupture[2], view.rupture[3])
   gl.uniform1f(res.loc.uFade, view.fade)
   gl.drawArrays(gl.TRIANGLES, 0, 3)
