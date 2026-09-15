@@ -215,10 +215,14 @@ describe('brightness guard', () => {
     expect(worst(causticsSchema.parse({ ripple: 0.026 }), 96)).toBeGreaterThan(0.01)
   })
 
-  // Pins the slosh REGIME, which the guard above never sweeps. Measured worst
-  // instants at the defaults: 0.081 at slosh 0, 0.033 at the shipped 0.70, 0.015
-  // at 0.90 -- and 0.0026 at 1.00, which is ~4x BELOW the bar every other guarded
-  // config clears. That is not a bug in the spectrum: at slosh 1 every train
+  // Pins the slosh REGIME, which the guard above never sweeps. Measured with THIS
+  // test's own methodology (seed 1, n=96, the five instants `worst` samples):
+  // 0.084 at slosh 0, 0.042 at the shipped 0.70, 0.035 at 0.90, 0.027 at 1.00.
+  // A denser sweep finds deeper troughs BETWEEN those instants -- 0.005 at 0.90
+  // and 0.000 at 1.00 -- which is the point of #389 and the reason these numbers
+  // are quoted against a stated method rather than left bare: two honest sweeps
+  // of the same config disagree by 10x, so a figure without its method is not a
+  // measurement. That is not a bug in the spectrum: at slosh 1 every train
   // stands, so all eleven cos(wt) weights cross zero together and the surface
   // momentarily flattens. It is reachable by dragging the slider to its stop, it
   // is called out in the field's `help`, and capping the slider's max is a
@@ -229,7 +233,19 @@ describe('brightness guard', () => {
     expect(Math.min(...got.map(([, v]) => v)), JSON.stringify(got)).toBeGreaterThan(0.01)
   })
 
+  // Depth's bottom is a SECOND reachable no-picture state, independent of ripple,
+  // and its help now says so. Measured at otherwise-default: 0.0005 at 0.60,
+  // 0.0024 at 0.65, 0.0049 at 0.70, 0.0080 at 0.75 -- the bar is first cleared at
+  // 0.80 (0.0129). Pinned as a REGIME, not a defect: the slider's min is an
+  // owner-set number and moving it is not a reviewer's call.
+  it('needs depth to gather the light, and says so from 0.8 up', () => {
+    expect(worst(causticsSchema.parse({ depth: 0.8 }), 96)).toBeGreaterThan(0.01)
+    expect(worst(causticsSchema.parse({ depth: 0.6 }), 96)).toBeLessThan(0.01)
+  })
+
   it('and the floor of the sliders genuinely does not — the guard is not vacuous', () => {
+    // Ripple is what dominates this control: at depth 1.0 the minimum ripple
+    // alone already scores 0.00000, so the assertion is about ripple, not depth.
     expect(worst(causticsSchema.parse({ ripple: 0.0015, depth: 0.6 }), 96)).toBeLessThan(0.0005)
   })
 })

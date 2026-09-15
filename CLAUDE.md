@@ -6,7 +6,7 @@ A gallery of independent screensaver-like generative-art "diversions" sharing on
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~25s, 7646 tests in 350 files)
+npm test         # vitest run (full suite; ~25s, 7649 tests in 350 files)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint --deny-warnings (a new warning fails CI; #308)
 npm run build    # tsc -b && vite build

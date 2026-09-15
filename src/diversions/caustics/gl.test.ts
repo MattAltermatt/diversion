@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeGLContext } from '../../test-setup'
-import { accSizeFor, gridFor, initGL, resizeTargets, disposeGL, render, RAYS_PER_PX, ACC_MAX_PX } from './gl'
+import { accSizeFor, gridFor, initGL, resizeTargets, disposeGL, render, RAYS_PER_PX, ACC_MAX_PX, GUST_RATES } from './gl'
 import { causticsSchema } from './schema'
 import { buildSpectrum } from './spectrum'
 
@@ -146,6 +146,49 @@ describe('resolve uniforms', () => {
     expect(uploadsFor('Tile').ints).toEqual([0, 0])
     expect(uploadsFor('Plain').ints).toEqual([0, 1])
     expect(uploadsFor('Sand').ints).toEqual([0, 2])
+  })
+
+  // THE WRAP. phase.ts wraps all eleven train phases because an unbounded
+  // accumulated phase loses float32 precision over a long unattended run -- and
+  // the gust field was handed the raw accumulator one term later, so it had
+  // exactly that bug with nothing testing it (the phase tests only ever see the
+  // wrapped quantity). Measured before the fix: at tempo 0.001 on a 120 Hz
+  // display the per-frame step is 1.02 float32 ULP after 24 h and 0.51 after 72 h.
+  it('uploads gust phases WRAPPED, for any elapsed clock', () => {
+    const gl = makeGLContext()
+    const got: number[][] = []
+    ;(gl as unknown as Record<string, unknown>).uniform3f =
+      (_l: unknown, a: number, b: number, c: number) => { got.push([a, b, c]) }
+    const res = initGL(gl)
+    resizeTargets(gl, res, 800, 600)
+    const cfg = causticsSchema.parse({})
+    const spec = buildSpectrum(cfg)
+    for (const clock of [0, 12.5, 5184, 31104, 1e6]) {
+      got.length = 0
+      render(gl, res, cfg, spec, clock)
+      // uniform3f is called for uGustPhase, uBackground and uLight; the phases are
+      // the first. Assert on call order -- mock locations are indistinguishable.
+      for (const v of got[0]) expect(Math.abs(v), `clock ${clock}`).toBeLessThanOrEqual(2 * Math.PI)
+    }
+  })
+
+  // Each term must be wrapped against ITS OWN rate: the three rates are
+  // incommensurate (that is why the field never repeats), so a single
+  // `uTime % TAU` upstream would shear them against each other.
+  it('wraps each gust term against its own rate', () => {
+    const gl = makeGLContext()
+    const got: number[][] = []
+    ;(gl as unknown as Record<string, unknown>).uniform3f =
+      (_l: unknown, a: number, b: number, c: number) => { got.push([a, b, c]) }
+    const res = initGL(gl)
+    resizeTargets(gl, res, 800, 600)
+    const cfg = causticsSchema.parse({})
+    const clock = 97.3
+    render(gl, res, cfg, buildSpectrum(cfg), clock)
+    const TAU = Math.PI * 2
+    expect(got[0][0]).toBeCloseTo((clock * GUST_RATES[0]) % TAU, 10)
+    expect(got[0][1]).toBeCloseTo((clock * GUST_RATES[1]) % TAU, 10)
+    expect(got[0][2]).toBeCloseTo((clock * GUST_RATES[2]) % TAU, 10)
   })
 
   it('uploads uMean as the true rays-per-accumulation-pixel', () => {

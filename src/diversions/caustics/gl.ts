@@ -13,12 +13,30 @@ export const RAYS_PER_PX = 14
 export const ACC_SCALE = 0.42
 export const ACC_MAX_PX = 720_000
 
+/** The gust field's three time rates. They are INCOMMENSURATE on purpose (the
+ *  field never repeats), which is also why a single `uTime % TAU` would be wrong:
+ *  each term has to be wrapped against its own rate.
+ *
+ *  ⚠️ These are wrapped on the CPU, in doubles, and uploaded as `uGustPhase`.
+ *  `phase.ts` already wraps all eleven TRAIN phases because "an unbounded
+ *  accumulated phase loses float32 precision over a multi-hour unattended run,
+ *  and the motion would quantize" — and the gust used to be handed the raw
+ *  accumulator one term later, so it had exactly that bug. Measured: at tempo
+ *  0.001 on a 120 Hz display the per-frame step falls to 1.02 float32 ULP after
+ *  24 h and **0.51 after 72 h**, i.e. half the frames stop moving the gust at all.
+ *  This gallery ships a Wake Lock for a propped-up display; a 72-hour run is the
+ *  use case, not the edge case. The gust is the whole answer to "stationary
+ *  statistics are what the eye discards", so it is the one term that must not
+ *  quietly freeze. */
+export const GUST_RATES: readonly [number, number, number] = [0.246, 0.198, 0.162]
+
 /* ---- splat: one vertex per surface sample, refracted to its landing point ---- */
 export const SPLAT_VS = `#version 300 es
 precision highp float;
 uniform vec2  uGrid;      // surface sample grid
 uniform vec2  uExtent;    // world metres across the canvas
-uniform float uTime, uAmp, uDepth, uGust;
+uniform float uAmp, uDepth, uGust;
+uniform vec3  uGustPhase;   // the three gust terms' phases, WRAPPED on the CPU
 uniform vec4  uTrain[${NT}];   // kx, ky, spatial phase, unused
 uniform vec4  uTrainB[${NT}];  // amplitude, gust susceptibility, time phase, time weight
 void main(){
@@ -29,9 +47,11 @@ void main(){
 
   // slow drifting gust field — low spatial frequency, IN-FRAME wavelength.
   // (authored too long and it does nothing at all; that is the easy mistake.)
-  float g = sin( 2.05*p.x + 1.25*p.y + uTime*0.246)
-          + sin(-1.55*p.x + 2.35*p.y + uTime*0.198)
-          + sin( 0.80*p.x - 1.90*p.y + uTime*0.162);
+  // Phases arrive pre-wrapped: see GUST_RATES in this file. Passing the raw clock
+  // here is what the wrap in phase.ts exists to prevent, one term over.
+  float g = sin( 2.05*p.x + 1.25*p.y + uGustPhase.x)
+          + sin(-1.55*p.x + 2.35*p.y + uGustPhase.y)
+          + sin( 0.80*p.x - 1.90*p.y + uGustPhase.z);
   float gn = g / 3.0;
 
   // A travelling train is sin(k.p + phi - wt); a STANDING one (a pool is a
@@ -267,7 +287,7 @@ export function initGL(gl: WebGL2RenderingContext): CausticsGL {
     gridH: 0,
     nPoints: 0,
     // Uniform locations are cached HERE only; resizeTargets never touches a program.
-    splatU: u(splat, ['uGrid', 'uExtent', 'uTime', 'uAmp', 'uDepth', 'uGust', 'uTrain', 'uTrainB']),
+    splatU: u(splat, ['uGrid', 'uExtent', 'uGustPhase', 'uAmp', 'uDepth', 'uGust', 'uTrain', 'uTrainB']),
     resolveU: u(resolve, ['uAcc', 'uAccTexel', 'uExtent', 'uMean', 'uTileSize', 'uFloor',
       'uBackground', 'uLight']),
     bgHex: '',
@@ -337,7 +357,14 @@ export function render(
   gl.useProgram(res.splat)
   gl.uniform2f(res.splatU.uGrid, res.gridW, res.gridH)
   gl.uniform2f(res.splatU.uExtent, extentX, extentY)
-  gl.uniform1f(res.splatU.uTime, clock)
+  // Wrapped per rate, in doubles, before the value ever becomes a float32.
+  const TAU = Math.PI * 2
+  gl.uniform3f(
+    res.splatU.uGustPhase,
+    (clock * GUST_RATES[0]) % TAU,
+    (clock * GUST_RATES[1]) % TAU,
+    (clock * GUST_RATES[2]) % TAU,
+  )
   gl.uniform1f(res.splatU.uAmp, cfg.ripple)
   gl.uniform1f(res.splatU.uDepth, cfg.depth)
   gl.uniform1f(res.splatU.uGust, cfg.gust)

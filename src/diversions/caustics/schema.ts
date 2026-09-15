@@ -37,7 +37,9 @@ export const causticsSchema = z.object({
     .meta({ section: 'Water', ui: 'slider', min: 0.6, max: 3.4, step: 0.05, label: 'Depth',
             help: 'Metres from the surface to the floor. Light bent at the surface travels further '
                 + 'before it lands, so a deeper pool spreads and sharpens the web; a shallow one '
-                + 'holds it close and soft.' }),
+                + 'holds it close and soft. Below about 0.8 m there is not enough distance for the '
+                + 'light to gather at all and the web dissolves into flat mottle — the same failure '
+                + 'as turning Ripple down, and like Ripple this is not the way to make it calmer.' }),
   scale: z.number().min(3).max(14).default(9.6)
     .meta({ section: 'Water', ui: 'slider', min: 3, max: 14, step: 0.1, label: 'Scale',
             help: 'How many metres of pool the screen covers. Waves are a fixed physical size, so '
