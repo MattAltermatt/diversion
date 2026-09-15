@@ -1,0 +1,406 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Caustics — mockup (#338)</title>
+<style>
+  html,body{margin:0;height:100%;background:#05080a;color:#e8eef0;
+    font:13px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .panel{position:fixed;top:14px;left:14px;z-index:2;width:268px;padding:14px 15px 12px;
+    background:rgba(8,16,18,.82);backdrop-filter:blur(8px);border:1px solid #2a3338;border-radius:10px}
+  .panel h1{margin:0 0 2px;font-size:13px;letter-spacing:.02em}
+  .panel .sub{margin:0 0 11px;font-size:11px;color:#8fa3aa}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{flex:0 0 88px;font-size:11px;color:#c3d2d7}
+  .row input[type=range]{flex:1;accent-color:#5fd4c8;min-width:0}
+  .row .val{flex:0 0 46px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;color:#8fa3aa}
+  .seg{display:flex;gap:4px;margin:7px 0 0}
+  .seg button{flex:1;padding:4px 0;font:inherit;font-size:11px;color:#c3d2d7;cursor:pointer;
+    background:#121c1f;border:1px solid #2a3338;border-radius:5px}
+  .seg button[aria-pressed=true]{background:#1d3b3a;border-color:#3e6b66;color:#dff6f2}
+  .pre{margin-top:11px;padding-top:10px;border-top:1px solid #223034}
+  .pre button{width:100%;margin:4px 0 0;padding:5px 0;font:inherit;font-size:11px;color:#dff6f2;
+    background:#16262a;border:1px solid #2f4a4e;border-radius:5px;cursor:pointer}
+  .note{margin:10px 0 0;font-size:10.5px;color:#7b8f96}
+  .fps{position:fixed;right:14px;top:14px;z-index:2;font-size:11px;color:#7b8f96;
+    background:rgba(8,16,18,.7);padding:4px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+</style>
+<canvas id="c"></canvas>
+<div class="fps" id="fps">—</div>
+<div class="panel">
+  <h1>Caustics — mockup</h1>
+  <p class="sub">#338 · refracted sun on a pool floor</p>
+
+  <div class="row"><label for="tempo">Tempo</label>
+    <input autocomplete="off" type="range" id="tempo" min="0" max="0.0060" step="0.0001" value="0.0010"><span class="val" id="tempoV"></span></div>
+  <div class="row"><label for="amp">Ripple</label>
+    <input autocomplete="off" type="range" id="amp" min="0.0015" max="0.026" step="0.0002" value="0.0035"><span class="val" id="ampV"></span></div>
+  <div class="row"><label for="gust">Gust</label>
+    <input autocomplete="off" type="range" id="gust" min="0" max="0.9" step="0.01" value="0.22"><span class="val" id="gustV"></span></div>
+  <div class="row"><label for="depth">Depth</label>
+    <input autocomplete="off" type="range" id="depth" min="0.6" max="3.4" step="0.05" value="1.0"><span class="val" id="depthV"></span></div>
+  <div class="row"><label for="tilt">Swell</label>
+    <input autocomplete="off" type="range" id="tilt" min="1.60" max="2.60" step="0.01" value="1.78"><span class="val" id="tiltV"></span></div>
+  <div class="row"><label for="grain">Spread</label>
+    <input autocomplete="off" type="range" id="grain" min="0" max="1" step="0.01" value="0.28"><span class="val" id="grainV"></span></div>
+  <div class="row"><label for="slosh">Slosh</label>
+    <input autocomplete="off" type="range" id="slosh" min="0" max="1" step="0.01" value="0.70"><span class="val" id="sloshV"></span></div>
+  <div class="row"><label for="scale">Scale</label>
+    <input autocomplete="off" type="range" id="scale" min="3" max="14" step="0.1" value="9.6"><span class="val" id="scaleV"></span></div>
+
+  <div class="seg" id="floor" role="group" aria-label="Floor">
+    <button data-v="0" aria-pressed="true">Tile</button>
+    <button data-v="1" aria-pressed="false">Plain</button>
+    <button data-v="2" aria-pressed="false">Sand</button>
+  </div>
+  <div class="seg" id="pal" role="group" aria-label="Palette">
+    <button data-v="0" aria-pressed="true">Pool</button>
+    <button data-v="1" aria-pressed="false">Deep</button>
+    <button data-v="2" aria-pressed="false">Lagoon</button>
+  </div>
+
+  <div class="pre">
+    <button data-p="zen">Calm — the shipped default</button>
+    <button data-p="open">Open water — Slosh 0, all travelling</button>
+    <button data-p="breezy">Breezy — someone got in</button>
+    <button data-p="fence">Chain-link — flat spectrum, isotropic</button>
+  </div>
+  <p class="note"><b>Slosh</b> is how much of the spectrum <em>stands</em> rather than
+    travels. A pool is a closed basin, so its long modes are seiches with nodes that
+    stay put and the light breathes in place instead of marching across the floor.
+    Drop the ripple far enough and the web stops focusing and dissolves
+    into mottle — so “calm” is <em>tempo</em>, never ripple height. (This panel used to call that a
+    “fold threshold”. It is not one: measured, the shipped default never folds at all — the web is
+    pure density compression.)</p>
+</div>
+<script>
+const cv = document.getElementById('c');
+const gl = cv.getContext('webgl2', { alpha:false, antialias:false, powerPreference:'high-performance' });
+if (!gl) { document.body.innerHTML = '<p style="padding:2rem">WebGL2 required.</p>'; throw 0; }
+const floatOK = !!gl.getExtension('EXT_color_buffer_float');
+const halfOK  = !!gl.getExtension('EXT_color_buffer_half_float');
+
+const NT = 11;                      // wave trains across the spectrum
+const RAYS_PER_PX = 14;             // below this the floor sparkles black
+const ACC_SCALE = 0.42;             // accumulate below half res, upscale on resolve
+
+function sh(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) + '\n' + src);
+  return s;
+}
+function prog(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+/* ---- splat: one vertex per surface sample, refracted to its landing point ---- */
+const SPLAT_VS = `#version 300 es
+precision highp float;
+uniform vec2  uGrid;      // surface sample grid
+uniform vec2  uExtent;    // world metres across the canvas
+uniform float uTime, uAmp, uDepth, uGust;
+uniform vec4  uTrain[${NT}];   // kx, ky, spatial phase, unused
+uniform vec4  uTrainB[${NT}];  // amplitude, gust susceptibility, time phase, time weight
+void main(){
+  int id = gl_VertexID;
+  int gw = int(uGrid.x);
+  vec2 uv = vec2(float(id % gw) / (uGrid.x - 1.0), float(id / gw) / (uGrid.y - 1.0));
+  vec2 p  = (uv - 0.5) * uExtent;
+
+  // slow drifting gust field — low spatial frequency, IN-FRAME wavelength.
+  // (authored too long and it does nothing at all; that is the easy mistake.)
+  float g = sin( 2.05*p.x + 1.25*p.y + uTime*0.246)
+          + sin(-1.55*p.x + 2.35*p.y + uTime*0.198)
+          + sin( 0.80*p.x - 1.90*p.y + uTime*0.162);
+  float gn = g / 3.0;
+
+  // A travelling train is sin(k.p + phi - wt); a STANDING one (a pool is a
+  // closed basin, so its long modes are seiches sloshing between the walls,
+  // with nodes that stay put) is sin(k.p + phi)*cos(wt). The time factor of
+  // each is uniform over the surface, so both collapse to the same one-trig
+  // form with a per-frame phase and weight -- standing costs nothing extra.
+  vec2 grad = vec2(0.0);
+  for (int i = 0; i < ${NT}; i++) {
+    vec4 t = uTrain[i];
+    vec4 b = uTrainB[i];
+    // the gust ruffles SHORT waves and barely touches the swell, so a gust
+    // changes the local cell SIZE and not merely the brightness
+    float m = 1.0 + uGust * gn * b.y;
+    grad += uAmp * b.x * m * b.w * cos(t.x*p.x + t.y*p.y + t.z + b.z) * t.xy;
+  }
+  // small-slope refraction: landing point on the floor, n = 1.33
+  vec2 land = p - uDepth * 0.2481 * grad;
+  gl_Position  = vec4((land / uExtent) * 2.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+}`;
+const SPLAT_FS = `#version 300 es
+precision highp float;
+out vec4 o;
+void main(){ o = vec4(1.0); }`;
+
+/* ---- resolve: tone-map the ray density over a pool floor ---- */
+const QUAD_VS = `#version 300 es
+precision highp float;
+out vec2 vUv;
+void main(){
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  vUv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+const RESOLVE_FS = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uAcc;
+uniform vec2  uAccTexel, uExtent;
+uniform float uMean;      // expected rays/px == 1.0 of exposure
+uniform int   uFloor, uPal;
+
+vec3 floorColour(vec2 w, vec3 base){
+  if (uFloor == 1) return base;
+  if (uFloor == 2) {                                   // sand: soft mottle
+    float n = sin(w.x*11.0)*sin(w.y*13.0) + 0.6*sin(w.x*27.0+1.3)*sin(w.y*23.0-0.7);
+    return base * (0.93 + 0.09 * n);
+  }
+  vec2 t = w / 0.30;                                   // 30 cm tiles
+  vec2 f = abs(fract(t) - 0.5);
+  // deliberately faint: the caustic is the subject and a hard grid competes
+  // with it. Narrow line, shallow darkening, barely-there per-tile variation.
+  float grout = smoothstep(0.470, 0.500, max(f.x, f.y));
+  vec2 cell = floor(t);
+  float v = fract(sin(dot(cell, vec2(12.99, 78.23))) * 43758.55);
+  return mix(base * (0.985 + 0.030*v), base * 0.90, grout);
+}
+
+void main(){
+  // 5-tap smoothing: the accumulation buffer is a ray histogram, so it is noisy
+  float a = texture(uAcc, vUv).r * 4.0;
+  a += texture(uAcc, vUv + vec2( uAccTexel.x, 0)).r;
+  a += texture(uAcc, vUv + vec2(-uAccTexel.x, 0)).r;
+  a += texture(uAcc, vUv + vec2(0,  uAccTexel.y)).r;
+  a += texture(uAcc, vUv + vec2(0, -uAccTexel.y)).r;
+  float e = (a / 8.0) / max(uMean, 1e-5);              // 1.0 == unrefracted
+
+  vec3 water, light;
+  if (uPal == 1)      { water = vec3(0.016, 0.075, 0.118); light = vec3(0.78, 0.95, 1.00); }
+  else if (uPal == 2) { water = vec3(0.031, 0.157, 0.153); light = vec3(0.86, 1.00, 0.93); }
+  else                { water = vec3(0.024, 0.122, 0.149); light = vec3(1.00, 0.99, 0.92); }
+
+  vec2 w = (vUv - 0.5) * uExtent;
+  vec3 base = floorColour(w, water);
+
+  // e == 1.0 is undisturbed density, so the caustic is the EXCESS above it.
+  // Mapping from 0 rather than from 1 floods the floor with white and loses
+  // the dark water the filaments are supposed to read against.
+  float x    = max(e - 0.88, 0.0);
+  float lit  = x / (1.0 + x * 0.85);                   // soft shoulder, no clipping
+  float band = pow(clamp(lit * 1.05, 0.0, 1.0), 1.70);
+  vec3 col = base * (0.88 + 0.34 * clamp(e, 0.0, 1.2)) + light * band * 0.90;
+  col += light * pow(clamp(x * 0.22, 0.0, 1.0), 2.6) * 0.42;    // filament core bloom
+
+  float r = length((vUv - 0.5) * vec2(1.0, 0.62));
+  col *= 1.0 - 0.30 * r * r;                                   // gentle vignette
+  o = vec4(pow(max(col, 0.0), vec3(1.0/2.2)), 1.0);
+}`;
+
+const splat = prog(SPLAT_VS, SPLAT_FS);
+const resolve = prog(QUAD_VS, RESOLVE_FS);
+const emptyVAO = gl.createVertexArray();
+
+let accTex = null, accFBO = null, accW = 0, accH = 0, gridW = 0, gridH = 0, nPoints = 0;
+
+function buildTargets() {
+  const dpr = Math.min(devicePixelRatio || 1, 1.75);
+  cv.width = Math.round(cv.clientWidth * dpr);
+  cv.height = Math.round(cv.clientHeight * dpr);
+  accW = Math.max(2, Math.round(cv.width * ACC_SCALE));
+  accH = Math.max(2, Math.round(cv.height * ACC_SCALE));
+
+  if (accTex) { gl.deleteTexture(accTex); gl.deleteFramebuffer(accFBO); }
+  accTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, accTex);
+  // R16F, never R32F: float32 textures are NOT filterable in core WebGL2, so a
+  // LINEAR sampler over R32F silently returns 0 and the whole caustic vanishes
+  // with no GL error. Half-float linear filtering is core.
+  const hf = floatOK || halfOK;
+  const internal = hf ? gl.R16F : gl.R8;
+  const type = hf ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+  gl.texImage2D(gl.TEXTURE_2D, 0, internal, accW, accH, 0, gl.RED, type, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  accFBO = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, accFBO);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, accTex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  const want = accW * accH * RAYS_PER_PX;
+  const ar = cv.width / cv.height;
+  gridH = Math.max(8, Math.round(Math.sqrt(want / ar)));
+  gridW = Math.max(8, Math.round(gridH * ar));
+  nPoints = gridW * gridH;
+}
+
+// A real spectrum, not a flat one. Focusing power goes as a*k^2, so with equal
+// amplitudes the SHORTEST train dominates by (lamMax/lamMin)^2 and every cell
+// comes out the same size -- the chain-link fence. `tilt` sets how amplitude
+// falls with wavelength: tilt 2.0 gives every scale equal focusing power, above
+// that the swell leads and fine chop rides on it.
+const LAM_MAX = 1.15, LAM_MIN = 0.090;
+// Folding is driven by depth*K*a*k^2, so the spectrum must be normalised on
+// CURVATURE, pinned to an absolute level -- normalising to unit RMS instead
+// silently drops the whole field under the brightness threshold and it goes blank.
+const CURV_TARGET = 120;
+const trains  = new Float32Array(NT * 4);
+const trainsB = new Float32Array(NT * 4);
+const omega   = new Float64Array(NT);
+const standing = new Uint8Array(NT);
+// `slosh` is the fraction of the spectrum that stands rather than travels.
+// Long modes go standing first: a basin's seiches are its LONG modes, while
+// fine chop stays local and travelling.
+function setSlosh(slosh) {
+  for (let i = 0; i < NT; i++) standing[i] = (i / (NT - 1)) < slosh ? 1 : 0;
+}
+function buildTrains(tilt, grain) {
+  const amp = [], curv = [];
+  for (let i = 0; i < NT; i++) {
+    const f = i / (NT - 1);
+    const lam = LAM_MAX * Math.pow(LAM_MIN / LAM_MAX, f);
+    const k = (2 * Math.PI) / lam;
+    const a = Math.pow(lam, tilt);
+    amp.push(a); curv.push(a * k * k);
+  }
+  // hold total focusing constant so moving `tilt` does not also move brightness
+  const rms = Math.sqrt(curv.reduce((s, c) => s + c * c, 0) / NT) || 1;
+  for (let i = 0; i < NT; i++) {
+    const f = i / (NT - 1);
+    const lam = LAM_MAX * Math.pow(LAM_MIN / LAM_MAX, f);
+    const k = (2 * Math.PI) / lam;
+    // directional spreading: swell holds the wind line, chop fans out around it
+    const r = Math.sin(i * 12.9898 + 4.1) * 43758.5453;
+    const jitter = (r - Math.floor(r)) * 2 - 1;
+    const spread = grain * (0.16 + 1.30 * f) * Math.PI;
+    const ang = 0.62 + spread * jitter;
+    trains[i*4+0] = Math.cos(ang) * k;
+    trains[i*4+1] = Math.sin(ang) * k;
+    trains[i*4+2] = i * 1.7 + jitter * 2.4;       // spatial phase
+    trains[i*4+3] = 0;
+    omega[i] = Math.sqrt(9.81 * k);               // deep-water dispersion
+    trainsB[i*4+0] = (amp[i] / rms) * CURV_TARGET;
+    trainsB[i*4+1] = Math.pow(f, 1.5);            // gust hits short waves only
+  }
+}
+
+const ui = {
+  tempo: document.getElementById('tempo'), amp: document.getElementById('amp'),
+  gust: document.getElementById('gust'), depth: document.getElementById('depth'),
+  tilt: document.getElementById('tilt'), grain: document.getElementById('grain'),
+  slosh: document.getElementById('slosh'),
+  scale: document.getElementById('scale'),
+};
+let floorMode = 0, palMode = 0;
+function syncLabels() {
+  document.getElementById('tempoV').textContent = (+ui.tempo.value).toFixed(4);
+  document.getElementById('ampV').textContent   = (+ui.amp.value).toFixed(4);
+  document.getElementById('gustV').textContent  = (+ui.gust.value).toFixed(2);
+  document.getElementById('depthV').textContent = (+ui.depth.value).toFixed(2) + 'm';
+  document.getElementById('tiltV').textContent  = (+ui.tilt.value).toFixed(2);
+  document.getElementById('grainV').textContent = (+ui.grain.value).toFixed(2);
+  document.getElementById('sloshV').textContent = (+ui.slosh.value).toFixed(2);
+  setSlosh(+ui.slosh.value);
+  document.getElementById('scaleV').textContent = (+ui.scale.value).toFixed(1) + 'm';
+  buildTrains(+ui.tilt.value, +ui.grain.value);
+}
+Object.values(ui).forEach(el => el.addEventListener('input', syncLabels));
+syncLabels();
+
+function wireSeg(id, set) {
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...box.querySelectorAll('button')].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    set(+b.dataset.v);
+  });
+}
+wireSeg('floor', v => floorMode = v);
+wireSeg('pal',   v => palMode = v);
+
+const PRESETS = {
+  // owner-set, 2026-09-12, from the live mockup: this IS the calm stage
+  zen:    { tempo: 0.0010, amp: 0.0035, gust: 0.22, tilt: 1.78, grain: 0.28, slosh: 0.70, depth: 1.00, scale: 9.6 },
+  open:   { tempo: 0.0010, amp: 0.0035, gust: 0.22, tilt: 1.78, grain: 0.28, slosh: 0.00, depth: 1.00, scale: 9.6 },
+  breezy: { tempo: 0.0022, amp: 0.0070, gust: 0.70, tilt: 1.86, grain: 0.45, slosh: 0.55, depth: 1.40, scale: 9.6 },
+  fence:  { tempo: 0.0010, amp: 0.0035, gust: 0.22, tilt: 1.60, grain: 1.00, slosh: 0.70, depth: 1.00, scale: 9.6 },
+};
+document.querySelectorAll('.pre button').forEach(b => b.addEventListener('click', () => {
+  const p = PRESETS[b.dataset.p];
+  for (const k in p) ui[k].value = p[k];
+  syncLabels();
+}));
+
+let t = 0, last = performance.now(), fpsAcc = 0, fpsN = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  t += dt * (+ui.tempo.value) * 60;            // tempo dilates the clock, nothing else
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc > 0.5) {
+    document.getElementById('fps').textContent =
+      (fpsN / fpsAcc).toFixed(0) + ' fps · ' + (nPoints / 1e6).toFixed(1) + 'M rays';
+    fpsAcc = 0; fpsN = 0;
+  }
+
+  const TAU = Math.PI * 2;
+  for (let i = 0; i < NT; i++) {
+    if (standing[i]) {                     // sin(k.p+phi) * cos(wt)
+      trainsB[i*4+2] = 0;
+      trainsB[i*4+3] = Math.cos((omega[i] * t) % TAU);
+    } else {                               // sin(k.p+phi-wt)
+      trainsB[i*4+2] = -((omega[i] * t) % TAU);   // wrapped: an unbounded phase
+      trainsB[i*4+3] = 1;                         // loses float precision by the hour
+    }
+  }
+
+  // mockup-only inspection hook: the canvas has no preserveDrawingBuffer, so a
+  // pixel read-back is blank and tells you nothing. Read the uniforms instead.
+  window.__caustics = { trains, trainsB, standing, omega, t };
+
+  const extentX = +ui.scale.value;
+  const extentY = extentX * cv.height / cv.width;
+
+  gl.bindVertexArray(emptyVAO);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, accFBO);
+  gl.viewport(0, 0, accW, accH);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(splat);
+  gl.uniform2f(gl.getUniformLocation(splat, 'uGrid'), gridW, gridH);
+  gl.uniform2f(gl.getUniformLocation(splat, 'uExtent'), extentX, extentY);
+  gl.uniform1f(gl.getUniformLocation(splat, 'uTime'), t);
+  gl.uniform1f(gl.getUniformLocation(splat, 'uAmp'), +ui.amp.value);
+  gl.uniform1f(gl.getUniformLocation(splat, 'uDepth'), +ui.depth.value);
+  gl.uniform1f(gl.getUniformLocation(splat, 'uGust'), +ui.gust.value);
+  gl.uniform4fv(gl.getUniformLocation(splat, 'uTrain'), trains);
+  gl.uniform4fv(gl.getUniformLocation(splat, 'uTrainB'), trainsB);
+  gl.drawArrays(gl.POINTS, 0, nPoints);
+  gl.disable(gl.BLEND);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.useProgram(resolve);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, accTex);
+  gl.uniform1i(gl.getUniformLocation(resolve, 'uAcc'), 0);
+  gl.uniform2f(gl.getUniformLocation(resolve, 'uAccTexel'), 1 / accW, 1 / accH);
+  gl.uniform2f(gl.getUniformLocation(resolve, 'uExtent'), extentX, extentY);
+  gl.uniform1f(gl.getUniformLocation(resolve, 'uMean'), nPoints / (accW * accH));
+  gl.uniform1i(gl.getUniformLocation(resolve, 'uFloor'), floorMode);
+  gl.uniform1i(gl.getUniformLocation(resolve, 'uPal'), palMode);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  requestAnimationFrame(frame);
+}
+buildTargets();
+addEventListener('resize', buildTargets);
+requestAnimationFrame(frame);
+</script>
