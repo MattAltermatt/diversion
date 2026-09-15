@@ -18,9 +18,8 @@ export const pacePresets: PresetOption<SoapFilmConfig>[] = [
   { name: 'Crawl', patch: { tempo: 0.4 } },
 ]
 
-export const lightPresets: PresetOption<SoapFilmConfig>[] = [
-  { name: 'Daylight', patch: { illuminant: 'Daylight' } },
-  { name: 'Overcast', patch: { illuminant: 'Overcast' } },
-  { name: 'Tungsten', patch: { illuminant: 'Tungsten' } },
-  { name: 'Studio', patch: { illuminant: 'Studio' } },
-]
+/** ⚠️ There is deliberately NO `Light` preset group. One was written, and in the Config
+ *  screen it rendered a dropdown labelled "Light" immediately above the `illuminant`
+ *  field, which is also labelled "Light" and offers the same four options — two controls,
+ *  the same name, the same effect. A preset group earns its place by patching SEVERAL
+ *  fields at once; wrapping a single enum in one is just a second copy of it. */

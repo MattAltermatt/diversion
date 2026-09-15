@@ -60,12 +60,12 @@ export const soapFilmSchema = z.object({
             help: 'What the film is reflecting. A film has no colour of its own — it returns the '
                 + 'light in the room, sorted by thickness — so this is the one colour control the '
                 + 'physics allows. Tungsten warms the whole sequence; Overcast is a cold north sky.' }),
-  exposure: z.number().min(0.3).max(3).default(0.78)
+  exposure: z.number().min(0.3).max(3).default(0.8)
     .meta({ section: 'Color', ui: 'slider', min: 0.3, max: 3, step: 0.05, label: 'Exposure',
             help: 'A soap film reflects only about eight per cent of the light that hits it, so the '
                 + 'picture has to be scaled up to be visible at all. This is that scale: the LUT is '
                 + 'normalised to peak luminance (13.1x at n = 1.33) and this takes the total to the '
-                + 'approved mockup\'s ~10.2x.' }),
+                + 'approved mockup\'s ~10.5x.' }),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#06080b')
     .meta({ section: 'Color', ui: 'color', label: 'Background',
             help: 'What is behind the film — seen only through the hole while it tears, and for the '

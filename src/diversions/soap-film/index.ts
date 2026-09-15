@@ -11,7 +11,7 @@ import {
 import { allocThickness, disposeGL, initGL, render, uploadLut, uploadThickness, type SoapGL } from './gl'
 import { meta } from './meta'
 import { buildColorLut } from './optics'
-import { filmPresets, lightPresets, pacePresets } from './presets'
+import { filmPresets, pacePresets } from './presets'
 import { REFORM_FADE_S, updateRupture, type Rupture } from './rupture'
 import { soapFilmSchema, type SoapFilmConfig } from './schema'
 
@@ -40,7 +40,6 @@ const soapFilm = defineDiversion<typeof soapFilmSchema, SoapFilmState, 'webgl'>(
   presets: [
     { label: 'Film', options: filmPresets },
     { label: 'Pace', options: pacePresets },
-    { label: 'Light', options: lightPresets },
   ],
 
   setup(gl, cfg, size: Size) {
