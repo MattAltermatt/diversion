@@ -242,9 +242,13 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
 - **A spectrum of STANDING waves periodically nulls, and the whole picture thins with it.** A standing train
   contributes `cos(ωt)`, uniform over the surface — so when the long modes pass near their nodes only the
   short trains remain and the field reads as fine mottle at that instant. Measured on Caustics' bright
-  fraction: 1.1× swing with none standing, 2.5× at the shipped 0.70, and **72× at 1.0**, where the floor goes
-  nearly blank because *every* train's weight crosses zero together. A single-frame screenshot of such a
-  piece is weak evidence — sweep `t` before concluding anything about how it looks.
+  fraction: 1.1× swing with none standing, 2.5× at the shipped 0.70, and **72× at 1.0**, where *every* train's
+  weight crosses zero together. ⚠️ Read that 72× as a *threshold-metric artifact*, not as "the screen goes
+  black": the measure is the fraction of surface above a contrast bar, so it collapses fast near the bar
+  while the rendered field only flattens by ~40%. A ratio taken on a threshold metric exaggerates whatever
+  it is measuring — quote the underlying field's spread beside it. A single-frame screenshot of such a piece
+  is also weak evidence: sweep `t` before concluding anything about how it looks, and say which sweep, since
+  two honest sweeps of the same config here disagree by 10×.
 - **A shader that gamma-encodes on output must be fed LINEAR colour.** A raw hex upload renders a different
   colour than the picker shows; send `pow(hexToRgb(c), 2.2)`. And a gust/noise field must be authored at
   **in-frame** wavelength — ~20 m gusts against a 6 m field do visibly nothing.
