@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Parquet Deformation — mockup (#383)</title>
+<style>
+/* Tokens lifted verbatim from src/framework/theme.css so the chrome reads as the app's. */
+:root {
+  --bg: #08080a; --panel: #0b0b0e; --fg: #f0f0f2; --muted: #8a8a94;
+  --accent: #7df5cf; --accent-2: #5fd0ff; --accent-ink: #062018;
+  --line: #26262c; --line-2: #30303a; --line-ctl: #6a6a76; --field: #121218;
+  --radius: 7px; --mono: ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); display: flex;
+  font: 13px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+#panel {
+  width: 300px; flex: none; background: var(--panel); border-right: 1px solid var(--line);
+  padding: 16px 14px 28px; overflow-y: auto; height: 100vh;
+}
+#stage { flex: 1; position: relative; min-width: 0; }
+canvas { display: block; width: 100%; height: 100vh; }
+h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .02em; }
+.sub { color: var(--muted); font-size: 11.5px; margin: 0 0 16px; }
+.sec { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted);
+  margin: 20px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+.f { margin-bottom: 13px; }
+.f > label { display: block; font-size: 12px; margin-bottom: 5px; }
+.val { color: var(--accent); font-family: var(--mono); font-size: 11px; float: right; }
+.help { color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.4; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { width: 100%; background: var(--field); color: var(--fg);
+  border: 1px solid var(--line-ctl); border-radius: var(--radius); padding: 6px 7px; font: inherit; }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.seg button { flex: 1 1 auto; background: var(--field); color: var(--fg); border: 1px solid var(--line-ctl);
+  border-radius: var(--radius); padding: 6px 4px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+#note { position: absolute; left: 14px; bottom: 12px; color: #fff8; font-size: 11px;
+  font-family: var(--mono); background: #0009; padding: 4px 8px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>Parquet Deformation</h1>
+  <p class="sub">Mockup for #383 — Huff / Kaplan. The tiling is a plain square lattice; only the <em>edge curve</em> ever changes, and it changes as a function of position.</p>
+
+  <div class="sec">Deformation</div>
+  <div class="f">
+    <label>Evolution scheme</label>
+    <div class="seg" id="scheme">
+      <button data-v="grid" aria-pressed="true">Grid keys</button>
+      <button data-v="ifs" aria-pressed="false">Fractal</button>
+      <button data-v="organic" aria-pressed="false">Organic</button>
+    </div>
+    <div class="help" id="schemeHelp"></div>
+  </div>
+  <div class="f">
+    <label>Family <span class="val" id="famV"></span></label>
+    <select id="family"></select>
+    <div class="help">The keyframe vocabulary the edge walks through.</div>
+  </div>
+  <div class="f">
+    <label>Detail <span class="val" id="detV"></span></label>
+    <input type="range" id="detail" min="4" max="40" step="1" value="22" />
+    <div class="help">How far the edge evolves by the far end of the ramp.</div>
+  </div>
+
+  <div class="sec">Parameter space</div>
+  <div class="f">
+    <label>Field</label>
+    <div class="seg" id="field">
+      <button data-v="ramp" aria-pressed="true">Ramp</button>
+      <button data-v="radial" aria-pressed="false">Radial</button>
+      <button data-v="diag" aria-pressed="false">Diagonal</button>
+    </div>
+    <div class="help">Kaplan assigns a time value <code>t</code> to every point of the plane; each edge reads <code>t</code> at its own midpoint, so neighbours always match.</div>
+  </div>
+  <div class="f">
+    <label>Ramp width <span class="val" id="spanV"></span></label>
+    <input type="range" id="span" min="3" max="40" step="0.5" value="11" />
+    <div class="help">Tiles per full traverse of the catalogue. Small = a visible gradient in one screen; large = "quietly not identical".</div>
+  </div>
+  <div class="f">
+    <label>Drift <span class="val" id="driftV"></span></label>
+    <input type="range" id="drift" min="0" max="60" step="1" value="16" />
+    <div class="help">Review guardrail: at 0 this is a static print. Default must let a viewer see the tiling <em>arrive somewhere else</em> within a minute.</div>
+  </div>
+
+  <div class="sec">Look</div>
+  <div class="f">
+    <label>Ramp mapping</label>
+    <div class="seg" id="knee">
+      <button data-v="on" aria-pressed="true">To the knee</button>
+      <button data-v="off" aria-pressed="false">Whole stack</button>
+    </div>
+    <div class="help">Organic stops changing shape at about a quarter of its run. <b>To the knee</b> maps the ramp over the part that still evolves; <b>Whole stack</b> is what was captured before, where most of the screen is one uniform knot.</div>
+  </div>
+  <div class="f">
+    <label>Amplitude <span class="val" id="ampV"></span></label>
+    <input type="range" id="amp" min="0.2" max="2.6" step="0.05" value="1" />
+    <div class="help">Scales how far the edge reaches off the lattice line — how much of the tile the deformation occupies. Both tiles sharing an edge scale it identically, so the tiling stays gap-free. Past ~1.8 a tile's own edges start to overlap each other.</div>
+  </div>
+  <div class="f">
+    <label>Tile size <span class="val" id="sizeV"></span></label>
+    <input type="range" id="size" min="34" max="170" step="2" value="86" />
+  </div>
+  <div class="f">
+    <label>Render</label>
+    <div class="seg" id="render">
+      <button data-v="both" aria-pressed="true">Fill + line</button>
+      <button data-v="fill" aria-pressed="false">Fill</button>
+      <button data-v="line" aria-pressed="false">Line</button>
+    </div>
+  </div>
+  <div class="f">
+    <label>Palette</label>
+    <select id="palette"></select>
+  </div>
+  <div class="f">
+    <label>Line weight <span class="val" id="lwV"></span></label>
+    <input type="range" id="lw" min="0.5" max="4" step="0.25" value="1.5" />
+  </div>
+</div>
+<div id="stage"><canvas id="cv"></canvas><div id="note"></div></div>
+
+<script>
+'use strict';
+// ────────────────────────────────────────────────────────────────────────────
+// Curve utilities. An edge curve is an array of [u, v] with u running 0→1 along
+// the edge and v the perpendicular offset. Placing the SAME curve on the shared
+// edge of two neighbouring tiles is what keeps the tiling gap-free at every t.
+// ────────────────────────────────────────────────────────────────────────────
+const M = 160; // resampled points per edge curve (must out-sample the most
+               // convoluted keyframe, or resampling cuts chords across its curls)
+
+function resample(pts, n) {
+  const d = [0];
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+    d.push(d[i - 1] + Math.hypot(dx, dy));
+  }
+  const total = d[d.length - 1] || 1;
+  const out = new Float32Array(n * 2);
+  let j = 0;
+  for (let k = 0; k < n; k++) {
+    const target = (k / (n - 1)) * total;
+    while (j < d.length - 2 && d[j + 1] < target) j++;
+    const seg = d[j + 1] - d[j] || 1;
+    const s = (target - d[j]) / seg;
+    out[k * 2] = pts[j][0] + (pts[j + 1][0] - pts[j][0]) * s;
+    out[k * 2 + 1] = pts[j][1] + (pts[j + 1][1] - pts[j][1]) * s;
+  }
+  return out;
+}
+function lerpCurve(a, b, s) {
+  const out = new Float32Array(a.length);
+  for (let i = 0; i < a.length; i++) out[i] = a[i] + (b[i] - a[i]) * s;
+  return out;
+}
+
+// ── Scheme 1: grid-based rectilinear paths (Kaplan §3) ──────────────────────
+// The edge is a simple path on a fine square grid. Each step picks a grid cell
+// adjacent to the path and pushes the path around it — the three legal local
+// moves of Figure 2 fall out of "replace the on-path arc with the other arc".
+function gridStages(N, steps, seed) {
+  let s = seed >>> 0;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  let path = [];
+  for (let i = 0; i <= N; i++) path.push([i, 0]);
+  const stages = [path];
+  const key = (p, q) => (p[0] < q[0] || (p[0] === q[0] && p[1] <= q[1]))
+    ? p[0] + ',' + p[1] + '|' + q[0] + ',' + q[1]
+    : q[0] + ',' + q[1] + '|' + p[0] + ',' + p[1];
+
+  for (let step = 0; step < steps; step++) {
+    let applied = null;
+    for (let attempt = 0; attempt < 90 && !applied; attempt++) {
+      const at = Math.floor(rnd() * (path.length - 1));
+      const a = path[at], b = path[at + 1];
+      // A cell touching this path segment, on either side.
+      const horiz = a[1] === b[1];
+      const lo = horiz ? Math.min(a[0], b[0]) : a[0];
+      const side = rnd() < 0.5 ? 0 : -1;
+      const cell = horiz ? [lo, a[1] + side] : [a[0] + side, Math.min(a[1], b[1])];
+      const res = pushAround(path, cell, N, key);
+      if (res) applied = res;
+    }
+    if (!applied) break;
+    path = applied;
+    stages.push(path);
+  }
+  return stages.map(p => resample(p.map(q => [q[0] / N, q[1] / N]), M));
+}
+function pushAround(path, cell, N, key) {
+  const [a, b] = cell;
+  const c = [[a, b], [a + 1, b], [a + 1, b + 1], [a, b + 1]];
+  const edges = new Set([key(c[0], c[1]), key(c[1], c[2]), key(c[2], c[3]), key(c[3], c[0])]);
+  const on = [];
+  for (let i = 0; i < path.length - 1; i++) if (edges.has(key(path[i], path[i + 1]))) on.push(i);
+  if (!on.length || on.length > 3) return null;
+  for (let i = 1; i < on.length; i++) if (on[i] !== on[i - 1] + 1) return null; // must be contiguous
+  const i0 = on[0], i1 = on[on.length - 1], k = on.length;
+  const S = path[i0], E = path[i1 + 1];
+  const idx = p => c.findIndex(q => q[0] === p[0] && q[1] === p[1]);
+  const iS = idx(S), iE = idx(E);
+  if (iS < 0 || iE < 0) return null;
+  const forward = (iS + k) % 4 === iE;
+  const mid = [];
+  for (let n = 1; n < 4 - k; n++) mid.push(c[(iS + (forward ? -n + 4 * 4 : n)) % 4]);
+  const next = path.slice(0, i0 + 1).concat(mid, path.slice(i1 + 1));
+  // Legality: simple path, pinned endpoints, bounded excursion.
+  const seen = new Set();
+  for (const p of next) {
+    if (Math.abs(p[1]) > N * 0.5) return null;
+    const kk = p[0] + ',' + p[1];
+    if (seen.has(kk)) return null;
+    seen.add(kk);
+  }
+  if (next[0][0] !== 0 || next[0][1] !== 0) return null;
+  if (next[next.length - 1][0] !== N || next[next.length - 1][1] !== 0) return null;
+  return next;
+}
+
+// ── Scheme 2: iterated function system (Kaplan §4) ──────────────────────────
+const IFS_RULES = {
+  'Puzzle bump': [[0, 0], [0.25, 0], [0.25, 0.25], [0.5, 0.25], [0.5, -0.25], [0.75, -0.25], [0.75, 0], [1, 0]],
+  'Koch step':   [[0, 0], [1 / 3, 0], [0.5, 0.2887], [2 / 3, 0], [1, 0]],
+  'Zigzag':      [[0, 0], [0.2, 0.18], [0.4, -0.12], [0.6, 0.12], [0.8, -0.18], [1, 0]],
+  'Terrace':     [[0, 0], [0.3, 0], [0.3, 0.22], [0.7, 0.22], [0.7, 0], [1, 0]]
+};
+function ifsStages(rule, gens) {
+  const out = [resample([[0, 0], [1, 0]], M)];
+  let cur = [[0, 0], [1, 0]];
+  for (let g = 0; g < gens; g++) {
+    const next = [cur[0]];
+    for (let i = 0; i < cur.length - 1; i++) {
+      const A = cur[i], B = cur[i + 1];
+      const dx = B[0] - A[0], dy = B[1] - A[1];
+      for (let r = 1; r < rule.length; r++) {
+        const [u, v] = rule[r];
+        next.push([A[0] + u * dx - v * dy, A[1] + u * dy + v * dx]);
+      }
+    }
+    cur = next;
+    out.push(resample(cur, M));
+    if (cur.length > 4000) break;
+  }
+  return out;
+}
+
+// ── Scheme 3: organic labyrinth growth (Kaplan §5, after Pedersen & Singh) ──
+// Differential growth on the edge with the endpoints pinned (they are tiling
+// vertices). Snapshots are the keyframes; the sim is smooth enough that no
+// interpolation between them is needed.
+function organicStages(frames, wobbleAmt, seed) {
+  let s = seed >>> 0;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296 - 0.5);
+  // A perfectly straight line is an equilibrium — it needs a seed perturbation
+  // to have something to buckle out of. Brownian motion is then kept tiny;
+  // what makes the curve convolute is growth against self-repulsion, not noise.
+  let pts = [];
+  const n0 = 20;
+  for (let i = 0; i <= n0; i++) {
+    const u = i / n0;
+    const env = Math.sin(Math.PI * u);            // pinned at both ends
+    pts.push([u, env * (Math.sin(u * 9.1 + seed % 7) * 0.012 + rnd() * 0.006)]);
+  }
+  const stages = [resample(pts, M)];
+  const REP = 0.075, MAXSEG = 0.045, SKIP = 3, MAXPTS = 130;
+  // Per-iteration displacement must stay well under REP: at step*force > REP a
+  // point jumps clean through the neighbour repelling it and oscillates, which
+  // is what turns this into a spiky tangle rather than curls.
+  const MAXSTEP = REP * 0.18;
+  for (let f = 0; f < frames; f++) {
+    for (let it = 0; it < 6; it++) {
+      const fx = new Float64Array(pts.length), fy = new Float64Array(pts.length);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const p = pts[i], a = pts[i - 1], b = pts[i + 1];
+        fx[i] += ((a[0] + b[0]) / 2 - p[0]) * 0.85;   // smoothing / bending
+        fy[i] += ((a[1] + b[1]) / 2 - p[1]) * 0.85;
+        fx[i] += rnd() * wobbleAmt;
+        fy[i] += rnd() * wobbleAmt;
+      }
+      // Repulsion against this curve AND against its copies one lattice step
+      // away — the neighbouring tiles carry the same edge, so a curve that
+      // ignored them would grow straight through its own neighbour.
+      for (let i = 1; i < pts.length - 1; i++) {
+        for (let j = 0; j < pts.length; j++) {
+          if (Math.abs(i - j) < SKIP) continue;
+          for (let o = 0; o < 5; o++) {
+            const ox = o === 3 ? 1 : o === 4 ? -1 : 0;
+            const oy = o === 1 ? 1 : o === 2 ? -1 : 0;
+            const dx = pts[i][0] - (pts[j][0] + ox);
+            const dy = pts[i][1] - (pts[j][1] + oy);
+            const d2 = dx * dx + dy * dy;
+            if (d2 > 1e-10 && d2 < REP * REP) {
+              const d = Math.sqrt(d2), w = (REP - d) / REP;
+              fx[i] += (dx / d) * w; fy[i] += (dy / d) * w;
+            }
+          }
+        }
+      }
+      for (let i = 1; i < pts.length - 1; i++) {
+        let mx = fx[i] * 0.08, my = fy[i] * 0.08;
+        const m = Math.hypot(mx, my);
+        if (m > MAXSTEP) { mx = mx / m * MAXSTEP; my = my / m * MAXSTEP; }
+        pts[i][0] += mx;
+        pts[i][1] += my;
+        if (pts[i][1] > 0.48) pts[i][1] = 0.48;
+        if (pts[i][1] < -0.48) pts[i][1] = -0.48;
+      }
+      // Growth: the curve lengthens, and having nowhere flat to go, it curls.
+      for (let i = pts.length - 2; i >= 0; i--) {
+        const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+        if (d > MAXSEG && pts.length < MAXPTS) {
+          pts.splice(i + 1, 0, [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]);
+        }
+      }
+    }
+    stages.push(resample(pts, M));
+  }
+  return stages;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+const PALETTES = {
+  'Ink on cream (Huff)': { bg: '#ece3d2', a: '#ece3d2', b: '#ddd1ba', line: '#1b1714' },
+  'Two-tone parquet':    { bg: '#171a1d', a: '#3c556b', b: '#d9d3c5', line: '#0d1013' },
+  'Stained glass':       { bg: '#0a0a0d', a: '#1d6f8e', b: '#c2521f', line: '#f0ead8' },
+  'Kaplan figure 5':     { bg: '#f2f2f0', a: '#6d94a6', b: '#dfded3', line: '#20272b' },
+  'Gallery dark':        { bg: '#08080a', a: '#123a33', b: '#0c1a22', line: '#7df5cf' }
+};
+const SCHEME_HELP = {
+  grid: 'Kaplan §3. The path walks the edges of a fine grid, pushed around one cell per step. Rectilinear, mechanical — Greek keys and labyrinths.',
+  ifs: 'Kaplan §4. Each segment is replaced by a transformed copy of the whole rule. Squares become puzzle pieces become fractal snowflakes.',
+  organic: 'Kaplan §5, after Pedersen & Singh. The edge grows under attraction, smoothing and self-repulsion with its corners pinned. Curly, botanical.'
+};
+const FAMILIES = {
+  grid: ['Seed 1', 'Seed 2', 'Seed 3', 'Seed 4'],
+  ifs: Object.keys(IFS_RULES),
+  organic: ['Calm', 'Restless', 'Wild']
+};
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const note = document.getElementById('note');
+const S = { knee: true, amp: 1, scheme: 'grid', family: 0, detail: 22, field: 'ramp', span: 11, drift: 16,
+            size: 86, render: 'both', palette: 'Ink on cream (Huff)', lw: 1.5 };
+let LUT = [], phase = 0, last = performance.now();
+
+function buildLUT() {
+  let stages;
+  if (S.scheme === 'grid') stages = gridStages(6, S.detail, 1013 + S.family * 7717);
+  else if (S.scheme === 'ifs') stages = ifsStages(IFS_RULES[FAMILIES.ifs[S.family]], Math.min(5, Math.max(1, Math.round(S.detail / 7))));
+  else stages = organicStages(Math.min(48, S.detail + 8), [0.0015, 0.006, 0.016][S.family], 991 + S.family * 131);
+  // Saturation knee: the organic sim stops changing shape long before it stops
+  // running (arc length peaks at ~stage 12 of 48 and then slowly declines), so
+  // mapping the ramp over the whole stack spends most of the screen on tiles a
+  // viewer cannot tell apart. Cap the stack at the last stage that still adds
+  // length. Measured, not guessed — see docs/mockups/README.md.
+  if (S.knee && stages.length > 3) {
+    const len = (c) => { let t = 0; for (let i = 1; i < c.length / 2; i++) t += Math.hypot(c[i*2]-c[(i-1)*2], c[i*2+1]-c[(i-1)*2+1]); return t; };
+    const L = stages.map(len);
+    const peak = Math.max(...L);
+    let knee = L.findIndex((v) => v >= peak * 0.99);
+    if (knee < 2) knee = 2;
+    stages = stages.slice(0, knee + 1);
+  }
+  const K = 256;
+  LUT = new Array(K);
+  for (let i = 0; i < K; i++) {
+    const x = (i / (K - 1)) * (stages.length - 1);
+    const j = Math.min(stages.length - 2, Math.floor(x));
+    LUT[i] = stages.length === 1 ? stages[0] : lerpCurve(stages[j], stages[j + 1], x - j);
+  }
+  note.textContent = S.scheme + ' · ' + stages.length + ' keyframes · ' + M + ' pts/edge';
+}
+
+const tri = u => { const f = ((u % 2) + 2) % 2; return f < 1 ? f : 2 - f; };
+function tAt(x, y, cx, cy) {
+  let u;
+  if (S.field === 'ramp') u = x / S.span;
+  else if (S.field === 'diag') u = (x + y) / (S.span * 1.35);
+  else u = Math.hypot(x - cx, y - cy) / S.span;
+  return tri(u + phase);
+}
+function curveAt(t) { return LUT[Math.max(0, Math.min(255, Math.round(t * 255)))]; }
+
+// Place an edge curve from A to B. Every edge is read at its own midpoint, so
+// the two tiles sharing it independently compute the identical curve.
+// ax,ay -> bx,by are always the edge's CANONICAL endpoints (left-to-right or
+// bottom-to-top). `rev` only reverses the order the points are emitted in, so
+// the two tiles sharing an edge trace the identical curve in opposite senses.
+function edgeTo(p, ax, ay, bx, by, c, rev) {
+  const dx = bx - ax, dy = by - ay;
+  for (let i = 0; i < M; i++) {
+    const k = rev ? (M - 1 - i) : i;
+    const u = c[k * 2], v = c[k * 2 + 1] * S.amp;
+    p.push(ax + u * dx - v * dy, ay + u * dy + v * dx);
+  }
+}
+
+function draw(now) {
+  const dt = Math.min(50, now - last); last = now;
+  phase += (S.drift / 1000) * (dt / 1000) * 6;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pal = PALETTES[S.palette];
+  ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, w, h);
+
+  const s = S.size;
+  const cols = Math.ceil(w / s) + 2, rows = Math.ceil(h / s) + 2;
+  const cx = cols / 2, cy = rows / 2;
+  ctx.lineWidth = S.lw; ctx.strokeStyle = pal.line; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+  for (let j = -1; j < rows; j++) {
+    for (let i = -1; i < cols; i++) {
+      const p = [];
+      edgeTo(p, i, j, i + 1, j, curveAt(tAt(i + 0.5, j, cx, cy)), false);             // bottom
+      edgeTo(p, i + 1, j, i + 1, j + 1, curveAt(tAt(i + 1, j + 0.5, cx, cy)), false);  // right
+      edgeTo(p, i, j + 1, i + 1, j + 1, curveAt(tAt(i + 0.5, j + 1, cx, cy)), true);   // top, shared with the tile above
+      edgeTo(p, i, j, i, j + 1, curveAt(tAt(i, j + 0.5, cx, cy)), true);               // left, shared with the tile to the left
+      ctx.beginPath();
+      ctx.moveTo(p[0] * s, p[1] * s);
+      for (let k = 1; k < p.length / 2; k++) ctx.lineTo(p[k * 2] * s, p[k * 2 + 1] * s);
+      ctx.closePath();
+      if (S.render !== 'line') { ctx.fillStyle = ((i + j) & 1) ? pal.a : pal.b; ctx.fill(); }
+      if (S.render !== 'fill') ctx.stroke();
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+// ── wiring ──────────────────────────────────────────────────────────────────
+function segGroup(id, key, after) {
+  const g = document.getElementById(id);
+  g.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...g.children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+    S[key] = b.dataset.v; if (after) after();
+  });
+}
+function slider(id, key, fmt, after) {
+  const el = document.getElementById(id), out = document.getElementById(id === 'size' ? 'sizeV' : id + 'V');
+  const sync = () => { S[key] = parseFloat(el.value); if (out) out.textContent = fmt(S[key]); if (after) after(); };
+  el.addEventListener('input', sync); sync();
+}
+function fillFamilies() {
+  const sel = document.getElementById('family');
+  sel.innerHTML = '';
+  FAMILIES[S.scheme].forEach((n, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = n; sel.appendChild(o); });
+  S.family = 0; sel.value = '0';
+  document.getElementById('famV').textContent = FAMILIES[S.scheme][0];
+}
+segGroup('scheme', 'scheme', () => {
+  document.getElementById('schemeHelp').textContent = SCHEME_HELP[S.scheme];
+  fillFamilies(); buildLUT();
+});
+document.getElementById('knee').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...b.parentElement.children].forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
+  S.knee = b.dataset.v === 'on'; buildLUT();
+});
+segGroup('field', 'field');
+segGroup('render', 'render');
+document.getElementById('family').addEventListener('change', e => {
+  S.family = parseInt(e.target.value, 10);
+  document.getElementById('famV').textContent = FAMILIES[S.scheme][S.family];
+  buildLUT();
+});
+const palSel = document.getElementById('palette');
+Object.keys(PALETTES).forEach(n => { const o = document.createElement('option'); o.textContent = n; palSel.appendChild(o); });
+palSel.value = S.palette;
+palSel.addEventListener('change', e => { S.palette = e.target.value; });
+
+slider('detail', 'detail', v => String(v), () => buildLUT());
+slider('span', 'span', v => v.toFixed(1) + ' tiles');
+slider('drift', 'drift', v => v === 0 ? 'still' : String(v));
+slider('amp', 'amp', v => v.toFixed(2) + '\u00d7');
+slider('size', 'size', v => v + ' px');
+slider('lw', 'lw', v => v.toFixed(2) + ' px');
+
+document.getElementById('schemeHelp').textContent = SCHEME_HELP.grid;
+fillFamilies();
+buildLUT();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
