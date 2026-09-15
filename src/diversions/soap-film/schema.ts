@@ -33,10 +33,12 @@ export const soapFilmSchema = z.object({
                 + 'takes — thick and colourless, through the interference colours, to black film and '
                 + 'rupture. Turn it down for a longer life, not for a calmer picture; Tempo is the '
                 + 'knob for calm.' }),
-  tempo: z.number().min(0.1).max(6).default(1)
-    .meta({ section: 'Film', ui: 'slider', min: 0.1, max: 6, step: 0.05, label: 'Tempo',
+  tempo: z.number().min(0.02).max(6).default(1)
+    .meta({ section: 'Film', ui: 'slider', min: 0.02, max: 6, step: 0.01, label: 'Tempo',
             help: 'Dilates the clock and nothing else. The film passes through exactly the same '
-                + 'states, just faster or slower, so the composition at any moment is unchanged.' }),
+                + 'states, just faster or slower, so the composition at any moment is unchanged. The '
+                + 'floor is a deep crawl: at 0.02 a film takes about seventy-five minutes to go from '
+                + 'forming to tearing, which is the pace for a display left running.' }),
   filmThickness: z.number().min(400).max(1600).default(900)
     .meta({ section: 'Film', ui: 'slider', min: 400, max: 1600, step: 10, label: 'Formation',
             help: 'Nanometres of film at the moment it forms — where on the colour sequence the piece '
