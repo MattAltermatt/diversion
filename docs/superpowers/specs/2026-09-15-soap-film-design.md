@@ -38,8 +38,8 @@ visible.
   <https://arxiv.org/pdf/2102.06962>. Drainage measurements and the 400× discrepancy:
   <https://arxiv.org/html/2401.03931>. Plume imagery: **Berg, Adelizzi & Troian**,
   *Images of the Floating World*, Phys. Fluids 16(9) 2004.
-- **CIE observer fit** — Wyman, Sloan & Shirley, JCGT 2013 (used in the mockup's
-  offline LUT; the shipped shader uses Belcour's closed form).
+- **CIE observer fit** — Wyman, Sloan & Shirley, JCGT 2013. The mockup's offline LUT
+  uses it and so does the shipped one; there is no closed form anywhere in the piece.
 
 Clean-room: implemented from published descriptions. No code is taken from any of
 the above.
@@ -59,7 +59,7 @@ R(λ) = 4R₁·sin²(δ/2) / ( (1−R₁)² + 4R₁·sin²(δ/2) )
 carries the half-wave phase shift at the first surface**, so `R → 0` as `d → 0` —
 Newton black film falls out rather than being special-cased. Colour is the spectral integral of `R(λ)` against the observer.
 **It ships as a baked 1-D LUT indexed by optical thickness `n·d·cos θₜ`**, built on
-the CPU by that integral and uploaded as an `RGBA32F` texture: one fetch in the
+the CPU by that integral and uploaded as an `RGBA16F` texture: one fetch in the
 shader, and it is *provably* the reference because it **is** the reference. A
 closed-form sensitivity series was specified here first and was wrong four
 independent ways; see the plan's Revision log.
@@ -71,10 +71,13 @@ cosine are visually identical here. The objection to the cheap approximation is
 therefore **not** about two-beam versus Airy at all; it is entirely about
 integrating over wavelength versus sampling three of them.
 
-Two traps, both documented in Filament's implementation and both live here:
+Two traps that a closed-form implementation would face, and which the LUT removes —
+recorded so nobody reintroduces them:
 
-- **The interference math needs `highp`.** The Gaussian fits are stated in inverse
-  metres with amplitudes around `1e-13`; `mediump` cannot represent them.
+- **`highp` is NOT needed.** It would be, for a Belcour-style series whose Gaussian
+  amplitudes are ~`1e-13` in inverse metres, which `mediump` cannot represent. The
+  shader does one texture fetch and no interference arithmetic, so the hazard is gone
+  with the series that carried it.
 - **A thickness → 0 guard is NOT needed on the LUT path**, and the version this spec
   carried before the panel was dead code anyway: Filament's `smoothstep(0.0, 0.03, t)`
   is stated against a thickness in **micrometres**, so transcribing the same constant
