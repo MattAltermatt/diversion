@@ -233,7 +233,17 @@ function step(dt) {
   //    kills marginal regeneration outright and leaves smooth Poiseuille bands.
   const mob = MODE === 'marginal' ? P.buoy : 0;
   if (mob > 0) {
-    nucAcc += dt * 24 * mob;
+    // ⚠️ Nucleation MUST be specified per unit AREA, not per cell. Rate `24/s` with a
+    // radius in CELLS makes the thinned fraction per second inversely proportional to
+    // the cell count: ~48 cells x 24/s over 5,760 cells is 20%/s, over 64,636 cells it
+    // is 1.8%/s. Measured consequence at the three shipped grid settings: the film
+    // reached black at 227 s / 489 s / never — so a control labelled "detail" was
+    // silently a 2.7x pace control, and on the finest grid the piece never ended at
+    // all. Same class as Salvage #319: a knob that exists only because the sim has a
+    // grid is not a knob. Rate scales with the cell count and the radius is a fraction
+    // of the frame, so the physics is identical at every resolution.
+    const areaScale = (GW * GH) / (200 * 126);          // vs the reference grid
+    nucAcc += dt * 24 * mob * areaScale;
     while (nucAcc > 1) {
       nucAcc -= 1;
       const edge = rnd();
@@ -241,7 +251,8 @@ function step(dt) {
       if (edge < 0.62) { cx = 2 + rnd() * (GW - 4); cy = GH - 2 - rnd() * 3; }
       else if (edge < 0.81) { cx = 1 + rnd() * 3; cy = GH * (0.35 + 0.65 * rnd()); }
       else { cx = GW - 5 + rnd() * 3; cy = GH * (0.35 + 0.65 * rnd()); }
-      const rad = 2.2 + rnd() * 3.4, thin = 0.34 + 0.30 * rnd();
+      const radFrac = 0.017 + 0.027 * rnd();              // fraction of the frame width
+      const rad = radFrac * GW, thin = 0.34 + 0.30 * rnd();
       const x0 = Math.max(1, (cx - rad) | 0), x1 = Math.min(GW - 2, (cx + rad) | 0);
       const y0 = Math.max(1, (cy - rad) | 0), y1 = Math.min(GH - 2, (cy + rad) | 0);
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -282,7 +293,9 @@ function step(dt) {
   // 7. a touch of surface-tension smoothing. Must be scaled by dt — at a flat 0.10
   //    per frame this ran 60x a second and homogenised the thickness field inside
   //    half a minute, which reads as one violet screen with no bands at all.
-  const sm = Math.min(0.20, 0.40 * dt);
+  // The stencil is one CELL wide, so a finer grid diffuses a shorter physical distance
+  // per pass. Scale with the cell count for the same reason nucleation does.
+  const sm = Math.min(0.20, 0.40 * dt * Math.sqrt((GW * GH) / (200 * 126)));
   for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
     const i = idx(x, y);
     h2[i] = h[i] + sm * (0.25 * (h[i - 1] + h[i + 1] + h[i - GW] + h[i + GW]) - h[i]);
