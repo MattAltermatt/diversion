@@ -45,26 +45,38 @@ R(λ) = 4R₁·sin²(δ/2) / ( (1−R₁)² + 4R₁·sin²(δ/2) )
 
 `R₁` is the single-interface Fresnel intensity reflectance. **This form already
 carries the half-wave phase shift at the first surface**, so `R → 0` as `d → 0` —
-Newton black film falls out rather than being special-cased. Colour is the spectral
-integral of `R(λ)` against the observer, evaluated with Belcour's closed-form
-sensitivity (four Gaussians whose Fourier transforms are `cos(pos·phase)·exp(−var·phase²)`),
-so it costs roughly four `cos` and four `exp` per term — no loop over wavelengths,
-no texture LUT.
+Newton black film falls out rather than being special-cased. Colour is the spectral integral of `R(λ)` against the observer.
+**It ships as a baked 1-D LUT indexed by optical thickness `n·d·cos θₜ`**, built on
+the CPU by that integral and uploaded as an `RGBA32F` texture: one fetch in the
+shader, and it is *provably* the reference because it **is** the reference. A
+closed-form sensitivity series was specified here first and was wrong four
+independent ways; see the plan's Revision log.
+
+Worth recording, because it sharpens the argument below: at a soap film's
+reflectance (R₁ ≈ 0.02 at n = 1.33) the Airy series' **second harmonic is 50× smaller
+than the first** — verified numerically. So multiple-beam Airy and a plain two-beam
+cosine are visually identical here. The objection to the cheap approximation is
+therefore **not** about two-beam versus Airy at all; it is entirely about
+integrating over wavelength versus sampling three of them.
 
 Two traps, both documented in Filament's implementation and both live here:
 
 - **The interference math needs `highp`.** The Gaussian fits are stated in inverse
   metres with amplitudes around `1e-13`; `mediump` cannot represent them.
-- **Thickness → 0 needs a guard** (`smoothstep(0.0, 0.03, thicknessNm)` on the
-  effective index) or the film shows a seam exactly in the black-film region, which
-  is the region this piece spends its ending in.
+- **A thickness → 0 guard is NOT needed on the LUT path**, and the version this spec
+  carried before the panel was dead code anyway: Filament's `smoothstep(0.0, 0.03, t)`
+  is stated against a thickness in **micrometres**, so transcribing the same constant
+  against nanometres makes it a no-op above 0.03 nm — smaller than an atom. The LUT's
+  entry at `d = 0` is the integral's own value there, which is zero. Nothing to guard.
 
 **The cheap three-cosine version is not an acceptable substitute**, and the
 rejection is measured rather than asserted — see `docs/mockups/2026-09-15-thinfilm-lut.html`
-and its two captures. The spectral model converges to a fixed desaturated grey at
-about 1500 nm and stays there; the cheap version keeps painting vivid saturated
-bands out past 10 µm, is 35% too dark at 200 nm and 51% too bright at 1500 nm, and
-inverts the saturation ordering of the first orders. It also starts *bright* at zero
+and its two captures. Above about 1500 nm the spectral model's **luminance** converges (0.0393 and flat
+out to 10 µm) while its chroma settles to a low, slowly wobbling pink-beige
+(saturation ≈ 0.25, ranging 0.15–0.34) — it is *not* a neutral grey, and the spec
+said so until the panel measured it. The cheap version instead keeps painting vivid
+saturated bands out past 10 µm, is 35% too dark at 200 nm and 51% too bright at
+1500 nm, and inverts the saturation ordering of the first orders. It also starts *bright* at zero
 thickness, having dropped the phase shift, which inverts the piece's closing image.
 
 ### The film
@@ -185,11 +197,15 @@ Every group must open on a *named* option against the shipped defaults.
 
 ## Distinct from
 
-Nine pieces in this gallery mention "interference" and **every one of them is wave
-interference** — `interference`, `moire`, `halo`, `intermomentary`, `quasicrystal`,
-`cwaves`, `hexadrop`, `chime`, `foam` sum ripple heights or beat ring families
-against each other. The optical phenomenon is not in the gallery; the word is, four
-times over, meaning something else each time. `foam` is the nearest neighbour by
+Eight folders under `src/diversions/` mention "interference" — `interference`,
+`moire`, `halo`, `intermomentary`, `quasicrystal`, `cwaves`, `hexadrop`, `chime` —
+and five of those carry it into `docs/gallery.md`. **Every one is *wave*
+interference**: summed ripple heights, or two ring families beating against each
+other. The optical phenomenon is not in the gallery.
+(⚠️ This paragraph said "nine pieces ... including `foam`" until the plan panel
+checked it. `foam` mentions interference **zero** times; it matched an earlier grep
+on the word *iridescent*, in a palette name. The substance held, the number did not —
+the same failure this repo has now recorded twice. Grep before quoting a count.) `foam` is the nearest neighbour by
 name and is a coarsening Allen–Cahn froth with a palette named "Soap Film" and no
 optics at all. `paper-marbling` advects pigment through a chosen palette;
 `viscous-fingering` is Saffman–Taylor.
