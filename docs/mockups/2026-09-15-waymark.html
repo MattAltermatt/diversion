@@ -5,50 +5,70 @@
 <canvas id="c"></canvas>
 <script>
 // Waymark design mockup (2026-09-15). Standalone; open in a browser. URL knobs:
-//   prog=LRRRRRLLR  init=regions|uniform|random  speed=1.5  dwell=0.75  cols=48  seed=7  gap=2  mark=0.09  t=<seconds to pre-run>
+//   prog=LRUD  init=regions|noise|uniform|random  speed=1.5  dwell=0.75  cols=48  seed=7  mark=0.09  t=<seconds to pre-run>
 const q = new URLSearchParams(location.search);
-const PROG = (q.get('prog') || 'LRRRRRLLR').toUpperCase();
+const PROG = (q.get('prog') || 'LRUD').toUpperCase().replace(/F/g,'U').replace(/B/g,'D');
 const COLS = +(q.get('cols') ?? 48);
 const SPEED = +(q.get('speed') ?? 1.5);      // cells per second (zen default)
 const DWELL = +(q.get('dwell') ?? 0.75);     // fraction of each step the ant sits on the cell; the rest is the hop
 const WARM = +(q.get('t') ?? 0);
-const TRAIL = +(q.get('trail') ?? 40);       // max trail length in cells
-const GAP = +(q.get('gap') ?? 2);            // px gutter between tiles
 const MARK = +(q.get('mark') ?? 0.09);       // ant mark stroke as a fraction of the cell
 const N = PROG.length;
 const INIT = q.get('init') || 'random';     // random | uniform | regions
 let seed = +(q.get('seed') ?? 7) >>> 0 || 1;
 const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 
-// muted base colour per letter, and the lit (inked) version of each
+// role colour per letter
 const BASE = { L: [52, 104, 196], R: [206, 84, 58], U: [44, 160, 128], F: [44, 160, 128], D: [150, 78, 196], B: [150, 78, 196] };
-const INK = [255, 233, 196];
-const LIFT = +(q.get('lift') ?? 0.62);      // lightness a fully-inked tile is raised to (HSL L)
-// lighten in HSL: same hue, same saturation, lightness raised toward LIFT by t
-function lighten(c, t) {
-  const r = c[0]/255, g = c[1]/255, b = c[2]/255, max = Math.max(r,g,b), min = Math.min(r,g,b);
-  let h = 0, sat = 0; const l = (max + min) / 2;
-  if (max !== min) { const d = max - min; sat = l > .5 ? d / (2 - max - min) : d / (max + min);
-    h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
-  const L = l + (LIFT - l) * t;
-  const f = (n) => { const k = (n + h * 12) % 12, a = sat * Math.min(L, 1 - L); return (L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255; };
-  return [f(0), f(8), f(4)];
+
+// tween in OKLab: the RGB midpoint of the blue and the vermilion is grey-mauve; OKLab keeps it a colour
+const toLin = (c) => { c /= 255; return c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+const toSrgb = (c) => { c = c <= .0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - .055; return Math.max(0, Math.min(255, c * 255)); };
+function rgb2lab(rgb) {
+  const r = toLin(rgb[0]), g = toLin(rgb[1]), b = toLin(rgb[2]);
+  const l = Math.cbrt(.4122214708*r + .5363325363*g + .0514459929*b), m = Math.cbrt(.2119034982*r + .6806995451*g + .1073969566*b), s_ = Math.cbrt(.0883024619*r + .2817188376*g + .6299787005*b);
+  return [.2104542553*l + .7936177850*m - .0040720468*s_, 1.9779984951*l - 2.4285922050*m + .4505937099*s_, .0259040371*l + .7827717662*m - .8086757660*s_];
 }
+function lab2rgb(lab) {
+  const l = lab[0] + .3963377774*lab[1] + .2158037573*lab[2], m = lab[0] - .1055613458*lab[1] - .0638541728*lab[2], s_ = lab[0] - .0894841775*lab[1] - 1.2914855480*lab[2];
+  const L = l*l*l, M = m*m*m, S = s_*s_*s_;
+  return [toSrgb(4.0767416621*L - 3.3077115913*M + .2309699292*S), toSrgb(-1.2684380046*L + 2.6097574011*M - .3413193965*S), toSrgb(-.0041960863*L - .7034186147*M + 1.7076147010*S)];
+}
+const lerpLab = (a, b, t) => lab2rgb([a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t, a[2] + (b[2]-a[2])*t]);
+const colourOf = (i) => BASE[PROG[i]] || [40, 40, 40];
 
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let W, H, ROWS, sp, cells;
+let W, H, ROWS, sp, GAP, cells;
+// the program's classes are its distinct letters; a tile starts on the FIRST index holding its letter, so colour = state
+const CLASSES = [...new Set(PROG)].map((L) => PROG.indexOf(L));
+// tiny 2-D value noise for init=noise (the real piece uses framework/rng makeNoise3D; this is the same idea)
+function valueNoise(seed0) {
+  const h = (x, y) => { let n = (x * 374761393 + y * 668265263 + seed0 * 1442695041) >>> 0; n = (n ^ (n >>> 13)) * 1274126177 >>> 0; return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+  const sm = (t) => t * t * (3 - 2 * t);
+  return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), tx = sm(x - xi), ty = sm(y - yi);
+    const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+    return (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * ty; };
+}
 function resize() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
-  sp = W / COLS; ROWS = Math.round(H / sp);
-  const seeds = []; for (let k = 0; k < 14; k++) seeds.push([rnd() * COLS, rnd() * ROWS, Math.floor(rnd() * N)]);
-  cells = new Array(COLS * ROWS).fill(0).map((_, k) => {
-    let i;
-    if (INIT === 'uniform') i = 0;
-    else if (INIT === 'regions') { const x = k % COLS, y = Math.floor(k / COLS); let best = 1e9; for (const sd of seeds) { const d = (sd[0]-x)**2 + (sd[1]-y)**2; if (d < best) { best = d; i = sd[2]; } } }
-    else i = Math.floor(rnd() * N);
-    const c = BASE[PROG[i]] || [40, 40, 40];
-    return { i, col: c.slice(), ink: 0, inkTarget: 0, inTrail: 0 };
-  });
+  sp = W / COLS; ROWS = Math.round(H / sp); GAP = Math.max(1, Math.min(3, sp * 0.06));
+  const n = COLS * ROWS, K = CLASSES.length;
+  const idx = new Int32Array(n);
+  if (INIT === 'uniform') idx.fill(0);
+  else if (INIT === 'random') { for (let k = 0; k < n; k++) idx[k] = CLASSES[Math.floor(rnd() * K)]; }
+  else if (INIT === 'noise') {
+    const nz = valueNoise(seed), feat = COLS / 4, raw = new Float32Array(n);
+    for (let k = 0; k < n; k++) { const x = k % COLS, y = Math.floor(k / COLS); let v = 0, amp = 1, f = 1 / feat;
+      for (let o = 0; o < 3; o++) { v += amp * nz(x * f + o * 7.1, y * f + o * 3.3); f *= 2; amp *= 0.4; } raw[k] = v; }
+    const order = Array.from(raw.keys()).sort((a, b) => raw[a] - raw[b]);      // quantile cut: equal-mass bands
+    order.forEach((k, rank) => { idx[k] = CLASSES[Math.min(K - 1, Math.floor(rank * K / n))]; });
+  } else {  // regions: Voronoi patchwork, seed count scaled by area (14 at 48x30)
+    const kSeeds = Math.max(4, Math.min(24, Math.round(14 * n / 1440)));
+    const seeds = []; for (let k = 0; k < kSeeds; k++) seeds.push([rnd() * COLS, rnd() * ROWS, CLASSES[Math.floor(rnd() * K)]]);
+    for (let k = 0; k < n; k++) { const x = k % COLS, y = Math.floor(k / COLS); let best = 1e9;
+      for (const sd of seeds) { const d = (sd[0]-x)**2 + (sd[1]-y)**2; if (d < best) { best = d; idx[k] = sd[2]; } } }
+  }
+  cells = Array.from(idx, (i) => ({ i, col: colourOf(i).slice(), from: colourOf(i), to: colourOf(i), tween: 1 }));
 }
 addEventListener('resize', resize); resize();
 
@@ -59,18 +79,20 @@ const ease = (t) => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
 const ant = { x: COLS >> 1, y: ROWS >> 1, h: 0, nx: 0, ny: 0, nh: 0, prog: 0 };
 const trail = [];                            // ring of cell indices, oldest first
 
-// arrival: read the letter, decide where we'll go, and start this cell's colour tween toward its NEXT letter
+// arrival: read the letter, ADVANCE THE POINTER NOW (atomic -- a second ant arriving mid-dwell reads the new letter),
+// decide where we'll go, and start this tile's colour tween toward its new letter. The tween is display only.
 function arrive() {
   const k = ant.y * COLS + ant.x, c = cells[k];
   const letter = PROG[c.i];
+  c.i = (c.i + 1) % N;
   ant.nh = turn(ant.h, letter);
   ant.nx = (ant.x + HEAD[ant.nh][0] + COLS) % COLS; ant.ny = (ant.y + HEAD[ant.nh][1] + ROWS) % ROWS;
-  c.from = c.col.slice(); c.to = BASE[PROG[(c.i + 1) % N]] || [40, 40, 40]; c.tween = 0;
+  c.from = rgb2lab(c.col); c.to = rgb2lab(colourOf(c.i)); c.tween = 0;
 }
-// departure: the letter advance is committed, the ant is now on the next cell
+// departure: the ant moves; the tile is already committed
 function depart() {
   const c = cells[ant.y * COLS + ant.x];
-  c.i = (c.i + 1) % N; c.col = c.to.slice(); c.tween = 1;
+  c.col = colourOf(c.i).slice(); c.tween = 1;
   ant.x = ant.nx; ant.y = ant.ny; ant.h = ant.nh;
   arrive();
 }
@@ -79,10 +101,10 @@ arrive();
 function tick(dt) {
   ant.prog += dt * SPEED;
   while (ant.prog >= 1) { ant.prog -= 1; depart(); }
-  // the cell under the ant tweens over the dwell; ink ramps on the same clock, fades out a little slower
+  // the tile under the ant tweens over the dwell (display only; its pointer was committed on arrival)
   const cur = cells[ant.y * COLS + ant.x];
   cur.tween = Math.min(1, ant.prog / DWELL);
-  cur.col = [cur.from[0] + (cur.to[0]-cur.from[0]) * ease(cur.tween), cur.from[1] + (cur.to[1]-cur.from[1]) * ease(cur.tween), cur.from[2] + (cur.to[2]-cur.from[2]) * ease(cur.tween)];
+  cur.col = lerpLab(cur.from, cur.to, ease(cur.tween));
 }
 function antPos() {
   if (ant.prog < DWELL) return [ant.x, ant.y];
