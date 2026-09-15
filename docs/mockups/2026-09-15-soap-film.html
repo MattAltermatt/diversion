@@ -95,7 +95,7 @@ for (let l = LMIN; l <= LMAX; l += LSTEP) {
 let WX = 0, WY = 0, WZ = 0;
 for (let i = 0; i < LAM.length; i++) { WX += CX[i]; WY += CY[i]; WZ += CZ[i]; }
 
-const LUTN = 1024, LUT_MAX = 2400;          // nm of geometric thickness
+const LUTN = 2048, LUT_MAX = 5200;          // nm of geometric thickness
 const lutR = new Float32Array(LUTN), lutG = new Float32Array(LUTN), lutB = new Float32Array(LUTN);
 (function buildLUT() {
   const R1 = Math.pow((NFILM - 1) / (NFILM + 1), 2);
@@ -141,6 +141,10 @@ function allocGrid() {
 }
 allocGrid();
 
+/** Declared here, not in the controls block: formFilm() reads it at module
+ *  scope and a `let` further down is a temporal dead zone, not a hoisted var. */
+let MODE = 'marginal';
+
 const H0 = 1450;                // nm — just inside the coloured range (above ~1500 the
                                 //      spectral model converges to a fixed grey and stays there)
 const BLACK = 28;               // nm — Newton black film threshold
@@ -151,7 +155,13 @@ function rnd() { seedN = (seedN * 1664525 + 1013904223) >>> 0; return seedN / 42
 function formFilm() {
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     const i = idx(x, y), fy = y / (GH - 1);
-    h[i] = H0 * (0.88 + 0.17 * fy) * (0.98 + 0.05 * rnd());
+    // STRATIFIED starts as a wide wedge — that IS the regime: thickness runs from
+    // near-nothing at the top to micrometres at the foot, so the screen carries
+    // ~20 fringe orders at once and is coloured from the first frame. MARGINAL
+    // starts nearly uniform, because its colour arrives by being stirred thin.
+    h[i] = MODE === 'strat'
+      ? 90 + 4600 * Math.pow(fy, 1.22) * (0.995 + 0.012 * rnd())
+      : H0 * (0.88 + 0.17 * fy) * (0.98 + 0.05 * rnd());
     w[i] = 0; psi[i] = 0;
   }
   filmAge = 0; rupture = null;
@@ -365,7 +375,6 @@ function draw() {
 }
 
 // ── controls + loop ────────────────────────────────────────────────────────
-let MODE = 'marginal';
 const P = { buoy: 1, drain: 1, expo: 0.78, speed: 1 };
 function bind(id, key, f) {
   const el = document.getElementById(id), out = document.getElementById(id + 'V');
