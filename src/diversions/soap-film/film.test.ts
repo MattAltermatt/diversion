@@ -140,17 +140,21 @@ describe('soap film field', () => {
   })
 
   it('mobility moves the DRAIN coefficient too, not just the stirring', () => {
-    // The mockup's mode toggle switched three things — buoyancy, nucleation rate and
-    // the Poiseuille constant (0.060 rigid vs 0.024 mobile). Mapping only the first two
-    // leaves the rigid regime draining 2.5x too slowly, and a rigid-vs-mobile
-    // comparison cannot see it: marginal regeneration thins ~400x faster, so the two
-    // regimes are nowhere near each other by construction. Compare rigid against
-    // itself. Measured drained fraction at 120 s: 7.76% correct, 5.12% if the
-    // coefficient ignores mobility.
-    const f = run(2, RIGID, 120, 1 / 60)
+    // The mockup's mode toggle switched three things — buoyancy, nucleation rate and the
+    // Poiseuille constant (0.060 rigid vs 0.024 mobile). Mapping only the first two
+    // leaves the rigid regime draining too slowly, and a rigid-vs-mobile comparison
+    // cannot see it: marginal regeneration thins ~400x faster, so the two regimes are
+    // nowhere near each other by construction. Compare rigid against itself.
+    //
+    // ⚠️ A deliberately TIGHT band. Evaporation is mobility-independent and now carries
+    // most of the rigid film's thinning, so the Poiseuille term's share is small:
+    // measured at 180 s, 30.29% drained correct vs 27.41% if the coefficient ignores
+    // mobility. The sim is seeded and deterministic, so there is no variance to absorb —
+    // if a retune moves this, re-measure it rather than widening it.
+    const f = run(2, RIGID, 180, 1 / 60)
     const drained = 1 - meanThickness(f) / P.filmThickness
-    expect(drained).toBeGreaterThan(0.065)
-    expect(drained).toBeLessThan(0.095)
+    expect(drained).toBeGreaterThan(0.29)
+    expect(drained).toBeLessThan(0.32)
   })
 
   it('substepping makes a big dt equal to many small ones', () => {

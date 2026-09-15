@@ -58,6 +58,9 @@ export const MAX_SUBSTEP = 0.02
 /** The grid every rate constant below is calibrated against. */
 const REF_CELLS = 200 * 126
 
+/** nm per second at drainRate 1. See step 6b. */
+const EVAP_NM_PER_S = 1.1
+
 const JACOBI = 14
 
 function mulberry32(seed: number): () => number {
@@ -283,6 +286,19 @@ function subStep(f: Film, p: FilmParams, dt: number): void {
       else if (h[i] > ceiling) h[i] = ceiling
       qPrev = q
     }
+  }
+
+  // 6b. Evaporation. ⚠️ Not decoration — it is what gives a RIGID film a finite life.
+  //     Measured without it, at mobility 0 the film never reached any ending condition
+  //     in 30 simulated minutes: Poiseuille drainage alone really is ~400x too slow, so
+  //     the rigid preset would have run until an age ceiling cut it off, which is the
+  //     same "a gate that cannot be reached" bug the rupture trigger already had once.
+  //     It is also the literature's own answer: for large films evaporation, not
+  //     drainage, sets the lifetime, at a measured 1-10 nm/s.
+  const evap = dt * EVAP_NM_PER_S * p.drainRate
+  for (let i = 0; i < h.length; i++) {
+    h[i] -= evap
+    if (h[i] < 0.5) h[i] = 0.5
   }
 
   // 7. Surface-tension smoothing. ⚠️ Scaled by dt, never per frame — at a flat 0.10
