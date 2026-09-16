@@ -126,9 +126,10 @@ Every generator is a **pure function of `(col, row, seed)`** — this is what le
 resize extend the field consistently (below).
 
 - **`regions`** *(default)* — a Voronoi patchwork at the mockup's density: 14 seeds per
-  1,440 tiles (14 at the default 48×30, capped so 96 columns on a laptop gets ~24),
-  each with a class; a tile takes its nearest seed's class, with distance wrapping in
-  x. **Baked:** the seeds are drawn once over a virtual band `3 × max(rows, cols)` rows
+  1,440 tiles (14 at the default 48×30; capped so 96 columns on a laptop gets ~24, which
+  is **half the density** — a sparser look by design; floored so at least four seeds are
+  on screen at 24 columns, with every letter among them), each with a class; a tile takes
+  its nearest seed's class, with distance wrapping in x. **Baked:** the seeds are drawn once over a virtual band `3 × max(rows, cols)` rows
   tall — any aspect to 3:1, so a landscape bake rotated to portrait still has seeds —
   and rows appended by a resize meet seeds that were always there. Large calm
   territories the ant streams across, then eats into.
@@ -321,9 +322,13 @@ that stays green under its mutation is deleted, not kept.
   equals `to` exactly at `prog = DWELL` and afterwards; the heading angle at the same
   point is `h0 + Δ × 0.125`; `N→W` sweeps −90°, not +270°; `D` sweeps +180°. OKLab
   round-trips the four defaults within 1/255 (mutant: drop the cube root).
-- `renew.test.ts` — `carved` counts exactly the tiles whose pointer ≠ start (mutant:
-  count visits); crossing `RENEW_AT` starts a crossfade and the new field differs from
-  the old (mutant: reseed with the same seed → identical); ants survive it.
+- renewal (in `step.test.ts`) — `touchedCount` equals the number of tiles visited at
+  least once and two arrivals on one tile touch it once (mutant: count visits); 300
+  ticks from zero do not renew (mutant: threshold over the program length); **every
+  curated program renews within 20,000 steps on regions 48×30** (mutant: a
+  differs-from-start measure → `RL` never renews); crossing `RENEW_AT` starts a
+  crossfade and the new field differs from the old (mutant: reseed with the same
+  seed → identical); ants survive it.
 - `waymark.test.ts` — `setup`/`frame`/`resize`/`update` against the framework's mock
   context: structural vs live routing (mutant: make `colorL` structural → the test
   sees a re-setup); a live `colorL` edit changes the next frame's `fillStyle` for an
