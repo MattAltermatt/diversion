@@ -100,6 +100,11 @@ currently is — the state is always right; only the picture is catching up.
 Multiple ants share one grid and interact only through the tiles. Each ant has its
 own clock and heading; there is no collision logic. Ants are stepped in index order.
 
+**Placement does not commit.** An ant placed at setup, by the `Ants` slider, or after a
+renewal is *aimed* along its heading (destination one cell ahead, no read) and reads
+its first tile when it arrives after one hop. (Plan panel, 2026-09-15: a committing
+placement advanced a tile per slider tick and per resize.)
+
 `prog` starts at **0**, not 1 — the first probe started at 1 and took a spurious step.
 
 **Verified in the mockup (2026-09-15):** a hand-traced `RL` returns the ant to its
@@ -120,10 +125,12 @@ mockup seeded raw indices instead; the captures were retaken under this rule.)
 Every generator is a **pure function of `(col, row, seed)`** — this is what lets a
 resize extend the field consistently (below).
 
-- **`regions`** *(default)* — a Voronoi patchwork: `k = clamp(4, round(14 × cols ×
-  rows / 1440), 24)` seed points (14 at the default 48×30), each with a class; a tile
-  takes its nearest seed's class. Large calm territories the ant streams across, then
-  eats into.
+- **`regions`** *(default)* — a Voronoi patchwork at the mockup's density: 14 seeds per
+  1,440 tiles (14 at the default 48×30, capped so 96 columns on a laptop gets ~24),
+  each with a class; a tile takes its nearest seed's class, with distance wrapping in
+  x. **Baked:** the seeds are drawn once over a virtual band three row-heights tall,
+  so rows appended by a resize meet seeds that were always there. Large calm
+  territories the ant streams across, then eats into.
 - **`noise`** — fractal value noise, the way `ablation` builds its picture:
   `makeNoise3D(seed)` from `framework/rng.ts`, 3 octaves, feature size `cols / 4`,
   roughness 0.4, cut by **quantile** into as many bands as there are classes so
@@ -165,8 +172,9 @@ cell is `width / columns` in CSS px and is **derived, never a knob**. The gutter
 **A resize carries state.** The field generators are pure in `(col, row, seed)`, and
 `columns` is fixed, so a height change simply evaluates the generator for the new
 rows: existing rows keep their pointers, appended rows are generated fresh, removed
-rows are dropped. Ants keep their grid coordinates (clamped to the new row count); an
-ant mid-hop snaps to its destination tile with `prog = 0` and arrives. Twenty minutes
+rows are dropped. A dwelling ant is untouched (its `y` clamped to the new row count,
+its destination re-aimed on the torus); an ant mid-hop snaps to its destination tile
+with `prog = 0` and arrives — the one commit a resize may make. Twenty minutes
 of carving must not be lost to a fullscreen toggle or a phone's URL bar — the
 `AnimationHost` calls `resize` for both.
 
@@ -239,7 +247,8 @@ select | toggle | color | colorList | image`). A free-text editor is **#399**.
 
 **Curated programs** (the `Program` preset group; the invariant is that no two
 cyclically-consecutive letters are equal, so every dwell is a colour change — a test
-asserts it over the list):
+asserts it over the list, with `LUUR` declared as the one exemption because it is the
+owner's string):
 
 ```
 LRUD   Compass   — default; every letter once, every dwell a change; the uniform star
@@ -254,9 +263,11 @@ LUUR   Meander   — the owner's original string; one U→U no-op in four, kept 
 still **claims to be checked in Chrome on each field**; a program that does nothing
 legible on `regions` at the default speed within two minutes is dropped before ship.
 
-**Preset groups:** `Program` (above) and `Palette` — three or four options, each
-patching `{ colors, background, antColor }` (one key-set per group, #311), opening on
-a named option. `field` and `columns` are their own controls, not preset axes.
+**Preset groups:** `Program` (above) and `Palette` — four options, each patching
+`{ colors, background, antColor }` (one key-set per group, #311), opening on a named
+option. **Every option's `antColor` is ≥ 3:1 against all four tiles** — computed in a
+test, because two of the first blind picks hid the ant (1.21:1, 1.45:1). `field` and
+`columns` are their own controls, not preset axes.
 
 ## Performance
 
