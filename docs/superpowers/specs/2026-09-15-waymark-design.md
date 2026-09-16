@@ -100,8 +100,8 @@ currently is — the state is always right; only the picture is catching up.
 Multiple ants share one grid and interact only through the tiles. Each ant has its
 own clock and heading; there is no collision logic. Ants are stepped in index order.
 
-**Placement does not commit.** An ant placed at setup, by the `Ants` slider, or after a
-renewal is *aimed* along its heading (destination one cell ahead, no read) and reads
+**Placement does not commit.** An ant placed at setup or by the `Ants` slider is *aimed*
+along its heading (destination one cell ahead, no read) and reads
 its first tile when it arrives after one hop. (Plan panel, 2026-09-15: a committing
 placement advanced a tile per slider tick and per resize.)
 
@@ -128,8 +128,9 @@ resize extend the field consistently (below).
 - **`regions`** *(default)* — a Voronoi patchwork at the mockup's density: 14 seeds per
   1,440 tiles (14 at the default 48×30, capped so 96 columns on a laptop gets ~24),
   each with a class; a tile takes its nearest seed's class, with distance wrapping in
-  x. **Baked:** the seeds are drawn once over a virtual band three row-heights tall,
-  so rows appended by a resize meet seeds that were always there. Large calm
+  x. **Baked:** the seeds are drawn once over a virtual band `3 × max(rows, cols)` rows
+  tall — any aspect to 3:1, so a landscape bake rotated to portrait still has seeds —
+  and rows appended by a resize meet seeds that were always there. Large calm
   territories the ant streams across, then eats into.
 - **`noise`** — fractal value noise, the way `ablation` builds its picture:
   `makeNoise3D(seed)` from `framework/rng.ts`, 3 octaves, feature size `cols / 4`,
@@ -149,15 +150,20 @@ resize extend the field consistently (below).
 
 A finite field that only ever gets carved is a piece that finishes and then pretends
 not to (#361, closed wontfix the morning this was written). Turmite answers it with a
-coverage reseed and a crossfade; Waymark does the same. The state keeps `carved`, the
-count of tiles whose pointer differs from the start field (maintained incrementally
-at each commit). When `carved / (cols × rows) ≥ RENEW_AT` (`0.6`, constant), the
+coverage reseed and a crossfade; Waymark does the same. The state keeps `touched`, the
+set of tiles the ants have **visited** this generation (a bitmask and a count, set at
+each arrival). When `touchedCount / (cols × rows) ≥ RENEW_AT` (`0.6`, constant), the
 piece **crossfades over 4 s to a fresh field** — `generation + 1`, seeded from
 `seed + generation`, same `field` kind — and the ants keep walking from where they
 are. `renew` is a boolean field (default **on**) so the owner can watch a field to
-the end if they want to. ⚠️ This is an owner-visible behaviour the panel argued for
-and the owner has **not yet seen**; it is in the spec as the recommended default and
-flagged in **Open**.
+the end if they want to. The owner confirmed renewal on (2026-09-15).
+
+**Why "visited" and not "differs from the start" (plan panel round 2):** a program of
+`n` letters returns a tile to its start pointer every `n` visits, so a "carved" measure
+caps at `(n−1)/n` of the walked area — 50% for a two-letter program — and a 60%
+threshold was unreachable for `RL` with the whole torus walked (measured: peak 55% over
+two million steps). Visited is monotone and program-independent; every curated program
+renews in 25–85 minutes at the default speed, and a test asserts it for each.
 
 ### Grid and sizing
 
@@ -186,7 +192,10 @@ glide off one edge and on at the other (no sweep across the screen).
 Four **role colours**, one per letter — `colorL`, `colorR`, `colorU`, `colorD` — as
 discrete `ui:'color'` fields in a `ui:'group'` named `colors` (canon: distinct
 semantic roles get discrete fields). Defaults: L `#3468c4`, R `#ce543a`, U `#2ca080`,
-D `#964ec4`. `background` is the gutter and the ground, dark default `#07090e`.
+D `#964ec4`. `background` is the gutter and the ground, dark default `#07090e`. The
+territories are separated by hue, not luminance (L and D are 1.07:1) — a deuteranope
+reads those two as one territory; accepted for a generative piece, noted so nobody
+"fixes" the approved look by spreading luminance.
 
 **Tiles store a pointer, never a colour.** The renderer resolves `colour(letter)` from
 the *live* config through a small cache rebuilt in `update()` — at most four
@@ -378,8 +387,7 @@ same machine, the presentation is the work). **Don't build** — the owner's cal
 - ~~The name~~ — **Waymark**, settled by the owner 2026-09-15: a waymark is the blaze on
   a trail that tells the walker which way; every tile here is a sign the ant reads,
   obeys, and rewrites for the next pass.
-- **Renewal (owner to confirm).** Recommended on: when 60% of the field has been
-  carved, crossfade to a fresh patchwork. The alternative is a field that finishes.
+- ~~Renewal~~ — confirmed on by the owner; the measure is "visited", see §Renewal.
 - **Palette hues and the `speed` default** are tuning; the mockup's values are the
   starting point, chosen by looking, not final.
 - **The early phase.** At 1.5 cells/s the ant changes ~90 tiles a minute; on `regions`
