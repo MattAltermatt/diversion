@@ -1,12 +1,12 @@
 # Diversion — project conventions
 
-A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 141 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code. Ideas for pieces not yet built live in GitHub Issues under the **`future-diversion`** label (50 filed 2026-09-12, #338–#387, each with a look / mechanism / distinct-from section; 48 still open — #363 shipped as `soap-film` and #361 was closed wontfix, both 2026-09-15) — pick from there rather than scouting again; a pick still gets a real brainstorm and a committed mockup before code.
+A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 142 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code. Ideas for pieces not yet built live in GitHub Issues under the **`future-diversion`** label (50 filed 2026-09-12, #338–#387, each with a look / mechanism / distinct-from section; 47 still open — #363 shipped as `soap-film` and #361 was closed wontfix, both 2026-09-15; #358 shipped as `lichen` 2026-09-17) — pick from there rather than scouting again; a pick still gets a real brainstorm and a committed mockup before code.
 
 ## Commands
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~25s, 7792 tests in 356 files)
+npm test         # vitest run (full suite; ~27s, 7957 tests in 370 files)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint --deny-warnings (a new warning fails CI; #308)
 npm run build    # tsc -b && vite build
@@ -102,7 +102,7 @@ contrast, and a guard fails if it moves. ⚠️ **Raising a base value wakes any
 `:hover` rule into a live downgrade** — `.preset-select:hover` was a no-op at the old border
 and reverted the fix at the new one; SC 1.4.11 covers states, and a guard now enumerates them.
 
-Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **55 of 141** pieces have no `'Palette'` preset group (86 declare one; `soap-film` is a deliberate abstainer — its colours are computed from film thickness, so a palette would override a measurement with a preference) — add later. Recount before quoting these; the previous figures here (69/67) did not survive a recount. Count with `grep -rlz "label: 'Palette',[[:space:]]*options:"` per diversion folder — matching `label: 'Palette'` alone over-counts, because the canon `colorList` **field** carries that same label.
+Known **not-yet-canon** debt (tracked in **#259**, not a blocker): a couple of dozen pieces invented per-diversion color *mode* enums (Glow/Solid/XOR, spectrum/palette `showWhen` swaps, dual-`colorList`) — unify later; **55 of 142** pieces have no `'Palette'` preset group (87 declare one; `soap-film` is a deliberate abstainer — its colours are computed from film thickness, so a palette would override a measurement with a preference) — add later. Recount before quoting these; the previous figures here (69/67) did not survive a recount. Count with `grep -rlz "label: 'Palette',[[:space:]]*options:"` per diversion folder — matching `label: 'Palette'` alone over-counts, because the canon `colorList` **field** carries that same label.
 
 ### Small screens (#284) — the first `@media` queries in the project
 
@@ -147,7 +147,7 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
   height on mobile Safari, so with `overflow: hidden` the bottom of the form was
   unreachable. Keep the `vh` line above it as the fallback.
 - **Wake Lock lives in `PlayScreen`, never `AnimationHost`** (the host mounts on
-  all 141 gallery tiles, so a per-host lock holds the screen awake while merely
+  all 142 gallery tiles, so a per-host lock holds the screen awake while merely
   browsing). It keys off `shouldPause()`, which also gives re-request-after-hide
   for free, since `hidden` is already a pause source.
 - **The manifest omits `id` on purpose.** `id` resolves against `start_url`'s
@@ -171,7 +171,7 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
 
 ### Deep-link preload (#291) — the one piece of bespoke build code
 
-`vite.config.ts`'s `preloadDeepLink` plugin emits a `slug -> [chunk, ...shared deps]` map plus ~350 B of code into `index.html` (one tag, ~8 kB raw / **3.0 kB gz** for 141 diversions — index.html goes 1.3 → 4.3 kB gz, paid on every visit and free only because it stays inside the ~14 kB first congestion window), turning the URL's slug into `<link rel=modulepreload>` tags. The pure half is `src/framework/preloadMap.ts` (unit-tested against a hand-built bundle, including the emitted script itself, run through `new Function`); the plugin is a shell too thin to hold a bug. `npm run check:preload` re-checks the built `dist/` in CI.
+`vite.config.ts`'s `preloadDeepLink` plugin emits a `slug -> [chunk, ...shared deps]` map plus ~350 B of code into `index.html` (one tag, ~8 kB raw / **3.0 kB gz** for 142 diversions — index.html goes 1.3 → 4.3 kB gz, paid on every visit and free only because it stays inside the ~14 kB first congestion window), turning the URL's slug into `<link rel=modulepreload>` tags. The pure half is `src/framework/preloadMap.ts` (unit-tested against a hand-built bundle, including the emitted script itself, run through `new Function`); the plugin is a shell too thin to hold a bug. `npm run check:preload` re-checks the built `dist/` in CI.
 
 - **The map must carry DEPS, not just the diversion chunk.** `__vitePreload` already asks for a dynamic import's static deps at import time, so the third hop is ONE round trip carrying chunk + deps together; removing one file from that batch leaves the batch. Subtract the entry's own static closure (Vite preloads that already) or every deep link fetches `metas`/`runtime` twice.
 - **⚠️ WHERE the tag goes is the whole thing.** An inline `<script>` does not execute while a stylesheet declared *before* it is still loading. Injected at the end of `<head>` — after Vite's `<link rel=stylesheet>` — the links were created exactly when `__vitePreload` would have asked anyway: measured on Slow 4G as a **0 ms saving with the map still shipped**. But not *first* in `<head>` either: the tag is ~8 kB and `<meta charset>` must be serialized inside the spec's first 1024 bytes, so it goes immediately **after** the charset meta — ahead of every stylesheet and script, inside the window. `check-preload.mjs` asserts both halves, because nothing else can see either.
@@ -204,6 +204,24 @@ width** — a phone in landscape is 932px and a finger is no more precise there.
 - **No SW in dev** (`devOptions.enabled: false`), so the port-5180 workflow never has a stale-cache debugging trap.
 
 ## Gotchas learned
+
+- **A diversion must not hand-roll a PRNG or a hash — `framework/rng.ts` is the canonical home**
+  (its header says so, and 164 files import it). The Lichen probe hand-rolled one and wrote
+  `h ^ (h >> 16)`: an **arithmetic** shift sign-extends, so bit 31 is `b ^ b = 0` and the hash could
+  never return above 0.5. Everything downstream was half-scale, and it surfaced as three findings
+  that looked unrelated — storm survivors at 17% against a documented 8.5%, a growth term spanning
+  0.62–0.81 instead of 0.62–1.00, and a `relief` field centred on 0.25 so its "ridges shed water"
+  half did not exist at all. `mulberry32`/`hash3` use `Math.imul` and `>>>` and have none of it.
+  ⚠️ The test that let it through was `expect(fbm).toBeWithin(0,1)` — **vacuously true for a
+  half-range field, and for `() => 0.25`**. A range test must assert the range is *spanned*, and at
+  one octave, because a 4-octave fbm concentrates and legitimately never approaches its bounds.
+- **A grid sim's per-run constants must be per AREA, and that includes the priming pass.** Founding
+  was per *year* while growth was per *area*, so the founder:growth balance — which is the look —
+  moved with the cell count: 95% covered by year 40 at 40k cells, 65% at 160k. Fixing only the
+  per-step term still left up to **39 points** of drift, because `prime()` seeded a flat 900
+  founders regardless of size. ⚠️ A coverage-curve comparison cannot see either bug: priming
+  dominates early coverage and growth saturates later. Measure the founding rate from an **empty**
+  grid, where it is the only thing seeding cells.
 
 - **A caustic is a SCATTER, not a fullscreen fragment pass** (Caustics #338). Inverse-Jacobian intensity is
   defined on the *surface* grid and must be deposited at the *landing* point; a fragment shader running per

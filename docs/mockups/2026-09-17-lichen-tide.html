@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lichen — tide probe</title>
+<style>
+  :root {
+    --bg:#0b0d10; --panel:#14181d; --ink:#e6eaef; --dim:#94a0ab;
+    --line:#272d35; --accent:#7fd4c1;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; min-height:100vh; align-items:stretch;
+  }
+  #stage { flex:1; display:flex; flex-direction:column; padding:14px; gap:10px; min-width:0; }
+  #wrap { flex:1; position:relative; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#000; }
+  canvas { display:block; width:100%; height:100%; }
+  #hud {
+    position:absolute; left:10px; top:10px; padding:6px 10px; border-radius:7px;
+    background:rgba(8,12,14,.72); font-variant-numeric:tabular-nums; font-size:12px; color:#cfd7df;
+    pointer-events:none; line-height:1.5;
+  }
+  #hud b { color:var(--accent); font-weight:600; }
+  aside {
+    width:270px; flex:none; background:var(--panel); border-left:1px solid var(--line);
+    padding:16px 15px 24px; overflow-y:auto;
+  }
+  h1 { font-size:15px; margin:0 0 3px; }
+  .sub { color:var(--dim); font-size:12px; margin:0 0 16px; }
+  label { display:block; margin:0 0 13px; font-size:12px; color:#c3ccd5; }
+  label .row { display:flex; justify-content:space-between; margin-bottom:4px; }
+  label .val { color:var(--accent); font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .hint { color:#76818c; font-size:11px; margin:-9px 0 13px; line-height:1.45; }
+  button {
+    background:#1d242b; color:var(--ink); border:1px solid var(--line); border-radius:7px;
+    padding:7px 11px; font:inherit; font-size:12px; cursor:pointer; margin:0 5px 6px 0;
+  }
+  button:hover { border-color:#3c4854; }
+  .key { margin-top:16px; border-top:1px solid var(--line); padding-top:13px; }
+  .key div { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:11.5px; color:#b6bfc8; }
+  .sw { width:13px; height:13px; border-radius:3px; flex:none; border:1px solid rgba(255,255,255,.14); }
+  .note { color:#76818c; font-size:11px; line-height:1.5; margin-top:14px; }
+  @media (max-width:820px) { body { flex-direction:column; } aside { width:auto; border-left:none; border-top:1px solid var(--line); } #wrap { height:58vh; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap"><canvas id="c"></canvas><div id="hud"></div></div>
+</div>
+
+<aside>
+  <h1>Lichen — tide probe</h1>
+  <p class="sub">Eden-type lattice growth on a zoned sea cliff. (Johnson–Mehl is the idea's
+  source, not what this implements.)</p>
+
+  <label><span class="row"><span>Years per minute</span><span class="val" id="vSpeed"></span></span>
+    <input type="range" id="speed" min="5" max="140" step="1" value="40"></label>
+  <p class="hint">How fast the decades run.</p>
+
+  <label><span class="row"><span>Storm every</span><span class="val" id="vStorm"></span></span>
+    <input type="range" id="storm" min="2" max="90" step="1" value="18"></label>
+  <p class="hint">Average years between storms, with the wall-clock gap beside it — that figure moves
+  when you change Years per minute. Each storm lands at an irregular interval around this, severity
+  varies wildly on its own, and a storm takes several seconds to scrub through.</p>
+
+  <label><span class="row"><span>Whimsy</span><span class="val" id="vWhimsy"></span></span>
+    <input type="range" id="whimsy" min="0" max="100" step="1" value="15"></label>
+  <p class="hint">0 = the sea only ever does what the sea does. 100 = every storm carves something
+  it has no business carving. The lichen grows back over it either way.</p>
+
+  <label><span class="row"><span>Wave exposure</span><span class="val" id="vExp"></span></span>
+    <input type="range" id="exposure" min="0.15" max="1" step="0.02" value="0.55"></label>
+  <p class="hint">Exposed shores throw spray higher: wide, sharply drawn bands. Sheltered ones blur together.</p>
+
+  <label><span class="row"><span>Spore arrival</span><span class="val" id="vSeed"></span></span>
+    <input type="range" id="seed" min="0" max="3" step="0.05" value="1"></label>
+  <p class="hint">New colonies landing on bare rock. Low = few big discs, high = a crowded mosaic.</p>
+
+  <label><span class="row"><span>Relief</span><span class="val" id="vRelief"></span></span>
+    <input type="range" id="relief" min="0" max="1" step="0.02" value="0.5"></label>
+  <p class="hint">How much the rock's own hollows and cracks hold water, bending the bands locally.</p>
+
+  <label><span class="row"><span>Margins</span><span class="val" id="vMargin"></span></span>
+    <input type="range" id="margin" min="0" max="100" step="1" value="50"></label>
+  <p class="hint">Darkening where two species meet. The reference photographs' most recognisable
+  feature — <i>map lichen</i> is named for it — and what stops neighbouring greys reading as one mass.
+  Drop it to 0 to see what it is doing.</p>
+
+  <label><span class="row"><span>Bare rock</span><span class="val" id="vSterile"></span></span>
+    <input type="range" id="sterile" min="0" max="40" step="1" value="12"></label>
+  <p class="hint">Rock nothing can take hold on — quartz and smooth unweathered faces. Never heals,
+  so it stays visible through everything and gives each rock a permanent signature.</p>
+
+  <label><span class="row"><span>&nbsp;&nbsp;↳ veins ⟷ speckle</span><span class="val" id="vStyle"></span></span>
+    <input type="range" id="style" min="0" max="100" step="1" value="35"></label>
+  <p class="hint">0 = quartz veins following the rock's fractures. 100 = scattered smooth patches.</p>
+
+  <div>
+    <button id="stormNow">Storm now</button>
+    <button id="pause">Pause</button>
+    <button id="reseed">New rock</button>
+    <button id="bare">Strip it</button>
+  </div>
+
+  <div class="key" id="key"></div>
+  <p class="note">Species and zones after the documented supralittoral sequence — black <i>Verrucaria</i> at the fringe,
+  yellow <i>Caloplaca</i>/<i>Xanthoria</i> in the splash, grey <i>Ramalina</i>/<i>Lecanora</i> in the dry zone.
+  Boundaries freeze where two fronts meet; nobody overgrows anybody.</p>
+</aside>
+
+<script>
+(() => {
+  'use strict';
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // LOCKED BY THE OWNER, 2026-09-17. Do not "improve" these without asking.
+  //
+  //  · The scatter is DELIBERATE. Founders land faster than colonies grow, so the
+  //    rock reads as many small-to-medium thalli rather than a few big discs.
+  //    That was proposed as a defect to fix and the owner rejected the fix —
+  //    "it looks more realistic than I thought it would", and the reference
+  //    photographs agree. Raising growth or cutting `seedRate` to make tidy
+  //    discs meet at tidy borders is a REGRESSION, not a polish pass.
+  //  · The sea swing is the SLOW envelope only (storm decades vs calm ones).
+  //    A daily tide is not omitted by oversight: at 40 years/minute one tide is
+  //    ~40ms of screen time, which aliases into per-frame jitter. That shipped
+  //    once and was rejected on sight as "rough on the eyes".
+  //  · Storms are EVENTS, not instant wipes: a spiral sweep scrubs the struck area over
+  //    a few seconds and ~8.5% of the lichen survives. Owner-directed. Restoring the
+  //    instant mask, or clearing to zero, both undo an explicit request.
+  //  · Contact MARGINS default to 50 (owner-approved 2026-09-17). Without them the
+  //    mosaic is ~81% adjacent greys and dissolves into a wash; the margin is what makes
+  //    similar values legible, and it is the reference photographs' signature feature.
+  //  · The cadence readout shows WALL CLOCK beside simulated years on purpose. The whole
+  //    pacing of this piece was once reasoned in sim-years and never converted, which hid
+  //    a storm every 31 seconds. Do not simplify that label back.
+  //  · Every constant below is approved look-tuning. Treat as sacrosanct.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ---------- deterministic rng ----------
+  let rngState = 1;
+  const srand = s => { rngState = (s >>> 0) || 1; };
+  const rnd = () => {
+    // xorshift32
+    rngState ^= rngState << 13; rngState >>>= 0;
+    rngState ^= rngState >> 17;
+    rngState ^= rngState << 5;  rngState >>>= 0;
+    return rngState / 4294967296;
+  };
+
+  // ---------- value noise (fbm) for rock relief ----------
+  const hash2 = (x, y, s) => {
+    // >>> not >>. An ARITHMETIC shift sign-extends, so bit31 of `h ^ (h >> 16)` is
+    // bit31(h) ^ bit31(h) = 0 — the top bit could never be set and this returned
+    // [0, 0.5), never [0, 1). Everything downstream was half-scale: fbm, relief,
+    // shade, the vein/speckle fields, `lobe`, and the storm survivor coin-flip, which
+    // gave ~17% survivors against a documented 8.5%.
+    let h = x * 374761393 + y * 668265263 + s * 1442695040;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  const smooth = t => t * t * (3 - 2 * t);
+  function vnoise(x, y, s) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = smooth(xf), v = smooth(yf);
+    const a = hash2(xi, yi, s),     b = hash2(xi + 1, yi, s);
+    const c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+  }
+  function fbm(x, y, s, oct) {
+    let sum = 0, amp = 0.5, f = 1, norm = 0;
+    for (let i = 0; i < oct; i++) { sum += amp * vnoise(x * f, y * f, s + i * 31); norm += amp; amp *= 0.5; f *= 2; }
+    return sum / norm;
+  }
+
+  // ---------- species ----------
+  // wet = 1 at the waterline, falling to 0 up the cliff.
+  // band = [lo,hi] of wetness this species tolerates; rate = radial growth speed.
+  const SPECIES = [
+    { name:'Verrucaria maura',   short:'Verrucaria',  col:[26,25,22],    band:[0.72,1.00], rate:1.00 },
+    { name:'Caloplaca marina',   short:'Caloplaca',   col:[214,106,26],  band:[0.46,0.80], rate:0.86 },
+    { name:'Xanthoria parietina',short:'Xanthoria',   col:[226,168,48],  band:[0.33,0.62], rate:0.74 },
+    { name:'Lecanora atra',      short:'Lecanora',    col:[176,180,172], band:[0.16,0.44], rate:0.60 },
+    { name:'Ramalina siliquosa', short:'Ramalina',    col:[138,152,128], band:[0.02,0.28], rate:0.52 },
+  ];
+  const NS = SPECIES.length;
+
+  // ---------- grid ----------
+  const CELL = 4;
+  let W = 0, H = 0, N = 0;          // grid dims
+  let occ, age, wet, relief, shade, scour; // Int8 / Float32 fields
+  let veinF, speckF, sterile;              // unclaimable ground
+  let img, ctx, cnv, imgData, grid, gctx;
+  let rockSeed = 1;
+
+  const $ = id => document.getElementById(id);
+  cnv = $('c'); ctx = cnv.getContext('2d', { alpha:false });
+
+  function habitability(sp, w) {
+    const [lo, hi] = SPECIES[sp].band;
+    if (w < lo || w > hi) {
+      // tolerance shoulder outside the band — falls off fast
+      const d = w < lo ? lo - w : w - hi;
+      return Math.max(0, 1 - d / 0.11) * 0.55;
+    }
+    // a TENT: peak 1.0 at band centre, falling to 0.72 at either edge, then a
+    // discontinuous step down to the 0.55 shoulder outside. Not a plateau.
+    const mid = (lo + hi) / 2, half = (hi - lo) / 2;
+    return 0.72 + 0.28 * (1 - Math.abs(w - mid) / half);
+  }
+
+  function buildRock() {
+    srand(rockSeed);
+    relief = new Float32Array(N);
+    shade  = new Float32Array(N);
+    veinF  = new Float32Array(N);
+    speckF = new Float32Array(N);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        // Two candidate fields for ground nothing can colonise. Both are thresholded
+        // later against a target fraction, so these only need to RANK cells.
+        //  · veins  — ridged noise: high along fracture lineaments, i.e. quartz.
+        //  · speckle — mid-frequency blobs: smooth unweathered faces.
+        // NOTE: this must RANK every cell continuously, not emit a mostly-zero mask.
+        // A hard cutoff (`1 - min(1, vr/0.2)`) leaves ~95% of cells at exactly 0, so a
+        // request for 12% cannot be met from the non-zero tail, the histogram threshold
+        // collapses to 0, and `f >= 0` marks the WHOLE ROCK sterile. Smooth ranking makes
+        // the requested fraction reachable at any setting.
+        const vr = Math.abs(fbm(x / 26, y / 54, rockSeed + 1300, 3) - 0.5) * 2;
+        veinF[i]  = 1 - vr;
+        speckF[i] = fbm(x / 11, y / 11, rockSeed + 2100, 3);
+        // broad relief + fractures + fine grain
+        const broad = fbm(x / 46, y / 46, rockSeed, 4);
+        const grain = fbm(x / 6.5, y / 6.5, rockSeed + 900, 3);
+        // ridged noise gives crack-like lineaments
+        const crackField = Math.abs(fbm(x / 30, y / 62, rockSeed + 400, 3) - 0.5) * 2;
+        const crack = 1 - Math.min(1, crackField / 0.16);   // 1 inside a crack
+        relief[i] = Math.min(1, Math.max(0, broad * 0.78 + grain * 0.22)) * (1 - 0.55 * crack) + 0.55 * crack * 0.12;
+        shade[i]  = broad * 0.62 + grain * 0.38 - crack * 0.30;
+      }
+    }
+  }
+
+  /** Mark the requested FRACTION of cells unclaimable, blending veins→speckle by `style`.
+   *  Thresholding on a histogram rather than on a fixed noise cutoff, so the slider means
+   *  the same thing on every rock — a fixed cutoff gives wildly different amounts per seed. */
+  function computeSterile(amountPct, stylePct) {
+    const st = stylePct / 100, target = amountPct / 100;
+    if (target <= 0) { sterile.fill(0); return; }
+    const BINS = 256;
+    const hist = new Int32Array(BINS);
+    const f = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const v = veinF[i] * (1 - st) + speckF[i] * st;
+      f[i] = v;
+      hist[Math.min(BINS - 1, (v * BINS) | 0)]++;
+    }
+    // walk down from the top until we have accumulated the target fraction
+    const want = Math.round(target * N);
+    let acc = 0, cut = 0;
+    for (let b = BINS - 1; b >= 0; b--) { acc += hist[b]; if (acc >= want) { cut = b; break; } }
+    const thr = cut / BINS;
+    // Cap at `want`: the boundary bin usually overshoots, and without the cap a field
+    // whose mass sits in one bin marks far more than asked (see the note in buildRock).
+    let marked = 0;
+    for (let i = 0; i < N; i++) {
+      const hit = f[i] >= thr && marked < want;
+      sterile[i] = hit ? 1 : 0;
+      if (hit) marked++;
+    }
+  }
+
+  function resize() {
+    const r = cnv.parentElement.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cnv.width  = Math.max(64, Math.floor(r.width  * dpr));
+    cnv.height = Math.max(64, Math.floor(r.height * dpr));
+    W = Math.max(40, Math.floor(cnv.width  / CELL));
+    H = Math.max(40, Math.floor(cnv.height / CELL));
+    N = W * H;
+    occ = new Int8Array(N).fill(-1);
+    age = new Float32Array(N);
+    wet = new Float32Array(N);
+    scour = new Float32Array(N);
+    sterile = new Uint8Array(N);
+    // A SEPARATE canvas holds the cell grid; the display canvas scales it up.
+    // (Never drawImage a canvas onto itself — under file:// Chrome treats that as a
+    // cross-origin load and logs a security warning.)
+    grid = grid || document.createElement('canvas');
+    grid.width = W; grid.height = H;
+    gctx = grid.getContext('2d', { alpha:false });
+    imgData = gctx.createImageData(W, H);
+    img = imgData.data;
+    buildRock();
+    computeSterile(cfg.sterile, cfg.style);
+    prime();
+  }
+
+  /** Drop a handful of founder colonies so the rock is never blank on arrival. */
+  function prime() {
+    updateWet(cfg);
+    // PER AREA, like founding. A literal 900 is 2.25% instant coverage at 40k cells
+    // and 0.56% at 160k — 4x sparser — so fixing only the per-step founding term
+    // leaves the grid-size drift it was meant to remove.
+    const tries = Math.round(900 * N / 40000);
+    for (let t = 0; t < tries; t++) {
+      const i = (rnd() * N) | 0;
+      if (occ[i] !== -1 || sterile[i]) continue;
+      const w = wet[i];
+      let best = -1, bestScore = 0;
+      for (let s = 0; s < NS; s++) {
+        const sc = habitability(s, w) * (0.45 + rnd());
+        if (sc > bestScore) { bestScore = sc; best = s; }
+      }
+      if (best >= 0 && bestScore > 0.62) { occ[i] = best; age[i] = 0.4; }
+    }
+  }
+
+  // ---------- simulation ----------
+  let simYears = 0, waterRow = 0, sprayLo = 0;
+
+  function updateWet(cfg) {
+    // The water line is FIXED and that is the design, not a simplification.
+    //  · A daily tide is invisible at decades-per-minute (one tide ≈ 40ms of screen time,
+    //    which aliases into per-frame jitter — tried, rejected on sight).
+    //  · A slow multi-year swing was measured over 800 simulated years and did NOT
+    //    re-open the community: coverage pinned at ~100% from year 60 and species shares
+    //    froze at 25/15/14/25/20 for the next seven centuries. It moved boundaries a few
+    //    cells and nothing changed hands.
+    // So the sea supplies the GRADIENT (which is what sorts the species into bands) and
+    // storms supply the turnover. Motion on screen comes from storms alone.
+    waterRow = H * 0.88;
+
+    // spray reaches further up an exposed shore
+    const reach = H * (0.10 + cfg.exposure * 0.52);
+    sprayLo = waterRow - reach;
+
+    for (let y = 0; y < H; y++) {
+      const above = waterRow - y;                 // rows above the water
+      let w = above <= 0 ? 1 : Math.exp(-above / reach);
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        // hollows and cracks hold water: relief 0 = hollow, 1 = ridge
+        const hold = (1 - relief[i] - 0.5) * cfg.relief * 0.40;
+        wet[i] = Math.min(1, Math.max(0, w + hold));
+      }
+    }
+  }
+
+  // ---------- storms ----------
+  // A scour is just a MASK over the grid: every shape below costs the same, so the choice
+  // between "a gully plume" and "a smiley face" is purely taste. That is what the Whimsy
+  // slider spends. Severity scales each shape's extent, and is heavily skewed small —
+  // most storms barely touch the fringe, a rare one takes half the cliff.
+  const NATURAL = ['band', 'plume', 'spatter', 'slab', 'swath'];
+  const WHIMSY  = ['checker', 'smiley', 'spiral', 'dots', 'bite'];
+
+  let nextStorm = 6, lastStorm = null;
+
+  /** Build { hit, cx, cy } — `hit(x,y)` is true where the storm reaches. */
+  function makeMask(kind, sev) {
+    const cx = W * (0.2 + rnd() * 0.6), cy = H * (0.25 + rnd() * 0.5);
+    // Per-storm salt. Without it every mask's raggedness is the SAME field in world
+    // space on every rock and in every storm — the noise seeds were constants, so two
+    // different `?seed=` values produced identical storm edges and repeat strikes on one
+    // spot re-cut the exact same shape.
+    const salt = rockSeed + 1 + ((rnd() * 1e6) | 0);
+    const wob = (x, y, s) => (fbm(x / 9, y / 9, s + salt, 2) - 0.5) * 2;
+    const hit = (() => {
+    switch (kind) {
+      case 'band': {                       // the sea sweeps a strip along the waterline
+        const half = 2 + sev * H * 0.52;
+        return (x, y) => Math.abs(y - (waterRow - half * 0.35)) < half + wob(x, y, 11) * 6;
+      }
+      case 'plume': {                      // a gully funnels water up the cliff
+        const gx = rnd() * W, reach = H * (0.2 + sev * 0.8);
+        return (x, y) => {
+          const up = waterRow - y;
+          if (up < 0 || up > reach) return false;
+          const halfW = (1 - up / reach) * (4 + sev * W * 0.16) + 2;
+          return Math.abs(x - gx + wob(x, y, 23) * 7) < halfW;
+        };
+      }
+      case 'spatter': {                    // scattered impact patches
+        const n = 3 + Math.round(sev * 34), blobs = [];
+        for (let i = 0; i < n; i++) blobs.push([rnd() * W, rnd() * H, 3 + rnd() * (4 + sev * 26)]);
+        return (x, y) => blobs.some(([bx, by, r]) => {
+          const dx = x - bx, dy = y - by;
+          return dx * dx + dy * dy < r * r * (0.7 + 0.6 * fbm(x / 8, y / 8, salt + 31, 2));
+        });
+      }
+      case 'slab': {                       // the rock sheds a fracture-bounded flake
+        // Edges must be RAGGED. A clean rotated rectangle reads as a geometric cut-out —
+        // i.e. it looks like whimsy, which is the one thing the natural family must not do.
+        const a = rnd() * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
+        const hw = 6 + sev * W * 0.34, hh = 6 + sev * H * 0.34;
+        const sd = 500 + ((rnd() * 900) | 0);
+        return (x, y) => {
+          const dx = x - cx, dy = y - cy;
+          const u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+          // fracture jitter along each edge, at two scales
+          const ju = (fbm(v / 13, u / 55, sd, 3) - 0.5) * hw * 0.55 + (fbm(v / 4, u / 9, sd + 7, 2) - 0.5) * 7;
+          const jv = (fbm(u / 13, v / 55, sd + 90, 3) - 0.5) * hh * 0.55 + (fbm(u / 4, v / 9, sd + 97, 2) - 0.5) * 7;
+          return Math.abs(u) < hw + ju && Math.abs(v) < hh + jv;
+        };
+      }
+      case 'swath': {                      // a wind-driven diagonal
+        const a = (rnd() - 0.5) * 1.5, ca = Math.cos(a), sa = Math.sin(a);
+        const half = 4 + sev * H * 0.42;
+        return (x, y) => Math.abs((x - cx) * sa + (y - cy) * ca + wob(x, y, 47) * 8) < half;
+      }
+      case 'checker': {
+        const s = Math.max(5, H / (4 + Math.round(rnd() * 7)));
+        const rw = W * (0.3 + sev * 0.7), rh = H * (0.3 + sev * 0.7);
+        return (x, y) => Math.abs(x - cx) < rw / 2 && Math.abs(y - cy) < rh / 2 &&
+          ((Math.floor(x / s) + Math.floor(y / s)) % 2 === 0);
+      }
+      case 'smiley': {
+        // Carve the FEATURES, not the disc — a face drawn in bare rock reads far better
+        // than a bare circle with lichen eyes.
+        const r = (0.20 + sev * 0.55) * Math.min(W, H) * 0.7;
+        const t = Math.max(2.2, r * 0.10);
+        const ex = r * 0.38, ey = -r * 0.30, er = r * 0.13;
+        return (x, y) => {
+          const dx = x - cx, dy = y - cy;
+          const d = Math.hypot(dx, dy);
+          if (d > r * 1.25) return false;
+          if (Math.abs(d - r) < t) return true;                              // face outline
+          if (Math.hypot(dx - ex, dy - ey) < er) return true;                // eyes
+          if (Math.hypot(dx + ex, dy - ey) < er) return true;
+          const md = Math.hypot(dx, dy - r * 0.05);                          // mouth arc
+          return Math.abs(md - r * 0.62) < t && dy > r * 0.16;
+        };
+      }
+      case 'spiral': {
+        const turns = 2 + rnd() * 2.5, rMax = (0.25 + sev * 0.55) * Math.min(W, H) * 0.8;
+        const t = Math.max(2.2, rMax * 0.075);
+        return (x, y) => {
+          const dx = x - cx, dy = y - cy;
+          const d = Math.hypot(dx, dy);
+          if (d > rMax || d < 1) return false;
+          const ang = Math.atan2(dy, dx);
+          const arm = (d / rMax) * turns * Math.PI * 2;
+          let diff = ((arm - ang) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          if (diff > Math.PI) diff -= Math.PI * 2;
+          return Math.abs(diff) * d / turns < t;
+        };
+      }
+      case 'dots': {
+        const s = Math.max(8, H / (3 + Math.round(rnd() * 5)));
+        const r = s * (0.16 + sev * 0.26);
+        return (x, y) => {
+          const mx = ((x % s) + s) % s - s / 2, my = ((y % s) + s) % s - s / 2;
+          return mx * mx + my * my < r * r;
+        };
+      }
+      case 'bite': {                       // a clean round bite taken out
+        const r = (0.18 + sev * 0.5) * Math.min(W, H);
+        return (x, y) => Math.hypot(x - cx, y - cy) < r;
+      }
+      default: return () => false;
+    }
+    })();
+    return { hit, cx, cy, salt };
+  }
+
+  // ---------- a storm is an EVENT, not an instant wipe ----------
+  // The lichen inside the struck area is scrubbed off over a few seconds by a sweep that
+  // spirals out from the storm's centre, and a sparse remnant always survives. Two reasons
+  // this is not a cosmetic flourish: an instantaneous mask read as lichen teleporting away,
+  // and total clearance made every recolonisation start from nothing, which looks the same
+  // every time. Survivors mean each regrowth starts from a different scatter.
+  const SURVIVE = 0.085;      // fraction of struck lichen left standing
+  const TURNS = 2.6;          // revolutions the sweep makes over the storm's life
+  const COIL = 0.55;          // how much the sweep lags with radius — makes it a spiral
+
+  let storm = null;
+
+  /** Collect the struck cells and give each the progress value at which it is scrubbed. */
+  function beginStorm(kind, sev) {
+    const { hit, cx, cy, salt } = makeMask(kind, sev);
+    const idx = [], key = [];
+    const maxR = Math.hypot(W, H) * 0.5;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!hit(x, y)) continue;
+        const i = y * W + x;
+        const dx = x - cx, dy = y - cy;
+        const th = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5;      // 0..1
+        const r = Math.hypot(dx, dy) / maxR;
+        // spiral phase + a little turbulence so the front is ragged, not a clock hand
+        const turb = (fbm(x / 13, y / 13, salt + 707, 2) - 0.5) * 0.22;
+        let ph = (th * TURNS + r * COIL * TURNS + turb) % 1;
+        if (ph < 0) ph += 1;
+        idx.push(i); key.push(ph);
+      }
+    }
+    const order = idx.map((_, k) => k).sort((a, b) => key[a] - key[b]);
+    storm = {
+      kind, sev, cx, cy,
+      cells: Int32Array.from(order, k => idx[k]),
+      phase: Float32Array.from(order, k => key[k]),
+      ptr: 0, age: 0, salt,
+      dur: 1.4 + sev * 4.2,        // sim years; bigger storms last longer
+      stripped: 0, at: simYears,
+      whimsical: WHIMSY.includes(kind),
+    };
+    return storm;
+  }
+
+  /** Advance the sweep. Returns true while the storm is still running. */
+  function stepStorm(dYears) {
+    if (!storm) return false;
+    storm.age += dYears;
+    const prog = Math.min(1, storm.age / storm.dur);
+    while (storm.ptr < storm.cells.length && storm.phase[storm.ptr] <= prog) {
+      const i = storm.cells[storm.ptr++];
+      scour[i] = 1;
+      // a sparse remnant always rides it out
+      // Survivors must be keyed on the STORM, not on the cell index alone: a constant
+      // seed here makes the remnant the same subset of indices in every storm of every
+      // run, which is the opposite of the "each regrowth starts from a different scatter"
+      // property the survivors exist to provide.
+      if (occ[i] !== -1 && hash2(i, 91, storm.salt) >= SURVIVE) {
+        occ[i] = -1; age[i] = 0; storm.stripped++;
+      }
+    }
+    if (prog >= 1) {
+      lastStorm = { kind: storm.kind, whimsical: storm.whimsical,
+                    pct: storm.stripped / N * 100, at: storm.at };
+      storm = null;
+      return false;
+    }
+    return true;
+  }
+
+  function fireStorm(cfg) {
+    const sev = 0.04 + Math.pow(rnd(), 2.4) * 0.92;
+    const whimsical = rnd() * 100 < cfg.whimsy;
+    const pool = whimsical ? WHIMSY : NATURAL;
+    return beginStorm(pool[(rnd() * pool.length) | 0], sev);
+  }
+
+  function step(cfg, dYears) {
+    updateWet(cfg);
+    const k = Math.min(0.9, dYears * 2.1);
+
+    // --- growth along fronts ---
+    const growTries = Math.floor(N * 0.42);
+    for (let t = 0; t < growTries; t++) {
+      const i = (rnd() * N) | 0;
+      if (occ[i] !== -1 || sterile[i]) continue;
+      const x = i % W, y = (i / W) | 0;
+      // pick a random occupied 4-neighbour as the invader
+      const dir = (rnd() * 4) | 0;
+      const nx = x + (dir === 0 ? 1 : dir === 1 ? -1 : 0);
+      const ny = y + (dir === 2 ? 1 : dir === 3 ? -1 : 0);
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const j = ny * W + nx;
+      const sp = occ[j];
+      if (sp === -1) continue;
+      if (age[j] < 0.12) continue;                    // a fresh cell can't yet spread
+      const h = habitability(sp, wet[i]);
+      if (h <= 0) continue;
+      // lobed margin: a little spatial noise so fronts are not smooth circles
+      const lobe = 0.62 + 0.38 * fbm(x / 7, y / 7, rockSeed + 77, 2);
+      if (rnd() < k * SPECIES[sp].rate * h * lobe * 1.35) { occ[i] = sp; age[i] = 0; }
+    }
+
+    // --- die-back where the rules moved out from under them ---
+    const dieTries = Math.floor(N * 0.30);
+    for (let t = 0; t < dieTries; t++) {
+      const i = (rnd() * N) | 0;
+      const sp = occ[i];
+      if (sp === -1) continue;
+      const h = habitability(sp, wet[i]);
+      const stress = 1 - h;
+      // Slow on purpose: a stranded colony should hollow out over years, not blink off.
+      if (stress > 0.46 && rnd() < k * stress * stress * 0.30) { occ[i] = -1; age[i] = 0; }
+    }
+
+    // --- new colonies land on bare rock ---
+    const lands = cfg.seedRate * dYears * 4;
+    let whole = Math.floor(lands) + (rnd() < (lands % 1) ? 1 : 0);
+    for (let t = 0; t < whole; t++) {
+      const i = (rnd() * N) | 0;
+      if (occ[i] !== -1 || sterile[i]) continue;
+      const w = wet[i];
+      // choose a species that actually wants this height
+      let best = -1, bestScore = 0;
+      for (let s = 0; s < NS; s++) {
+        const sc = habitability(s, w) * (0.45 + rnd());
+        if (sc > bestScore) { bestScore = sc; best = s; }
+      }
+      if (best >= 0 && bestScore > 0.42) { occ[i] = best; age[i] = 0; }
+    }
+
+    // --- age, and the wet sheen on freshly scoured rock drying off ---
+    const dry = Math.max(0, 1 - dYears * 0.5);
+    for (let i = 0; i < N; i++) {
+      if (occ[i] !== -1) age[i] += dYears;
+      if (scour[i] > 0) scour[i] *= dry;
+    }
+    simYears += dYears;
+
+    // --- storms ---
+    // A running storm scrubs; only when it finishes does the clock for the next one start.
+    if (storm) {
+      stepStorm(dYears);
+    } else if (simYears >= nextStorm) {
+      fireStorm(cfg);
+      // irregular spacing so it never reads as a metronome
+      nextStorm = simYears + cfg.stormEvery * (0.45 + rnd() * 1.4);
+    }
+  }
+
+  // ---------- render ----------
+  function render() {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const p = i * 4;
+        const sh = shade[i];
+        let r, g, b;
+        if (occ[i] === -1) {
+          const l = 0.34 + sh * 0.46;
+          if (sterile[i]) {
+            // quartz / unweathered face: paler and slightly warm, so it reads as a
+            // DIFFERENT STONE rather than as rock that merely happens to be empty.
+            // Warm pale quartz. It must not land near Lecanora's #b0b4ac, or the two
+            // read as one grey mass and the sterile ground stops being legible as STONE.
+            r = 150 * l + 104; g = 144 * l + 97; b = 126 * l + 84;
+          } else {
+            // bare rock: cool grey granite, lit by its own relief
+            r = 60 * l + 26; g = 64 * l + 28; b = 70 * l + 32;
+          }
+        } else {
+          const c = SPECIES[occ[i]].col;
+          // young thalli are paler and thinner; mature ones saturate
+          const m = Math.min(1, age[i] / 2.4);
+          const l = (0.60 + sh * 0.36) * (0.55 + 0.45 * m);
+          const rockMix = (1 - m) * 0.34;
+          r = c[0] * l * (1 - rockMix) + (60 * (0.34 + sh * 0.46) + 26) * rockMix;
+          g = c[1] * l * (1 - rockMix) + (64 * (0.34 + sh * 0.46) + 28) * rockMix;
+          b = c[2] * l * (1 - rockMix) + (70 * (0.34 + sh * 0.46) + 32) * rockMix;
+        }
+        // A contact margin: darken where this cell touches a DIFFERENT species. Checking
+        // only right and down would leave the margin on one side of each border; checking
+        // all four keeps it symmetric, which is what reads as a drawn line.
+        if (cfg.margin > 0 && occ[i] !== -1) {
+          const sp = occ[i];
+          const diff =
+            (x > 0     && occ[i - 1] !== -1 && occ[i - 1] !== sp) ||
+            (x < W - 1 && occ[i + 1] !== -1 && occ[i + 1] !== sp) ||
+            (y > 0     && occ[i - W] !== -1 && occ[i - W] !== sp) ||
+            (y < H - 1 && occ[i + W] !== -1 && occ[i + W] !== sp);
+          if (diff) { const k = 1 - cfg.margin / 100 * 0.78; r *= k; g *= k; b *= k; }
+        }
+
+        // freshly scoured rock is wet: darker, cooler, with a slight sheen. Without this
+        // a storm reads as lichen teleporting away rather than as something happening.
+        // Freshly scoured rock is WET ROCK, not water: darken and slightly cool the stone
+        // it already is, rather than tinting toward the sea's blue. Tinting toward blue
+        // made a big low storm indistinguishable from the sea itself — the whole lower
+        // third read as risen water instead of as stripped cliff.
+        const s = scour[i];
+        if (s > 0.01) {
+          const t = s * 0.55;
+          r = r * (1 - t * 0.52); g = g * (1 - t * 0.48); b = b * (1 - t * 0.40);
+        }
+
+        // the sea itself, below the waterline
+        if (y > waterRow) {
+          const d = Math.min(1, (y - waterRow) / 14);
+          r = r * (1 - d) + 14 * d; g = g * (1 - d) + 40 * d; b = b * (1 - d) + 52 * d;
+        }
+        img[p] = r; img[p + 1] = g; img[p + 2] = b; img[p + 3] = 255;
+      }
+    }
+    gctx.putImageData(imgData, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(grid, 0, 0, W, H, 0, 0, cnv.width, cnv.height);
+  }
+
+  // ---------- ui ----------
+  const cfg = { speed:40, stormEvery:18, whimsy:15, exposure:0.55, seedRate:1, relief:0.5, sterile:12, style:35, margin:50 };
+  let paused = false;
+
+  const bind = (id, key, fmt) => {
+    const el = $(id), out = $('v' + id[0].toUpperCase() + id.slice(1));
+    const sync = () => { cfg[key] = +el.value; if (out) out.textContent = fmt(+el.value); };
+    el.addEventListener('input', sync); sync();
+  };
+  // The cadence that matters is WALL CLOCK, and it depends on BOTH knobs. Showing only
+  // "~18 yr" hid the fact that the default is a storm every half minute — the whole
+  // pacing of the piece was reasoned in simulated years and never converted.
+  const secs = n => n < 90 ? Math.round(n) + 's' : (n / 60).toFixed(1).replace(/\.0$/, '') + ' min';
+  function stormLabel() {
+    // mean interval includes the (0.45 + rnd()*1.4) jitter, mean 1.15
+    const yrs = cfg.stormEvery * 1.15;
+    const el = document.getElementById('vStorm');
+    if (el) el.textContent = `~${cfg.stormEvery} yr · ${secs(yrs / cfg.speed * 60)}`;
+  }
+  bind('speed',    'speed',      v => v + ' yr/min');
+  bind('storm',    'stormEvery', v => '~' + v + ' yr');
+  bind('whimsy',   'whimsy',     v => v === 0 ? 'none' : v === 100 ? 'all of it' : v + '%');
+  bind('exposure', 'exposure', v => v < 0.35 ? 'sheltered' : v < 0.7 ? 'moderate' : 'exposed');
+  bind('seed',     'seedRate', v => v === 0 ? 'none' : v.toFixed(2));
+  bind('relief',   'relief',   v => Math.round(v * 100) + '%');
+  bind('margin',   'margin',   v => v === 0 ? 'off' : v + '%');
+  bind('sterile',  'sterile',  v => v === 0 ? 'none' : v + '%');
+  bind('style',    'style',    v => v <= 5 ? 'all veins' : v >= 95 ? 'all speckle' : v + '% speckle');
+  // Sterile ground is a derived field, so these two must recompute it. Cells that were
+  // already colonised are left alone — newly sterile ground only stops FUTURE growth,
+  // which avoids a slider wiping out living lichen under the cursor.
+  for (const id of ['speed', 'storm']) $(id).addEventListener('input', stormLabel);
+  stormLabel();
+  for (const id of ['sterile', 'style']) {
+    $(id).addEventListener('input', () => computeSterile(cfg.sterile, cfg.style));
+  }
+
+  $('stormNow').addEventListener('click', () => fireStorm(cfg));
+  $('pause').addEventListener('click', e => { paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; });
+  $('reseed').addEventListener('click', () => {
+    rockSeed = (Math.random() * 1e9) | 0; srand(rockSeed);
+    buildRock(); occ.fill(-1); age.fill(0); scour.fill(0);
+    simYears = 0; lastStorm = null; nextStorm = 6; storm = null; prime();
+  });
+  $('bare').addEventListener('click', () => { occ.fill(-1); age.fill(0); });
+
+  $('key').innerHTML = SPECIES.map(s =>
+    `<div><span class="sw" style="background:rgb(${s.col.join(',')})"></span>
+     <span><b>${s.short}</b> — ${s.band[1] > 0.9 ? 'fringe' : s.band[0] > 0.4 ? 'splash' : s.band[0] > 0.14 ? 'upper splash' : 'dry zone'}</span></div>`
+  ).join('') + '<div><span class="sw" style="background:#464b52"></span><span>bare rock</span></div>';
+
+  window.addEventListener('resize', () => { resize(); });
+  resize();
+
+  // Verification hook: fire a named shape at a chosen severity, or fast-forward the sim
+  // without waiting on real frames. Probe-only; none of this travels to the diversion.
+  window.__probe = {
+    kinds: { natural: NATURAL, whimsy: WHIMSY },
+    storm: (kind, sev = 0.5) => { beginStorm(kind, sev); while (stepStorm(1 / 30)); return lastStorm; },
+    beginStorm: (kind, sev = 0.5) => beginStorm(kind, sev),
+    stormProgress: () => storm ? +(storm.age / storm.dur).toFixed(2) : null,
+    advance: years => { const dY = 1 / 30; for (let k = 0; k < years * 30; k++) step(cfg, dY); return simYears; },
+    stats: () => {
+      let cov = 0, ster = 0;
+      const per = new Array(NS).fill(0);
+      for (let i = 0; i < N; i++) {
+        if (sterile[i]) ster++;
+        if (occ[i] !== -1) { cov++; per[occ[i]]++; }
+      }
+      const colonisable = N - ster;
+      return {
+        years: +simYears.toFixed(1),
+        coverPct: +(cov / N * 100).toFixed(1),
+        coverOfColonisable: +(cov / Math.max(1, colonisable) * 100).toFixed(1),
+        sterilePct: +(ster / N * 100).toFixed(1),
+        species: per.map((v, k) => SPECIES[k].short + ':' + (v / N * 100).toFixed(1)),
+        lastStorm,
+      };
+    },
+  };
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(50, now - last); last = now;
+    if (!paused) {
+      const dYears = (dt / 60000) * cfg.speed;
+      step(cfg, dYears);
+    }
+    render();
+    let covered = 0;
+    for (let i = 0; i < N; i++) if (occ[i] !== -1) covered++;
+    const counts = new Array(NS).fill(0);
+    for (let i = 0; i < N; i++) if (occ[i] !== -1) counts[occ[i]]++;
+    const lead = counts.indexOf(Math.max(...counts));
+    const st = lastStorm
+      ? `<br>last storm: <b>${lastStorm.kind}</b>${lastStorm.whimsical ? ' ✨' : ''} ` +
+        `took <b>${lastStorm.pct.toFixed(1)}%</b>, ${(simYears - lastStorm.at).toFixed(0)} yr ago`
+      : '<br>no storms yet';
+    $('hud').innerHTML =
+      `<b>${simYears.toFixed(1)}</b> years &nbsp;·&nbsp; rock covered <b>${(covered / N * 100).toFixed(0)}%</b>` +
+      `<br>holding most ground: <b>${covered ? SPECIES[lead].short : '—'}</b>` + st;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
