@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { make2DContext } from '../../test-setup'
-import kolam from './index'
+import kolam, { strokeWidthFor } from './index'
 import { DEFAULTS } from './config'
 
 const size = { width: 800, height: 600 }
@@ -61,6 +61,24 @@ describe('kolam diversion', () => {
     calls.length = 0
     kolam.frame(st, rec, 16, 16)
     expect(calls[0]).toEqual([0, 0, 1200, 900])
+  })
+
+  // ⚠️ The gallery tile is the smallest surface this piece appears on, and it is
+  // where a size-proportional stroke width fails: at 337 px the raw width is
+  // 0.40 px at 0.46 alpha and the card reads as a grey rectangle. Nothing caught
+  // that — every test ran at 800x600 or larger.
+  it('keeps the stroke visible at gallery-tile scale', () => {
+    const c = ctx()
+    // Rmax = min(w,h) * 0.42 — a 337px tile gives 92, and the raw width there is
+    // 0.44px at 0.46 alpha: the card read as a grey rectangle with a ghost of an
+    // outline. Every other test ran at 800x600 or larger, so nothing saw it.
+    const st = kolam.setup(c, cfg(), { width: 337, height: 220 }) as
+      { comp: { Rmax: number } }
+    expect(st.comp.Rmax).toBeLessThan(120)
+    expect(strokeWidthFor(DEFAULTS.lineWidth, st.comp.Rmax)).toBeGreaterThanOrEqual(0.9)
+    // …and the floor must NOT bind on a desktop canvas, or it would flatten the
+    // Line width control everywhere.
+    expect(strokeWidthFor(DEFAULTS.lineWidth, 378)).toBeCloseTo(1.8, 2)
   })
 
   it('treats dt as MILLISECONDS', () => {

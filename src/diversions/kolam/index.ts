@@ -34,6 +34,18 @@ interface State {
  *  frame where the correct value is 6. */
 const PEN_RATE = 1.5
 
+/** Below this a stroke stops reading as a line. Measured against the gallery
+ *  tile, which is the smallest surface the piece appears on. */
+const MIN_STROKE_PX = 0.9
+
+/** The stroke width actually used, floored. Exported so the floor is testable
+ *  without intercepting canvas calls — the stamps are drawn on the INK layer's
+ *  own context, not the one handed to `frame`, so a proxy on the latter sees
+ *  nothing. (It saw nothing, and the first version of the guard asserted on it.) */
+export function strokeWidthFor(lineWidth: number, rmax: number): number {
+  return Math.max(MIN_STROKE_PX, lineWidth * (rmax / 400))
+}
+
 /** Stamps per frame are hard-capped so a fast pen cannot make one frame
  *  unbounded work. */
 const MAX_STAMPS = 1100
@@ -64,7 +76,14 @@ export default defineDiversion({
     if (!state.done) {
       const dist = comp.Rmax * PEN_RATE * state.cfg.penSpeed * (dt / 1000)
       const stamps = advance(pen, comp, dist, stepFor(comp), MAX_STAMPS, state.cfg.seed)
-      const w = state.cfg.lineWidth * (comp.Rmax / 400)
+      // ⚠️ FLOOR THE STROKE. Width scales with Rmax so the piece looks the same
+      // at every size — but a 337 px gallery tile has Rmax 142, which put the
+      // line at 0.67 px at 0.46 alpha: the card read as a grey rectangle with a
+      // ghost of an outline, the worst on the page, against UX invariant 1.
+      // At tile scale a 6-stroke bundle spans 12 px, so the strokes SHOULD fuse
+      // into one confident line — nothing can resolve six of them there. The
+      // floor is what makes that line visible rather than a smudge.
+      const w = strokeWidthFor(state.cfg.lineWidth, comp.Rmax)
       for (const s of stamps) drawStamp(state.layers.inkCtx, s, w, state.cfg.grain)
       if (pen.si >= comp.strokes.length) state.done = true
     } else {
