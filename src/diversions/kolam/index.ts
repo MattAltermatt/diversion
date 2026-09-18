@@ -13,6 +13,14 @@ interface State {
   comp: Composition
   pen: PenState
   layers: Layers
+  /** ⚠️ The LIVE canvas size, which is not the layer size after a resize.
+   *  `frame()` once composited into `layers.width/height`, so `resize()`'s
+   *  centred composite was overwritten on the very next frame (~8 ms) — the
+   *  drawing snapped back to the top-left and the strip outside the old box kept
+   *  a stale stretched ground that was never cleared again. `resize()` was
+   *  effectively dead code, and nothing tested it. */
+  viewW: number
+  viewH: number
   /** Accumulated ms since the drawing finished; the hold before a reseed. */
   heldMs: number
   done: boolean
@@ -32,11 +40,14 @@ const MAX_STAMPS = 1100
 
 const stepFor = (comp: Composition) => Math.max(0.7, comp.Rmax * 0.004)
 
-function build(cfg: Config, size: Size): State {
+function build(ctx: CanvasRenderingContext2D, cfg: Config, size: Size): State {
   const { width, height } = size
   const comp = buildComposition(cfg, width, height, cfg.seed)
-  const layers = makeLayers(width, height, cfg.background, cfg.groundGrain, cfg.seed)
-  return { cfg, comp, pen: newPen(), layers, heldMs: 0, done: false }
+  // Recover dpr the shipped way (ablation/render.ts:149): the host sizes the
+  // backing store and hands us CSS px, so this is the only way to see it.
+  const dpr = Math.max(1, Math.min(4, ctx.canvas.width / size.width || 1))
+  const layers = makeLayers(width, height, cfg.background, cfg.groundGrain, cfg.seed, dpr)
+  return { cfg, comp, pen: newPen(), layers, heldMs: 0, done: false, viewW: width, viewH: height }
 }
 
 export default defineDiversion({
@@ -44,8 +55,8 @@ export default defineDiversion({
   schema: kolamSchema,
   presets: kolamPresets,
 
-  setup(_ctx: CanvasRenderingContext2D, cfg: Config, size: Size): State {
-    return build(cfg, size)
+  setup(ctx: CanvasRenderingContext2D, cfg: Config, size: Size): State {
+    return build(ctx, cfg, size)
   },
 
   frame(state: State, ctx: CanvasRenderingContext2D, _t: number, dt: number) {
@@ -59,7 +70,7 @@ export default defineDiversion({
     } else {
       state.heldMs += dt
     }
-    composite(ctx, state.layers, state.layers.width, state.layers.height)
+    composite(ctx, state.layers, state.viewW, state.viewH)
   },
 
   /** ⚠️ Without this the piece redraws the IDENTICAL picture forever. The
@@ -88,10 +99,16 @@ export default defineDiversion({
       || a.kaavi !== b.kaavi || a.kaaviColor !== b.kaaviColor
       || a.colouredChalk !== b.colouredChalk
       || a.palette.join() !== b.palette.join()
+      // ⚠️ `groundGrain` is STRUCTURAL despite costing nothing to re-derive.
+      // It is a 0-60 slider and the ground rebuild measures ~225 ms, so a single
+      // drag fired dozens of quarter-second synchronous stalls — the Salvage #319
+      // shape, in the one place the plan flagged and did not measure.
+      || a.groundGrain !== b.groundGrain
     if (structural) return false
 
-    if (a.background !== b.background || a.groundGrain !== b.groundGrain) {
-      refreshGround(state.layers, b.background, b.groundGrain, b.seed)
+    if (a.background !== b.background) {
+      refreshGround(state.layers, b.background, b.groundGrain, b.seed,
+                    state.viewW, state.viewH)
     }
     state.cfg = cfg
     return true
@@ -105,6 +122,12 @@ export default defineDiversion({
    *  built with and is composited centred; a reseed re-derives it at the current
    *  size, so it self-heals within one cycle. */
   resize(state: State, size: Size, ctx: CanvasRenderingContext2D) {
+    state.viewW = size.width
+    state.viewH = size.height
+    // Repaint the ground to the NEW box so there is no stale strip outside the
+    // old one; the ink keeps its own size and is composited centred.
+    refreshGround(state.layers, state.cfg.background, state.cfg.groundGrain,
+                  state.cfg.seed, size.width, size.height)
     composite(ctx, state.layers, size.width, size.height)
   },
 })

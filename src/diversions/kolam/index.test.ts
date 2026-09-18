@@ -24,10 +24,43 @@ describe('kolam diversion', () => {
     const c = ctx()
     const st = kolam.setup(c, cfg(), size)
     expect(kolam.update!(st, { ...cfg(), penSpeed: 2 }, size)).toBeTruthy()
+    // ⚠️ Truthy is not enough — it only means "I handled it, do not restart". An
+    // earlier version asserted only that, so deleting the refreshGround() call
+    // entirely left the suite green: the piece would swallow every background
+    // change while telling the framework it applied them. Assert the ground
+    // actually repainted.
+    const keyBefore = (st as { layers: { groundKey: string } }).layers.groundKey
     expect(kolam.update!(st, { ...cfg(), background: '#3a2c22' }, size)).toBeTruthy()
+    expect((st as { layers: { groundKey: string } }).layers.groundKey).not.toBe(keyBefore)
+    // groundGrain is a 0-60 slider and the rebuild is ~225 ms, so it is
+    // structural despite being cheap to describe.
+    expect(kolam.update!(st, { ...cfg(), groundGrain: 40 }, size)).toBeFalsy()
     expect(kolam.update!(st, { ...cfg(), colouredChalk: 0.9 }, size)).toBeFalsy()
     expect(kolam.update!(st, { ...cfg(), symmetry: 12 }, size)).toBeFalsy()
     expect(kolam.update!(st, { ...cfg(), lineWidth: 3 }, size)).toBeFalsy()
+  })
+
+  // ⚠️ Nothing tested resize at all, which is how a one-argument mismatch shipped:
+  // frame() composited into the SETUP box, so resize()'s centred composite was
+  // overwritten on the very next frame and the drawing snapped to the top-left
+  // behind a stale ground strip.
+  it('keeps compositing at the LIVE size after a resize, not the setup size', () => {
+    // ⚠️ Observe what composite RECEIVED, not a state field. Asserting `viewW`
+    // is a proxy: the mutant changes what frame() PASSES, not what it stores, so
+    // a state-only assertion stays green against it.
+    const c = ctx()
+    const calls: number[][] = []
+    const rec = new Proxy(c, {
+      get(t, k) {
+        if (k === 'clearRect') return (...a: number[]) => { calls.push(a) }
+        return Reflect.get(t, k)
+      },
+    }) as CanvasRenderingContext2D
+    const st = kolam.setup(rec, cfg(), { width: 800, height: 600 })
+    kolam.resize!(st, { width: 1200, height: 900 }, rec)
+    calls.length = 0
+    kolam.frame(st, rec, 16, 16)
+    expect(calls[0]).toEqual([0, 0, 1200, 900])
   })
 
   it('treats dt as MILLISECONDS', () => {

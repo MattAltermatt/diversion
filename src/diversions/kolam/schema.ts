@@ -15,13 +15,15 @@ export const kolamSchema = z.object({
   // ── Composition ──
   symmetry: z.number().int().min(4).max(16).default(DEFAULTS.symmetry)
     .meta({ section: 'Composition', ui: 'slider', min: 4, max: 16, step: 2, label: 'Symmetry',
-            help: 'How many identical wedges the kolam repeats around its centre. A kolam is '
-                + 'always drawn with this many-fold rotational symmetry — never randomised, '
-                + 'or the piece stops reading as a kolam.' }),
+            help: 'How many identical wedges the kolam repeats around its centre. The drawing '
+                + 'is guaranteed AT LEAST this many halved — so 8 gives at least 4-fold — and is '
+                + 'often the full count: a band drawn with half the lobes is a real symmetry and '
+                + 'a deliberate hierarchy device, not a defect.' }),
   registers: z.number().int().min(3).max(6).default(DEFAULTS.registers)
     .meta({ section: 'Composition', ui: 'slider', min: 3, max: 6, step: 1, label: 'Registers',
             help: 'The maximum number of concentric rings of motifs. Each drawing picks '
-                + 'somewhere between 3 and this many — raising it only raises the ceiling.' }),
+                + 'somewhere between 3 and this many — raising it raises the ceiling — though a drawing that would come out too '
+                + 'sparse quietly borrows one or two more registers than this.' }),
   density: z.number().min(0).max(1).default(DEFAULTS.density)
     .meta({ section: 'Composition', ui: 'slider', min: 0, max: 1, step: 0.01, label: 'Density',
             help: 'Overall fullness of the composition — how much of each register’s '
@@ -60,7 +62,7 @@ export const kolamSchema = z.object({
                 + 'higher wanders like an unpractised hand.' }),
   holdSeconds: z.number().min(2).max(30).default(DEFAULTS.holdSeconds)
     .meta({ section: 'The hand', ui: 'slider', min: 2, max: 30, step: 1, label: 'Hold',
-            help: 'Seconds the finished kolam rests fully drawn before it is erased and a '
+            help: 'Seconds the finished kolam rests fully drawn before it is replaced and a '
                 + 'fresh one begins. Applies live.' }),
 
   // ── Color ──

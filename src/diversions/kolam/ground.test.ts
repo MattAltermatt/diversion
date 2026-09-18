@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { derivedGround, paintGround } from './ground'
+import { derivedGround, lastGroundSample, paintGround } from './ground'
 import { parseHex6, srgbToOklab } from '../../framework/color'
 
 // ⚠️ parseHex6 (0-255), NOT hexToRgb (0-1 floats). Pairing hexToRgb with
@@ -31,10 +31,42 @@ describe('derivedGround', () => {
 })
 
 describe('paintGround', () => {
-  it('returns a different cache key for two different seeds at the same size/colour', () => {
-    const target = { drawImage: () => {} } as unknown as CanvasRenderingContext2D
+  // ⚠️ Assert the BITMAP changed, not the key string. An earlier version of this
+  // test compared `paintGround(..., seed 1)` against `paintGround(..., seed 2)`
+  // and asserted the returned keys differ — i.e. it tested string interpolation.
+  // Both of the mutants it named survived it: hardcoding the fbm seeds so every
+  // drawing sits on an identical floor, and collapsing the cache to `if (!cache)`
+  // so the ground is never repainted at all. Recording the source canvas kills
+  // both, and also pins the cache itself.
+  const recorder = () => {
+    const seen: unknown[] = []
+    const target = { drawImage: (src: unknown) => seen.push(src) } as unknown as
+      CanvasRenderingContext2D
+    return { target, seen }
+  }
+
+  it('paints a DIFFERENT ground for two seeds at the same size and colour', () => {
+    const { target, seen } = recorder()
     const keyA = paintGround(target, 64, 48, '#8e8b84', 26, 1)
     const keyB = paintGround(target, 64, 48, '#8e8b84', 26, 2)
     expect(keyA).not.toBe(keyB)
+    expect(seen).toHaveLength(2)
+    expect(seen[0]).not.toBe(seen[1])
+    // ⚠️ Two different canvas OBJECTS is still not evidence — hardcoding the fbm
+    // seeds produces two distinct canvases holding identical pixels, and that
+    // mutant survived a version of this test that stopped here.
+    const { target: t2 } = recorder()
+    paintGround(t2, 64, 48, '#8e8b84', 26, 11)
+    const s11 = lastGroundSample()
+    paintGround(t2, 64, 48, '#8e8b84', 26, 12)
+    expect(lastGroundSample()).not.toBeCloseTo(s11, 3)
+  })
+
+  it('reuses the cached ground when nothing changed', () => {
+    const { target, seen } = recorder()
+    paintGround(target, 64, 48, '#8e8b84', 26, 7)
+    paintGround(target, 64, 48, '#8e8b84', 26, 7)
+    expect(seen).toHaveLength(2)
+    expect(seen[0]).toBe(seen[1])
   })
 })

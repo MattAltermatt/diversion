@@ -102,6 +102,7 @@ function buildGround(width: number, height: number, bg: string, grain: number, s
   // own SY) and it elongates x on its own. `tooth` is a second, unrelated
   // high-frequency field for grain so the wash doesn't read glassy.
   const bands = warpedBands(seed)
+  lastSample = bands(0.31, 0.57) * 1e6
   const tooth = makeFbm(seed ^ 0x85ebca6b)
   const SPAN = 15
 
@@ -148,4 +149,22 @@ export function paintGround(
   }
   target.drawImage(cache.canvas as CanvasImageSource, 0, 0)
   return key
+}
+
+
+let lastSample = 0
+
+/** A sample of the band field the last `paintGround` call ACTUALLY used.
+ *
+ *  ⚠️ Three things had to be true before this assertion bit, and the first two
+ *  looked fine. The cache KEY is not evidence — comparing two returned keys
+ *  tests string interpolation, and hardcoding the fbm seed leaves the keys
+ *  different and the test green. Two distinct canvas OBJECTS are not evidence
+ *  either — the mutant produces two canvases holding identical pixels. And a
+ *  probe that recomputes `warpedBands(seed)` itself is not evidence, because it
+ *  tests `noise.ts`'s determinism rather than what the paint path did. This
+ *  value is written BY the paint loop, which is the only thing the mutant
+ *  changes. jsdom returns zero pixels, so nothing else here can see it. */
+export function lastGroundSample(): number {
+  return lastSample
 }

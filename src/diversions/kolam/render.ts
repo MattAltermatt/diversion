@@ -17,6 +17,8 @@ export interface Layers {
   groundKey: string
   width: number
   height: number
+  /** Device-pixel ratio the INK layer is drawn at. */
+  dpr: number
 }
 
 /** jsdom has no OffscreenCanvas, and `diversionSmoke` runs `setup()` for real —
@@ -35,12 +37,24 @@ const ctx2d = (c: HTMLCanvasElement | OffscreenCanvas): CanvasRenderingContext2D
 
 export function makeLayers(
   width: number, height: number, background: string, groundGrain: number, seed: number,
+  dpr = 1,
 ): Layers {
   const ground = offscreen(width, height)
   const groundCtx = ctx2d(ground)
-  const ink = offscreen(width, height)
+  // ⚠️ The INK layer is DEVICE px. `setup` receives CSS px and the host has
+  // already applied setTransform(dpr), so a CSS-px ink layer renders every
+  // stroke at 1x and lets the host smooth it up — which softens exactly the
+  // 1.8 px lines at 6.6 px spacing the whole piece is built on. It costs
+  // nothing extra: the same stamps on a larger canvas.
+  //
+  // The GROUND deliberately stays CSS px. It is a smooth wash, and its build is
+  // ~225 ms at this size — quadrupling that to sharpen a gradient is not a
+  // trade worth making.
+  const ink = offscreen(Math.round(width * dpr), Math.round(height * dpr))
+  const inkCtx = ctx2d(ink)
+  inkCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
   const groundKey = paintGround(groundCtx, width, height, background, groundGrain, seed)
-  return { ground, groundCtx, ink, inkCtx: ctx2d(ink), groundKey, width, height }
+  return { ground, groundCtx, ink, inkCtx, groundKey, width, height, dpr }
 }
 
 /** Repaint the ground only if its key changed. The key includes the SEED, so a
@@ -48,10 +62,15 @@ export function makeLayers(
  *  on the identical one. */
 export function refreshGround(
   layers: Layers, background: string, groundGrain: number, seed: number,
+  width = layers.width, height = layers.height,
 ): void {
-  const key = paintGround(layers.groundCtx, layers.width, layers.height,
-                          background, groundGrain, seed)
-  layers.groundKey = key
+  // Resize the ground canvas to the live box before repainting — otherwise the
+  // strip outside the old size keeps a stale stretched bitmap forever.
+  if (width !== layers.ground.width || height !== layers.ground.height) {
+    layers.ground.width = width
+    layers.ground.height = height
+  }
+  layers.groundKey = paintGround(layers.groundCtx, width, height, background, groundGrain, seed)
 }
 
 /** Composite ground then ink, centred. The drawing is anchored at a fixed
@@ -65,5 +84,6 @@ export function composite(
   ctx.drawImage(layers.ground as CanvasImageSource, 0, 0, width, height)
   const ox = Math.round((width - layers.width) / 2)
   const oy = Math.round((height - layers.height) / 2)
-  ctx.drawImage(layers.ink as CanvasImageSource, ox, oy)
+  // The ink layer is device px; draw it back at its CSS size.
+  ctx.drawImage(layers.ink as CanvasImageSource, ox, oy, layers.width, layers.height)
 }
