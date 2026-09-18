@@ -1,12 +1,12 @@
 # Diversion — project conventions
 
-A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 143 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code. Ideas for pieces not yet built live in GitHub Issues under the **`future-diversion`** label (50 filed 2026-09-12, #338–#387, each with a look / mechanism / distinct-from section; 47 still open — #363 shipped as `soap-film` and #361 was closed wontfix, both 2026-09-15; #358 shipped as `lichen` 2026-09-17) — pick from there rather than scouting again; a pick still gets a real brainstorm and a committed mockup before code.
+A gallery of independent screensaver-like generative-art "diversions" sharing one framework + one design ethos. Read `README.md` for orientation, `docs/gallery.md` for what all 143 pieces actually are (the per-piece prose moved there 2026-08-17 — a `.claude/hooks/diversion-count-guard.sh` keeps its entry count equal to the folder count), and `docs/superpowers/` for the dated plans and specs, which are snapshots and not maintained against the code. Ideas for pieces not yet built live in GitHub Issues under the **`future-diversion`** label (50 filed 2026-09-12, #338–#387, each with a look / mechanism / distinct-from section; 45 still open — #363 shipped as `soap-film` and #361 was closed wontfix, both 2026-09-15; #358 shipped as `lichen` and #349 as `kolam`, both 2026-09-17) — pick from there rather than scouting again; a pick still gets a real brainstorm and a committed mockup before code.
 
 ## Commands
 
 ```bash
 npm run dev      # Vite dev server, pinned to port 5180
-npm test         # vitest run (full suite; ~27s, 7957 tests in 370 files)
+npm test         # vitest run (full suite; ~34s, 8028 tests in 378 files)
 npx vitest run src/diversions/<slug>   # one diversion's co-located tests
 npm run lint     # oxlint --deny-warnings (a new warning fails CI; #308)
 npm run build    # tsc -b && vite build
