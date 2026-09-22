@@ -237,5 +237,26 @@ export default defineConfig(({ command, isPreview }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    /**
+     * ⚠️ 30 s, because vitest's 5 s default is wrong for THIS repo and the
+     * deploy is where that gets discovered.
+     *
+     * The suite is simulation-heavy: several tests legitimately drive hundreds
+     * of real frames, and locally `soap-film/rupture`, `soap-film/film` and
+     * `lichen/longrun` each already sit at 5.1-5.4 s. CI is slower still — the
+     * same run takes 241 s there against ~30 s here — so a test comfortable on
+     * a laptop times out on a runner, and the failure lands on `main` AFTER
+     * the merge rather than in the branch's own green suite.
+     *
+     * That is exactly what happened when the 144th diversion was added: it
+     * broke `soap-film/index.test.ts`, a file it does not touch, purely by
+     * adding parallel load. Per-test timeouts were the previous answer and
+     * they do not scale — 7 of 23 in one file, 0 of 9 in another, and the
+     * next marginal test is found by a red deploy.
+     *
+     * A hang now costs 30 s instead of 5 s, once, which is the right trade for
+     * a suite where "slow" is normal and hangs are not.
+     */
+    testTimeout: 30_000,
   },
 }))
