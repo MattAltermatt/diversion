@@ -9,7 +9,7 @@ A personal web gallery of small, screensaver-like generative-art pieces — **di
   - **Animation screen** — a full-viewport canvas (fullscreen-able) whose entire configuration lives in the URL, so any look is a shareable link.
 - **Usable on a phone, and installable** — the gallery, config and animation screens all reflow for a small touch screen, a **Keep the screen awake** toggle stops a propped-up phone going dark mid-piece, and a web app manifest means "Add to Home Screen" runs a diversion chromeless, with no browser bar. (On iPhone that is the *only* chromeless route, since Safari implements fullscreen on iPad only.)
 - **Works without a network, for what you've watched — or for everything, if you ask** — a service worker keeps the app shell offline, so the gallery and all 140 cards load with no connection, and any piece you've opened keeps running. Pieces you've never opened aren't downloaded ahead of time: the whole gallery is ~1.6 MB to download, and spending that on 136 pieces you may never look at isn't a fair trade for a first visit. When it *is* the trade you want — a flight, a shelf device, a bad connection — **⤓ Keep the gallery offline** in the gallery header downloads the lot, with live progress and a cancel, and every piece then runs with the network off.
-- **143 diversions**, from cellular automata and reaction-diffusion to
+- **144 diversions**, from cellular automata and reaction-diffusion to
   strange attractors, flocking, fractal tilings and GPU particle life — each with its own
   controls, presets and shareable link. **[Browse the live gallery →](https://mattaltermatt.github.io/diversion/)**,
   or read what every piece does in **[`docs/gallery.md`](docs/gallery.md)**.
